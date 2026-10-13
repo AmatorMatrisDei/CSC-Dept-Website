@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { formatDate, getArticle, getArticles } from "@/lib/drupal";
 
+// Re-render hourly so pages pick up Drupal changes even without a webhook.
+export const revalidate = 3600;
+
 export async function generateStaticParams() {
+  // Prerender recent articles; older ones render on first request.
   const articles = await getArticles(50);
-  // Cache Components requires at least one param; unknown ids 404 below.
-  if (articles.length === 0) return [{ id: "__placeholder__" }];
   return articles.map((article) => ({ id: article.id }));
 }
 

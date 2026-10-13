@@ -1,6 +1,7 @@
-import { cacheLife, cacheTag } from "next/cache";
-
 export const DRUPAL_CACHE_TAG = "drupal";
+
+// Drupal content is cached for an hour, or until /api/revalidate is called.
+const REVALIDATE_SECONDS = 3600;
 
 export type Article = {
   id: string;
@@ -53,6 +54,7 @@ async function drupalFetch<T>(path: string): Promise<T | null> {
 
   const res = await fetch(new URL(path, baseUrl), {
     headers: { Accept: "application/vnd.api+json" },
+    next: { revalidate: REVALIDATE_SECONDS, tags: [DRUPAL_CACHE_TAG] },
   });
   if (res.status === 404) return null;
   if (!res.ok) {
@@ -62,10 +64,6 @@ async function drupalFetch<T>(path: string): Promise<T | null> {
 }
 
 export async function getArticles(limit = 10): Promise<Article[]> {
-  "use cache";
-  cacheLife("hours");
-  cacheTag(DRUPAL_CACHE_TAG);
-
   const data = await drupalFetch<{ data: JsonApiArticle[] }>(
     `/jsonapi/node/article?filter[status]=1&sort=-created&page[limit]=${limit}`,
   );
@@ -74,10 +72,6 @@ export async function getArticles(limit = 10): Promise<Article[]> {
 }
 
 export async function getArticle(id: string): Promise<Article | null> {
-  "use cache";
-  cacheLife("hours");
-  cacheTag(DRUPAL_CACHE_TAG);
-
   if (!process.env.DRUPAL_BASE_URL) {
     return SAMPLE_ARTICLES.find((a) => a.id === id) ?? null;
   }

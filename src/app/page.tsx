@@ -2,6 +2,9 @@ import Link from "next/link";
 import ArticleList from "@/components/ArticleList";
 import { getArticles } from "@/lib/drupal";
 
+// Re-render hourly so pages pick up Drupal changes even without a webhook.
+export const revalidate = 3600;
+
 export default async function Home() {
   const articles = await getArticles(3);
 

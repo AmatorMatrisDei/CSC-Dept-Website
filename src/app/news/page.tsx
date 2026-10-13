@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import ArticleList from "@/components/ArticleList";
 import { getArticles } from "@/lib/drupal";
 
+// Re-render hourly so pages pick up Drupal changes even without a webhook.
+export const revalidate = 3600;
+
 export const metadata: Metadata = { title: "News" };
 
 export default async function NewsPage() {
