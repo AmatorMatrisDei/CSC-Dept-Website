@@ -1,9 +1,29 @@
 # CSC-BUS-Dept-Website
-A landing page for the Department of Engineering and Computing.
+The website for Franciscan University's Department of Computing and Engineering: a place to
+showcase student, capstone and class projects, and for students and faculty to keep profiles.
 
-Built with [Next.js](https://nextjs.org) (React) as the frontend for a headless [Drupal](https://www.drupal.org) CMS,
-hosted on [Cloudflare Workers](https://developers.cloudflare.com/workers/) via [OpenNext](https://opennext.js.org/cloudflare),
-with PostgreSQL on [Supabase](https://supabase.com) (planned move to Azure).
+Built with [Next.js](https://nextjs.org) (React), hosted on [Cloudflare Workers](https://developers.cloudflare.com/workers/)
+via [OpenNext](https://opennext.js.org/cloudflare), with [Supabase](https://supabase.com) as the backend
+(Postgres database, logins, and photo storage).
+
+## Status
+
+As of October 14, 2026.
+
+| Area | Status |
+| --- | --- |
+| Backend schema and access rules | **Done.** Tables for profiles, projects, project roles, project photos and news. Visitors see only published projects and public profiles; students draft projects, faculty publish them. Sign-up is limited to `franciscan.edu` addresses. See [Backend](#backend-supabase) |
+| Backend tests and CI | **Done.** 57 database tests and 5 end-to-end tests, run on every pull request |
+| Hosted database (Supabase project "Franciscan Site") | **Not deployed yet.** The migrations are merged and still need to be applied, followed by the dashboard steps in [docs/backend-setup.md](docs/backend-setup.md#33-after-the-first-deploy) |
+| Automatic database deploys | **Not working yet.** Supabase's GitHub integration points at a fork and needs to point at this repository. Until then, deploy by hand ([docs/backend-setup.md](docs/backend-setup.md#32-deploying-by-hand)) |
+| Frontend | **Scaffold.** Home and news pages showing sample content. Not yet reading from Supabase |
+| Hosting | **Not live.** The Cloudflare Pages project returns 404, because the app is built to run as a Worker. It needs a Workers project, plus `open-next.config.ts` and `wrangler.jsonc`, which aren't in the repository yet |
+
+Next for the backend: extend projects to match the requirements (departments, priority, pinned
+projects, faculty advisors, collaborating organizations), the daily project carousel, and search.
+
+The team moved from Drupal to Supabase. The Drupal sections below and `src/lib/drupal.ts` predate
+that change and will be replaced as the frontend moves to Supabase.
 
 ## Getting started
 

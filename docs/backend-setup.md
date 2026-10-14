@@ -173,26 +173,33 @@ Supabase dashboard > Project Settings > Integrations > GitHub:
 | Production branch name | `main` |
 
 Connecting the shared repository requires its owner to approve the Supabase GitHub app, so the
-owner may need to do this step. While a fork is connected, production changes whenever that fork's
-`main` changes, including when someone syncs or pushes to it directly.
+owner may need to do this step. Connecting a fork does not work: the integration deploys when a
+pull request is merged in the connected repository, and syncing a fork does not count.
 
 On merge to `main`, the integration applies new migrations. It does not apply `seed.sql` or the
 Auth settings in `config.toml`, so the local test accounts and localhost URLs never reach
-production.
+production. After a merge, check that the change arrived (Database > Migrations lists the applied
+versions). If it didn't, deploy by hand as in 3.2.
 
-### 3.2 Before the first deploy
+### 3.2 Deploying by hand
 
-The first merge of `supabase/migrations/` creates every table. Check that the hosted database
-has no tables of its own first: Table Editor should show nothing in the `public` schema. If
-someone created tables by hand, delete them, or the migrations will fail.
+Needed for the first deploy if the integration isn't connected yet, or whenever it fails.
 
-To preview what a deploy will do:
+Check that the hosted database has no tables of its own first: Table Editor should show nothing
+in the `public` schema. If someone created tables by hand, delete them, or the migrations will
+fail.
 
 ```bash
-npx supabase login
+npx supabase login                              # opens a browser; run it in your own terminal
 npx supabase link --project-ref <project ref>   # from the dashboard URL or Settings > General
-npx supabase db push --dry-run
+npx supabase db push --dry-run                  # lists the migrations it would apply
+npx supabase db push
 ```
+
+`link` and `push` connect to the database on port 5432 with encryption. Some campus and public
+networks block that, and the commands then fail with `ECONNRESET` or `SSL SYSCALL error`. Use
+another network, such as a phone hotspot. The dashboard, GitHub and the local stack are not
+affected.
 
 ### 3.3 After the first deploy
 
