@@ -36,7 +36,7 @@ select throws_ok(
 
 select throws_ok(
   $$ update public.pending_changes set status = 'approved' where submitter_id = 'a0000000-0000-4000-8000-000000000003' $$,
-  '42501', 'Submissions can only be resubmitted or withdrawn',
+  '42501', 'A submission waiting for review can only be withdrawn',
   'students cannot mark their own submission approved'
 );
 
