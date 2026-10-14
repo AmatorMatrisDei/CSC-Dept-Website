@@ -4,24 +4,31 @@
 --
 -- Test users (all @franciscan.edu):
 --   a0000000-0000-4000-8000-000000000001  test.admin     admin
---   a0000000-0000-4000-8000-000000000002  test.faculty   faculty
---   a0000000-0000-4000-8000-000000000003  test.student   student, public profile
---   a0000000-0000-4000-8000-000000000004  test.private   student, private profile
---   a0000000-0000-4000-8000-000000000005  test.outsider  student, on no projects
+--   a0000000-0000-4000-8000-000000000002  test.reviewer  reviewer (TA)
+--   a0000000-0000-4000-8000-000000000003  test.student   student, listed in the directory
+--   a0000000-0000-4000-8000-000000000004  test.private   student, not listed
+--   a0000000-0000-4000-8000-000000000005  test.outsider  student, listed, on no project yet
+--
+-- Test faculty: c0000000-0000-4000-8000-000000000001 "Test Faculty"
 --
 -- Test projects, from pg_temp.create_test_projects():
---   b0000000-0000-4000-8000-000000000001  test-published  published, created by test.faculty
---   b0000000-0000-4000-8000-000000000002  test-draft      draft, created by test.student;
---                                         test.private is a member who cannot edit
+--   b0000000-0000-4000-8000-000000000001  test-published  published; members:
+--       test.student  Developer   confirmed, can edit
+--       test.private  Tester      confirmed, but not listed, so hidden from the public
+--       test.outsider Designer    not confirmed yet
+--       "Outside mentor"          external name
+--     advised by Test Faculty
+--   b0000000-0000-4000-8000-000000000002  test-draft      unpublished; test.student is Lead (can edit)
 
 create extension if not exists pgtap with schema extensions;
 
--- Creates an account the way sign-up does (the profile comes from the trigger).
+-- Creates an account the way sign-up does (the profile comes from the trigger). A listed
+-- student has consented to the directory and been approved into it.
 create function pg_temp.create_user(
   user_id uuid,
   user_email text,
   user_role public.app_role default 'student',
-  make_public boolean default false
+  listed boolean default false
 )
 returns void
 language plpgsql
@@ -30,7 +37,11 @@ begin
   insert into auth.users (id, email, aud, role, raw_user_meta_data)
   values (user_id, user_email, 'authenticated', 'authenticated',
           jsonb_build_object('full_name', split_part(user_email, '@', 1)));
-  update public.profiles set role = user_role, is_public = make_public where id = user_id;
+  update public.profiles set role = user_role where id = user_id;
+  if listed then
+    insert into public.consents (student_id, scope) values (user_id, 'directory');
+    update public.profiles set visible = true where id = user_id;
+  end if;
 end;
 $$;
 
@@ -53,26 +64,46 @@ as $$
   select set_config('role', 'anon', true);
 $$;
 
+create function pg_temp.category(wanted text)
+returns uuid
+language sql
+as $$
+  select id from public.categories where slug = wanted
+$$;
+
+create function pg_temp.sub_department(wanted text)
+returns uuid
+language sql
+as $$
+  select id from public.sub_departments where slug = wanted
+$$;
+
 create function pg_temp.create_test_projects()
 returns void
 language sql
 as $$
-  insert into public.projects (id, slug, title, publish_state, created_by) values
-    ('b0000000-0000-4000-8000-000000000001', 'test-published', 'Published project', 'published',
-     'a0000000-0000-4000-8000-000000000002'),
-    ('b0000000-0000-4000-8000-000000000002', 'test-draft', 'Draft project', 'draft',
-     'a0000000-0000-4000-8000-000000000003');
-  insert into public.project_members (project_id, profile_id, role_title, can_edit) values
-    ('b0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000003', 'Developer', true),
-    ('b0000000-0000-4000-8000-000000000002', 'a0000000-0000-4000-8000-000000000004', 'Tester', false);
+  insert into public.projects (id, slug, title, published, category_id, sub_department_id, created_by) values
+    ('b0000000-0000-4000-8000-000000000001', 'test-published', 'Published project', true,
+     pg_temp.category('class'), pg_temp.sub_department('computer-science'), 'a0000000-0000-4000-8000-000000000001'),
+    ('b0000000-0000-4000-8000-000000000002', 'test-draft', 'Draft project', false,
+     pg_temp.category('personal'), pg_temp.sub_department('software-engineering'), 'a0000000-0000-4000-8000-000000000001');
+  insert into public.contributions (project_id, student_id, external_name, role, can_edit, confirmed) values
+    ('b0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000003', null, 'Developer', true, true),
+    ('b0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000004', null, 'Tester', false, true),
+    ('b0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000005', null, 'Designer', false, false),
+    ('b0000000-0000-4000-8000-000000000001', null, 'Outside mentor', 'Mentor', false, true),
+    ('b0000000-0000-4000-8000-000000000002', 'a0000000-0000-4000-8000-000000000003', null, 'Lead', true, true);
+  insert into public.advising (project_id, faculty_id) values
+    ('b0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000001');
 $$;
 
 do $$
 begin
   perform pg_temp.create_user('a0000000-0000-4000-8000-000000000001', 'test.admin@franciscan.edu', 'admin');
-  perform pg_temp.create_user('a0000000-0000-4000-8000-000000000002', 'test.faculty@franciscan.edu', 'faculty');
+  perform pg_temp.create_user('a0000000-0000-4000-8000-000000000002', 'test.reviewer@franciscan.edu', 'reviewer');
   perform pg_temp.create_user('a0000000-0000-4000-8000-000000000003', 'test.student@franciscan.edu', 'student', true);
   perform pg_temp.create_user('a0000000-0000-4000-8000-000000000004', 'test.private@franciscan.edu');
-  perform pg_temp.create_user('a0000000-0000-4000-8000-000000000005', 'test.outsider@franciscan.edu');
+  perform pg_temp.create_user('a0000000-0000-4000-8000-000000000005', 'test.outsider@franciscan.edu', 'student', true);
+  insert into public.faculty (id, name, title) values ('c0000000-0000-4000-8000-000000000001', 'Test Faculty', 'Professor');
 end;
 $$;

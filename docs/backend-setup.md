@@ -1,55 +1,102 @@
 # Backend setup (Supabase)
 
-The backend is a Supabase project: a Postgres database with access rules, Supabase Auth for
-logins, and Supabase Storage for photos. Everything about it lives in `supabase/` and is applied
-from git, so the hosted database always matches the repository.
+The backend is Supabase: a Postgres database with access rules, Supabase Auth for logins,
+Supabase Storage for photos, and one Edge Function for the carousel. Everything about it lives in
+`supabase/` and is applied from git, so each hosted database matches the repository. The design
+follows the Requirements and Team Guide v1.4; requirement IDs such as FR-3.4 refer to it.
 
 | Path | What it is |
 | --- | --- |
-| `supabase/migrations/` | The schema, access rules, sign-up rules and photo bucket, in order |
+| `supabase/migrations/` | The schema, access rules, review queue and carousel tables, in order |
+| `supabase/functions/carousel/` | The Edge Function that picks the daily carousel |
+| `supabase/functions/_shared/carousel-pick.ts` | The pick itself, owned by the Algorithms team |
 | `supabase/seed.sql` | Test accounts and sample content, **local only** |
-| `supabase/config.toml` | Settings for the local stack (ports, auth, hooks) |
-| `supabase/tests/database/` | Database tests (pgTAP) |
-| `supabase/tests/api/` | End-to-end tests through Auth, the Data API and Storage |
+| `supabase/config.toml` | Settings for the local stack (ports, auth, hooks, functions) |
+| `supabase/tests/` | Database tests (pgTAP) and end-to-end API tests |
 | `src/lib/database.types.ts` | TypeScript types generated from the schema, for the frontend |
 
 How to run the tests is in [testing.md](testing.md).
 
 ## What the database holds
 
-| Table | Holds |
-| --- | --- |
-| `profiles` | One per account: name, headline, bio, photo, links, role (`student`, `faculty`, `admin`) |
-| `projects` | Title, summary, description (Markdown), status, tags, cover photo, publish state |
-| `project_members` | Who worked on a project and in what role and term. A profile page lists these as experience |
-| `project_images` | Project photos, each with required alt text and an optional caption |
-| `posts` | Department news |
+Names follow the guide (section 3) where SQL allows.
+
+| Table | Guide name | Holds |
+| --- | --- | --- |
+| `profiles` | Student | One per account: name, role, background, major, class year, skills, club roles, photo, contact email and phone, `visible` (listed in the directory) |
+| `consents` | Consent | A student's permission per scope: `directory`, `photo`, `email`, `phone`. Append-only |
+| `faculty` | Faculty | Professors, linked to the projects they advise. `profile_id` links one to their login if they have one |
+| `projects` | Project | Title, summary, description (Markdown), status, category, sub-department, dates, priority (1–10), pinned, thumbnail, links, contact, open to contributors, published |
+| `contributions` | Contribution | A student (or an outside person's name) on a project, with role, term, and whether they confirmed |
+| `advising` | Advising | Faculty advisor ↔ project |
+| `project_images` | images[] | Project photos in order, each with required alt text |
+| `organizations`, `project_organizations` | Organization | Grants and partner organizations, and the projects they're on |
+| `sub_departments`, `categories` | SubDepartment, category tree | Admin-managed lists. Categories can nest (`parent_id`) |
+| `internships`, `alumni_stories` | Internship, AlumniStory | `alumni_stories.job_title` is the guide's `current_role`, a reserved word in SQL |
+| `pending_changes` | PendingChange | Student submissions waiting for review |
+| `audit_log` | AuditLog | Approvals, rejections, removals and re-shuffles. Append-only |
+| `monthly_pool`, `daily_carousel`, `carousel_state` | MonthlyPool, DailyCarousel | The carousel's input and output |
+| `posts` | (not in the guide) | Department news, kept by team decision |
 
 Who can do what:
 
-| | Visitors | Students | Faculty | Admins |
+| | Visitors | Students | Reviewers (TA) | Admins |
 | --- | --- | --- | --- | --- |
-| See published projects and posts | ✓ | ✓ | ✓ | ✓ |
-| See profiles | public ones | public ones and their own | all | all |
-| Edit own profile | | ✓ | ✓ | ✓ |
-| Create a project (starts as a draft) | | ✓ | ✓ | ✓ |
-| Edit a project, its team and photos | | if they created it or have edit rights on it | ✓ | ✓ |
-| Submit a project for review | | ✓ | ✓ | ✓ |
-| Publish, unpublish or feature a project | | | ✓ | ✓ |
-| Write news posts | | | ✓ | ✓ |
-| Change someone's role | | | | ✓ |
+| See published projects, posts, faculty, alumni stories | ✓ | ✓ | ✓ | ✓ |
+| See student profiles | listed ones | listed ones and their own | all | all |
+| Grant or revoke their own consent | | ✓ | ✓ | ✓ |
+| Submit profile, project and internship changes | | ✓ | ✓ | ✓ |
+| Confirm or decline being listed on a project | | ✓ | ✓ | ✓ |
+| Approve, reject or send back submissions (not their own) | | | ✓ | ✓ |
+| Edit anything directly, set priority and pins, publish | | | | ✓ |
+| Manage faculty, sub-departments, categories, monthly pool | | | | ✓ |
+| Change roles, re-shuffle the carousel | | | | ✓ |
 
-Other rules:
+### Privacy rules the database enforces
 
-- **Sign-up** is limited to `franciscan.edu` addresses and their subdomains (such as
-  `student.franciscan.edu`). The list is in `private.allowed_email_domains`.
-- **New profiles are private.** A student turns on "public" before their name and photo appear on
-  the site. If a team member's profile is private, the project still lists their role, but the
-  profile comes back empty and the site should show no name.
-- **Projects** move `draft` → `in_review` (students can do this) → `published` (faculty only).
-- **Photos** go in the public `media` bucket, under `avatars/<user id>/`, `projects/<project id>/`
-  or `posts/<post id>/`. JPEG, PNG and WebP only, 5 MB maximum. Anyone with an image's URL can
-  load it, even for a draft, so don't upload anything that must stay private.
+- **Sign-up** is limited to `franciscan.edu` and its subdomains, such as `student.franciscan.edu`
+  (`private.allowed_email_domains`).
+- **A student is public only when listed:** `visible` (a reviewer approved their request to be
+  added) **and** an active `directory` consent. Withdrawing that consent hides them at once.
+- **Photo, email and phone** are only stored on the profile while the matching consent is
+  active. Revoking a consent clears the field, so a hidden field can't leak through any query.
+- **On projects**, visitors only see students who are listed and who confirmed being on that
+  project. Unlisted or unconfirmed students are left out of the results, not just hidden by
+  the site.
+- **Photos** go in the public `media` bucket. Users upload to `avatars/<their id>/` and
+  `submissions/<their id>/`; other folders are for admins. JPEG, PNG and WebP, 5 MB maximum.
+  Anyone with a file's URL can load it, including photos in submissions not yet approved.
+  Moving pending uploads to a private bucket is an open item.
+
+### How a submission works (guide 2.4)
+
+Students never change live data. They insert a row into `pending_changes`, and a reviewer approves
+it with `review_change`, which applies it. The table of submission types is at the top of
+`supabase/migrations/*_review_queue.sql`. In short:
+
+| target_type | action | Means |
+| --- | --- | --- |
+| `profile` | `create` | Request to be added to the directory (needs `directory` consent first) |
+| `profile` | `update` | Edit my profile |
+| `profile` | `delete` | Remove me. Hidden immediately; approval clears the profile, listings and consents |
+| `project` | `create` / `update` / `delete` | A project, with optional `members`, `advisor_ids`, `organization_ids` and `images` |
+| `internship` | `create` / `update` / `delete` | My internships |
+
+Approved projects are published and credited to the submitter. Other students they listed must
+confirm with `respond_to_listing` before their names appear (FR-3.7).
+
+### The carousel (guide section 4)
+
+- An admin fills `monthly_pool` for the month. If the pool is empty, the 15 most recently updated
+  published projects are used.
+- Every hour, a scheduled job calls the `carousel` Edge Function. The first call after midnight
+  Eastern picks the day's 5–7 projects and saves them; later calls that day do nothing.
+- The admin panel's Re-shuffle button calls the same function, which picks again.
+- The pick is `pickCarousel()` in `supabase/functions/_shared/carousel-pick.ts`, owned by the
+  Algorithms team. Until they replace it, a placeholder takes pinned projects, then the highest
+  priority. Its seed is `"<day>:<re-shuffle count>"`.
+- The home page reads the `carousel_today` view: the day's cards in order, with members and
+  advisors.
 
 ## 1. Local harness (everyone)
 
@@ -72,7 +119,7 @@ seconds. When it finishes you have:
 
 | | |
 | --- | --- |
-| API (Auth, Data API, Storage) | http://127.0.0.1:54321 |
+| API (Auth, Data API, Storage, Functions) | http://127.0.0.1:54321 |
 | Studio, a web UI for the database | http://127.0.0.1:54323 |
 | Mailpit, where local "sent" emails land | http://127.0.0.1:54324 |
 | Postgres | `postgresql://postgres:postgres@127.0.0.1:54322/postgres` |
@@ -84,19 +131,24 @@ seconds. When it finishes you have:
 | Email | Role |
 | --- | --- |
 | `admin@franciscan.edu` | admin |
-| `faculty@franciscan.edu` | faculty |
-| `student1@franciscan.edu` | student, public profile |
-| `student2@franciscan.edu` | student, private profile |
+| `reviewer@franciscan.edu` | reviewer (TA) |
+| `faculty@franciscan.edu` | reviewer, linked to the faculty record "Dr. Pat Faculty" |
+| `student1@franciscan.edu` | student, listed, shows an email address |
+| `student2@franciscan.edu` | student, not listed; has asked to be added |
+| `student3@student.franciscan.edu` | student, listed |
 
-**Frontend settings** for local development. Put these in `.env.local`:
+The seed also has six projects across all four sub-departments, a partner organization, an
+alumni story, this month's pool, today's carousel, and three submissions waiting for review.
+
+**Frontend settings** for local development, in `.env.local` (with Vite, use the `VITE_` prefix
+instead of `NEXT_PUBLIC_`):
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=   # "Publishable" key from `npx supabase status`
 ```
 
-For server-side reads through Hyperdrive, use the read-only login (see
-[Using the backend from the frontend](#4-using-the-backend-from-the-frontend)):
+For server-side reads through Hyperdrive (Next.js only), use the read-only login:
 
 ```text
 postgresql://web_reader:web_reader_local@127.0.0.1:54322/postgres
@@ -108,8 +160,10 @@ Everyday commands:
 | --- | --- |
 | `npm run db:start` / `npm run db:stop` | Start or stop the local stack. Data survives a stop |
 | `npm run db:reset` | Rebuild the database from the migrations and seed. Run it after pulling new migrations |
+| `npm run functions:serve` | Run the carousel function locally (copy `supabase/functions/.env.example` to `.env` first) |
 | `npm run db:test` | Lint the schema and run the database tests |
 | `npm run test:api` | Run the end-to-end tests |
+| `npm run test:carousel` | Run the carousel pick's tests |
 | `npm run db:types` | Regenerate `src/lib/database.types.ts` |
 
 After changing `supabase/config.toml`, run `npm run db:stop` then `npm run db:start`.
@@ -117,7 +171,7 @@ After changing `supabase/config.toml`, run `npm run db:stop` then `npm run db:st
 
 ## 2. Changing the database
 
-All schema changes go through migration files. Don't create or change tables in the hosted
+All schema changes go through migration files. Don't create or change tables in a hosted
 project's Table Editor or SQL editor: that change is not in git, the next deploy will not know
 about it, and it can make the deploy fail.
 
@@ -129,7 +183,7 @@ about it, and it can make the deploy fail.
 
 2. Write the SQL in the new file under `supabase/migrations/`. For a new table:
    - turn on row level security (`alter table ... enable row level security`)
-   - grant only what's needed, following the grants in `*_core_schema.sql`
+   - grant only what's needed, following the grants in the existing migrations
    - add policies for each operation
    - add tests; `01_schema.test.sql` already fails if a table has no row level security
 
@@ -147,23 +201,27 @@ about it, and it can make the deploy fail.
    npm run db:types
    ```
 
-5. Open a pull request. CI runs the same tests. When it merges to `main`, Supabase applies the
-   migration to the hosted database.
+5. Open a pull request. CI runs the same tests. After it merges, deploy it (section 3).
 
 Never edit a migration that has already been merged. Write a new one that changes what you need.
 
-## 3. Hosted project setup (one-time, backend pair)
+## 3. Hosted projects (backend pair)
 
-The hosted project is **Franciscan Site** in the Supabase organization **Franciscan Computing and
-Engineering Dept Site** (Free plan). The Free plan has no preview branches, so this one project is
-production: local development and tests use the local stack instead.
+Both are in the Supabase organization **Franciscan Computing and Engineering Dept Site** (Free
+plan):
+
+| Project | Ref | Use |
+| --- | --- | --- |
+| **Franciscan Site** | `rhvvvurfpzblbpsipgen` | Production |
+| **Franciscan Site Dev** | `zekufoxhojjqqbmcxmtu` | Shared development: frontend work without Docker, and PR previews, so previews never touch production |
 
 Give the professor (or whoever will own the site after this semester) Owner access to the
-Supabase organization, and keep the database password in a shared password manager.
+organization, and keep both database passwords in a shared password manager. Frontend teammates
+who need the dev dashboard can be invited with the Developer role.
 
 ### 3.1 Connect GitHub
 
-Supabase dashboard > Project Settings > Integrations > GitHub:
+Supabase dashboard > Project Settings > Integrations > GitHub, on each project:
 
 | Setting | Value |
 | --- | --- |
@@ -172,60 +230,76 @@ Supabase dashboard > Project Settings > Integrations > GitHub:
 | Deploy to production | On |
 | Production branch name | `main` |
 
-Connecting the shared repository requires its owner to approve the Supabase GitHub app, so the
-owner may need to do this step. Connecting a fork does not work: the integration deploys when a
-pull request is merged in the connected repository, and syncing a fork does not count.
+Connecting the shared repository requires its owner to approve the Supabase GitHub app. Connecting
+a fork does not work: the integration deploys when a pull request is merged in the connected
+repository, and syncing a fork does not count.
 
 On merge to `main`, the integration applies new migrations. It does not apply `seed.sql` or the
-Auth settings in `config.toml`, so the local test accounts and localhost URLs never reach
-production. After a merge, check that the change arrived (Database > Migrations lists the applied
+Auth settings in `config.toml`, so the local test accounts and localhost URLs never reach a hosted
+project. After a merge, check that the change arrived (Database > Migrations lists the applied
 versions). If it didn't, deploy by hand as in 3.2.
 
 ### 3.2 Deploying by hand
 
-Needed for the first deploy if the integration isn't connected yet, or whenever it fails.
-
-Check that the hosted database has no tables of its own first: Table Editor should show nothing
-in the `public` schema. If someone created tables by hand, delete them, or the migrations will
-fail.
-
 ```bash
 npx supabase login                              # opens a browser; run it in your own terminal
-npx supabase link --project-ref <project ref>   # from the dashboard URL or Settings > General
+npx supabase link --project-ref <project ref>   # see the table above
 npx supabase db push --dry-run                  # lists the migrations it would apply
 npx supabase db push
+npx supabase functions deploy carousel
 ```
+
+Run it from an up-to-date `main`: `db push` sends every migration in your working folder,
+including ones on an unmerged branch. `cat supabase/.temp/project-ref` shows which project you're
+linked to.
 
 `link` and `push` connect to the database on port 5432 with encryption. Some campus and public
 networks block that, and the commands then fail with `ECONNRESET` or `SSL SYSCALL error`. Use
 another network, such as a phone hotspot. The dashboard, GitHub and the local stack are not
 affected.
 
-### 3.3 After the first deploy
+### 3.3 After the first deploy, on each project
 
 1. **Turn on the sign-up rule.** Authentication > Hooks > add **Before User Created** > Postgres
    function > `public.hook_before_user_created`. Without this, anyone can sign up.
 2. **URLs.** Authentication > URL Configuration:
-   - Site URL: the production site address.
-   - Redirect URLs: `http://localhost:3000/**`, `http://localhost:8787/**`, the production
-     address, and a wildcard for preview deployments, for example
-     `https://*.csc-dept-website.pages.dev/**` on Cloudflare Pages.
+   - Site URL: the site's address (production), or `http://localhost:5173` (dev).
+   - Redirect URLs: `http://localhost:3000/**`, `http://localhost:5173/**`,
+     `http://localhost:8787/**`, the production address, and a wildcard for preview deployments,
+     for example `https://*.csc-dept-website.pages.dev/**`.
 3. **Passwords and email.** Authentication > Sign In / Providers > Email: minimum password
-   length 8, keep "Confirm email" on.
-4. **Email delivery.** Supabase's built-in email only reaches members of the Supabase
-   organization, about two messages an hour. Before students sign up, set up one of these:
+   length 8. Keep "Confirm email" on in production. On dev, turning it off lets teammates sign
+   up without email delivery.
+4. **Email delivery: open, to settle with ITS.** Supabase's built-in email only reaches
+   members of the Supabase organization, about two messages an hour, so students can't confirm
+   sign-ups and FR-3.6 notifications can't be sent. The options:
+   - "Sign in with Microsoft" (Authentication > Sign In / Providers > Azure), which avoids
+     confirmation email entirely. It needs ITS to register an app in Microsoft Entra ID.
    - Custom SMTP (Authentication > Emails > SMTP Settings), through the university or a
      transactional email service.
-   - "Sign in with Microsoft" (Authentication > Sign In / Providers > Azure), which avoids
-     email entirely. It needs university IT to register an app in Microsoft Entra ID.
-5. **Password for the read-only login.** In the SQL editor, with a long random password that you
-   then store in the password manager:
+5. **Password for the read-only login** (only needed with Hyperdrive). In the SQL editor, with a
+   long random password that you then store in the password manager:
 
    ```sql
    alter role web_reader with login password '<long random password>';
    ```
 
-6. **Make the first admin.** Sign up on the site (or Authentication > Users > Add user), then in
+6. **The carousel function.** Deploy it, give it a secret, and tell the hourly job where it is:
+
+   ```bash
+   npx supabase functions deploy carousel
+   npx supabase secrets set CAROUSEL_CRON_SECRET=<long random value>
+   ```
+
+   Then in the SQL editor, with the same secret:
+
+   ```sql
+   select vault.create_secret('https://<project ref>.supabase.co/functions/v1/carousel', 'carousel_function_url');
+   select vault.create_secret('<the same long random value>', 'carousel_cron_secret');
+   ```
+
+   Until both Vault secrets exist, the hourly job does nothing.
+7. **Make the first admin.** Sign up on the site (or Authentication > Users > Add user), then in
    the SQL editor:
 
    ```sql
@@ -234,11 +308,10 @@ affected.
    ```
 
    After that, admins change roles from the site's admin screens.
-
-7. **Keep-alive.** Free projects pause after a week without activity. In GitHub, shared
-   repository > Settings > Secrets and variables > Actions > **Variables**, add
+8. **Keep-alive** (production). Free projects pause after a week without activity. In GitHub,
+   shared repository > Settings > Secrets and variables > Actions > **Variables**, add
    `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`. The "Keep Supabase awake" workflow then reads
-   one row every three days. If the project pauses anyway, restore it from the dashboard; no data
+   one row every three days. If a project pauses anyway, restore it from the dashboard; no data
    is lost.
 
 ### 3.4 Keys
@@ -252,34 +325,77 @@ Project Settings > API Keys:
 
 ## 4. Using the backend from the frontend
 
-- **Pages for visitors** (server-rendered): query Postgres through Cloudflare Hyperdrive as
-  `web_reader`. It is a member of the `anon` role, so it sees exactly what a signed-out visitor
-  sees and cannot write. Don't connect as `postgres`: that user bypasses every access rule.
-  For Hyperdrive, take the **Session pooler** string from the dashboard's Connect button and
-  replace the user with `web_reader.<project ref>` and the password with the one from step 3.3.
-  Check it with `psql "<string>" -c 'select count(*) from public.projects'` before creating the
-  Hyperdrive config.
-- **Signed-in features** (profile editing, project editing, admin screens): use
-  `@supabase/supabase-js` with the publishable key, and `@supabase/ssr` to keep the session in
-  cookies for Next.js. Requests carry the user's session, so the access rules apply to them.
-- **Types:** `createClient<Database>(url, key)` with `Database` from
-  `src/lib/database.types.ts` gives typed queries.
-- **Images:** a file's public address is
-  `<SUPABASE_URL>/storage/v1/object/public/media/<path>`. Add the Supabase host to
-  `images.remotePatterns` in `next.config.ts` to use `next/image`. Resize photos in the browser
-  before uploading (about 2000px on the long side), because the Free plan has 1 GB of file storage
-  in total and no image resizing.
-- **Markdown:** `projects.description` and `posts.body` are Markdown. Render them without
-  allowing raw HTML.
+Use `@supabase/supabase-js` with the project URL and publishable key. Every request carries the
+signed-in user's session (or none), and the access rules decide what it may see and do.
 
-## 5. Free plan limits
+```ts
+import { createClient } from "@supabase/supabase-js";
+import type { Database } from "./lib/database.types";
+
+const supabase = createClient<Database>(url, publishableKey);
+
+// Home page: today's carousel, in order (FR-5.8)
+const { data: cards } = await supabase.from("carousel_today").select("*");
+
+// Project browser: published projects in a sub-department, newest first (FR-4.4, FR-4.5)
+const { data: projects } = await supabase
+  .from("projects")
+  .select("id, slug, title, summary, status, thumbnail_path, sub_departments(name), advising(faculty(name))")
+  .eq("sub_department_id", subDepartmentId)
+  .order("date_started", { ascending: false });
+
+// Title and keyword search (FR-4.3)
+await supabase.from("projects").select("slug, title").textSearch("search", query, { type: "websearch" });
+
+// A student asks to be added (FR-3.1): consent first, then the request
+await supabase.from("consents").insert({ scope: "directory" });
+await supabase.from("pending_changes").insert({
+  target_type: "profile", action: "create", proposed_data: { headline, background, major, class_year },
+});
+
+// A reviewer works the queue (FR-3.4, FR-3.5)
+const { data: queue } = await supabase.from("pending_changes").select("*").eq("status", "pending");
+await supabase.rpc("review_change", { change_id, decision: "approved" });
+await supabase.rpc("review_change", { change_id, decision: "changes_requested", note: "Add alt text" });
+
+// A student confirms being listed on a project (FR-3.7)
+await supabase.rpc("respond_to_listing", { listing_id, accept: true });
+
+// An admin re-shuffles the carousel (FR-5.7)
+await supabase.functions.invoke("carousel", { body: { action: "reshuffle" } });
+```
+
+- **Images:** a file's public address is
+  `<SUPABASE_URL>/storage/v1/object/public/media/<path>`. Students upload to
+  `submissions/<their id>/` and put the path in their submission. Resize photos in the browser
+  before uploading (about 2000px on the long side): the Free plan has 1 GB of file storage in
+  total and no image resizing.
+- **Markdown:** `projects.description`, `posts.body` and `alumni_stories.story` are Markdown.
+  Render them without allowing raw HTML.
+- **Server rendering (Next.js only):** query Postgres through Cloudflare Hyperdrive as
+  `web_reader`, a member of the `anon` role: it sees exactly what a visitor sees and cannot
+  write. Don't connect as `postgres`, which bypasses every access rule. For Hyperdrive, take the
+  **Session pooler** string from the dashboard's Connect button and replace the user with
+  `web_reader.<project ref>` and the password with the one from 3.3.
+
+## 5. Open items
+
+| Item | Owner |
+| --- | --- |
+| Email delivery: Microsoft sign-in or SMTP (3.3, step 4) | Back End + ITS |
+| Which fields are FERPA directory information | Registrar |
+| Pending uploads are readable by URL before approval; move them to a private bucket | Back End |
+| Guide clarifications: thumbnail field vs first gallery image; whether Internships and Alumni Stories are project categories; pinned cap (target size or 7); who confirms a removal (assumed: the reviewer who approves it) | Requirements team |
+| Replace the placeholder carousel pick | Algorithms team |
+
+## 6. Free plan limits
 
 | Limit | What to do |
 | --- | --- |
 | Pauses after a week without activity | The keep-alive workflow |
 | 500 MB database, 1 GB file storage | Resize photos before upload |
 | No automatic backups | Before launch, ask the department about the Pro plan |
-| Built-in email only reaches organization members | Custom SMTP or Microsoft sign-in (3.3, step 4) |
-| No preview branches | Test against the local stack. Preview deployments of the site use the production database |
+| Built-in email only reaches organization members | Microsoft sign-in or custom SMTP (3.3, step 4) |
+| Two active free projects | Production and dev use both |
 
 Check current limits at https://supabase.com/pricing before relying on them.

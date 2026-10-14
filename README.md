@@ -8,19 +8,18 @@ via [OpenNext](https://opennext.js.org/cloudflare), with [Supabase](https://supa
 
 ## Status
 
-As of October 14, 2026.
+As of October 14, 2026. Requirement IDs (FR-…) refer to the Requirements and Team Guide v1.4.
 
 | Area | Status |
 | --- | --- |
-| Backend schema and access rules | **Done.** Tables for profiles, projects, project roles, project photos and news. Visitors see only published projects and public profiles; students draft projects, faculty publish them. Sign-up is limited to `franciscan.edu` addresses. See [Backend](#backend-supabase) |
-| Backend tests and CI | **Done.** 57 database tests and 5 end-to-end tests, run on every pull request |
-| Hosted database (Supabase project "Franciscan Site") | **Not deployed yet.** The migrations are merged and still need to be applied, followed by the dashboard steps in [docs/backend-setup.md](docs/backend-setup.md#33-after-the-first-deploy) |
+| Backend schema | **Drafted, in review.** Follows the Requirements and Team Guide v1.4: students, faculty, projects, members and advisors, consent, a review queue for every student submission, an audit log, and the carousel tables. Visitors only see published projects and students who opted in. See [docs/backend-setup.md](docs/backend-setup.md) |
+| Backend tests and CI | **Done.** 97 database tests, 5 end-to-end API tests and 6 carousel tests, run on every pull request |
+| Carousel | **Runner done; pick pending.** An hourly job calls the `carousel` Edge Function, which saves the day's pick, and admins can re-shuffle. The pick itself is a placeholder until the Algorithms team delivers theirs |
+| Hosted databases | **Set up.** Production ("Franciscan Site") and dev ("Franciscan Site Dev") have the first version of the schema. The new schema goes to both after review |
 | Automatic database deploys | **Not working yet.** Supabase's GitHub integration points at a fork and needs to point at this repository. Until then, deploy by hand ([docs/backend-setup.md](docs/backend-setup.md#32-deploying-by-hand)) |
-| Frontend | **Scaffold.** Home and news pages showing sample content. Not yet reading from Supabase |
-| Hosting | **Not live.** The Cloudflare Pages project returns 404, because the app is built to run as a Worker. It needs a Workers project, plus `open-next.config.ts` and `wrangler.jsonc`, which aren't in the repository yet |
-
-Next for the backend: extend projects to match the requirements (departments, priority, pinned
-projects, faculty advisors, collaborating organizations), the daily project carousel, and search.
+| Email (sign-up confirmation, review notifications) | **Open**, to settle with ITS: Microsoft sign-in or university SMTP |
+| Frontend | **Scaffold** (Next.js), showing sample content. The guide specifies React + Vite; the frontend team is confirming which |
+| Hosting | **Not live.** The Cloudflare Pages project returns 404, because the current app is built to run as a Worker |
 
 The team moved from Drupal to Supabase. The Drupal sections below and `src/lib/drupal.ts` predate
 that change and will be replaced as the frontend moves to Supabase.
@@ -124,6 +123,7 @@ from git. Requires Docker Desktop.
 npm run db:start    # local Supabase with test accounts and sample projects
 npm run db:test     # database tests
 npm run test:api    # end-to-end tests
+npm run test:carousel   # the carousel pick's rules
 ```
 
 - [docs/backend-setup.md](docs/backend-setup.md): local harness, changing the schema, hosted project setup
