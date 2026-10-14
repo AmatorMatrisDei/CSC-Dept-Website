@@ -1,0 +1,78 @@
+-- Shared setup for the database tests, included with `\ir _helpers.psql` at the top of each
+-- test file. pg_prove only runs *.sql files, so this file never runs on its own. Everything it
+-- creates lives inside the test's transaction and is rolled back with it.
+--
+-- Test users (all @franciscan.edu):
+--   a0000000-0000-4000-8000-000000000001  test.admin     admin
+--   a0000000-0000-4000-8000-000000000002  test.faculty   faculty
+--   a0000000-0000-4000-8000-000000000003  test.student   student, public profile
+--   a0000000-0000-4000-8000-000000000004  test.private   student, private profile
+--   a0000000-0000-4000-8000-000000000005  test.outsider  student, on no projects
+--
+-- Test projects, from pg_temp.create_test_projects():
+--   b0000000-0000-4000-8000-000000000001  test-published  published, created by test.faculty
+--   b0000000-0000-4000-8000-000000000002  test-draft      draft, created by test.student;
+--                                         test.private is a member who cannot edit
+
+create extension if not exists pgtap with schema extensions;
+
+-- Creates an account the way sign-up does (the profile comes from the trigger).
+create function pg_temp.create_user(
+  user_id uuid,
+  user_email text,
+  user_role public.app_role default 'student',
+  make_public boolean default false
+)
+returns void
+language plpgsql
+as $$
+begin
+  insert into auth.users (id, email, aud, role, raw_user_meta_data)
+  values (user_id, user_email, 'authenticated', 'authenticated',
+          jsonb_build_object('full_name', split_part(user_email, '@', 1)));
+  update public.profiles set role = user_role, is_public = make_public where id = user_id;
+end;
+$$;
+
+-- Runs the rest of the transaction as this signed-in user, the way the Data API does.
+-- Run `reset role;` before switching to someone else or creating more fixtures.
+create function pg_temp.login_as(user_id uuid)
+returns void
+language sql
+as $$
+  select set_config('request.jwt.claims', json_build_object('sub', user_id, 'role', 'authenticated')::text, true);
+  select set_config('role', 'authenticated', true);
+$$;
+
+-- Same, as a signed-out visitor.
+create function pg_temp.login_anon()
+returns void
+language sql
+as $$
+  select set_config('request.jwt.claims', '{"role": "anon"}', true);
+  select set_config('role', 'anon', true);
+$$;
+
+create function pg_temp.create_test_projects()
+returns void
+language sql
+as $$
+  insert into public.projects (id, slug, title, publish_state, created_by) values
+    ('b0000000-0000-4000-8000-000000000001', 'test-published', 'Published project', 'published',
+     'a0000000-0000-4000-8000-000000000002'),
+    ('b0000000-0000-4000-8000-000000000002', 'test-draft', 'Draft project', 'draft',
+     'a0000000-0000-4000-8000-000000000003');
+  insert into public.project_members (project_id, profile_id, role_title, can_edit) values
+    ('b0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000003', 'Developer', true),
+    ('b0000000-0000-4000-8000-000000000002', 'a0000000-0000-4000-8000-000000000004', 'Tester', false);
+$$;
+
+do $$
+begin
+  perform pg_temp.create_user('a0000000-0000-4000-8000-000000000001', 'test.admin@franciscan.edu', 'admin');
+  perform pg_temp.create_user('a0000000-0000-4000-8000-000000000002', 'test.faculty@franciscan.edu', 'faculty');
+  perform pg_temp.create_user('a0000000-0000-4000-8000-000000000003', 'test.student@franciscan.edu', 'student', true);
+  perform pg_temp.create_user('a0000000-0000-4000-8000-000000000004', 'test.private@franciscan.edu');
+  perform pg_temp.create_user('a0000000-0000-4000-8000-000000000005', 'test.outsider@franciscan.edu');
+end;
+$$;

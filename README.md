@@ -41,7 +41,10 @@ connection string, moving to Azure Database for PostgreSQL is a config change, n
 - Use Supabase's **direct connection** (port 5432) or **session pooler** string for Hyperdrive —
   not the transaction pooler (6543), since Hyperdrive does its own pooling.
 - `GET /api/health` checks the database connection.
-- Local dev uses `localConnectionString` in `wrangler.jsonc` (defaults to the `supabase start` local DB).
+- Local dev uses `localConnectionString` in `wrangler.jsonc`. Point it at the local read-only login:
+  `postgresql://web_reader:web_reader_local@127.0.0.1:54322/postgres`.
+- Connect as `web_reader`, not `postgres`: `postgres` bypasses the database's access rules.
+  See [docs/backend-setup.md](docs/backend-setup.md#4-using-the-backend-from-the-frontend).
 
 To migrate to Azure later:
 ```bash
@@ -55,7 +58,7 @@ npx wrangler login
 npx wrangler r2 bucket create csc-dept-website-cache
 npx wrangler d1 create csc-dept-website-tags         # paste database_id into wrangler.jsonc
 npx wrangler hyperdrive create csc-dept-website-db \
-  --connection-string="postgres://postgres:<password>@db.<project>.supabase.co:5432/postgres"
+  --connection-string="postgres://web_reader.<project-ref>:<password>@<session-pooler-host>:5432/postgres"
                                                       # paste id into wrangler.jsonc
 npx wrangler secret put DRUPAL_REVALIDATE_SECRET
 npm run cf-typegen                                    # regenerate types after editing wrangler.jsonc
@@ -91,6 +94,20 @@ and deploy command `npx opennextjs-cloudflare deploy`.
   (`Unexpected loadManifest(/.next/server/preview-props.json)`). Upgrade once OpenNext supports it.
 - **Cache Components (`cacheComponents`) is off.** With it enabled, re-rendering after revalidation
   hangs in the Workers runtime. Caching uses `fetch` `next.revalidate`/`tags` instead.
+
+## Backend (Supabase)
+
+The database schema, access rules, sign-up rules and photo storage live in `supabase/` and deploy
+from git. Requires Docker Desktop.
+
+```bash
+npm run db:start    # local Supabase with test accounts and sample projects
+npm run db:test     # database tests
+npm run test:api    # end-to-end tests
+```
+
+- [docs/backend-setup.md](docs/backend-setup.md): local harness, changing the schema, hosted project setup
+- [docs/testing.md](docs/testing.md): what the tests cover and how to test with faculty
 
 ## To edit code
 - Fork the repository, make changes, and send a Pull Request (PR)

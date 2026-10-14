@@ -1,0 +1,24 @@
+name: Keep Supabase awake
+
+# Free Supabase projects pause after a week without activity. This reads one row every three
+# days. It only runs where the repository variables SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY
+# are set (Settings > Secrets and variables > Actions > Variables), so forks skip it.
+#
+# GitHub turns scheduled workflows off after 60 days without commits in a public repository,
+# e.g. over the summer. Re-enable it from the Actions tab if that happens.
+
+on:
+  schedule:
+    - cron: "17 13 */3 * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    if: vars.SUPABASE_URL != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read one published project
+        run: |
+          curl --fail --silent --show-error \
+            "${{ vars.SUPABASE_URL }}/rest/v1/projects?select=id&limit=1" \
+            -H "apikey: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}"
