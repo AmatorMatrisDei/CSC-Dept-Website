@@ -140,19 +140,15 @@ seconds. When it finishes you have:
 The seed also has six projects across all four sub-departments, a partner organization, an
 alumni story, this month's pool, today's carousel, and three submissions waiting for review.
 
-**Frontend settings** for local development, in `.env.local` (with Vite, use the `VITE_` prefix
-instead of `NEXT_PUBLIC_`):
+**Frontend settings** for local development, in `.env.local`:
 
 ```bash
-NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=   # "Publishable" key from `npx supabase status`
+VITE_SUPABASE_URL=http://127.0.0.1:54321
+VITE_SUPABASE_PUBLISHABLE_KEY=   # "Publishable" key from `npx supabase status`
 ```
 
-For server-side reads through Hyperdrive (Next.js only), use the read-only login:
-
-```text
-postgresql://web_reader:web_reader_local@127.0.0.1:54322/postgres
-```
+For the hosted dev project, use its URL (`https://zekufoxhojjqqbmcxmtu.supabase.co`) and its
+publishable key from the dashboard instead.
 
 Everyday commands:
 
@@ -277,8 +273,9 @@ affected.
      confirmation email entirely. It needs ITS to register an app in Microsoft Entra ID.
    - Custom SMTP (Authentication > Emails > SMTP Settings), through the university or a
      transactional email service.
-5. **Password for the read-only login** (only needed with Hyperdrive). In the SQL editor, with a
-   long random password that you then store in the password manager:
+5. **Password for the read-only login** (only needed if server-side code reads through
+   Hyperdrive; the Vite site doesn't). In the SQL editor, with a long random password that you
+   then store in the password manager:
 
    ```sql
    alter role web_reader with login password '<long random password>';
@@ -372,11 +369,11 @@ await supabase.functions.invoke("carousel", { body: { action: "reshuffle" } });
   total and no image resizing.
 - **Markdown:** `projects.description`, `posts.body` and `alumni_stories.story` are Markdown.
   Render them without allowing raw HTML.
-- **Server rendering (Next.js only):** query Postgres through Cloudflare Hyperdrive as
-  `web_reader`, a member of the `anon` role: it sees exactly what a visitor sees and cannot
-  write. Don't connect as `postgres`, which bypasses every access rule. For Hyperdrive, take the
-  **Session pooler** string from the dashboard's Connect button and replace the user with
-  `web_reader.<project ref>` and the password with the one from 3.3.
+- **Server-side reads:** the Vite site has none; it calls Supabase from the browser. The
+  `web_reader` login stays in the schema in case server code is added later (for example a
+  Cloudflare Worker through Hyperdrive). It is a member of `anon`, so it sees exactly what a
+  visitor sees and cannot write. Never connect server code as `postgres`, which bypasses every
+  access rule.
 
 ## 5. Open items
 
