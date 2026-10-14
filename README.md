@@ -12,10 +12,10 @@ As of October 14, 2026. Requirement IDs (FR-…) refer to the Requirements and T
 
 | Area | Status |
 | --- | --- |
-| Backend schema | **Drafted, in review.** Follows the Requirements and Team Guide v1.4: students, faculty, projects, members and advisors, consent, a review queue for every student submission, an audit log, and the carousel tables. Visitors only see published projects and students who opted in. See [docs/backend-setup.md](docs/backend-setup.md) |
-| Backend tests and CI | **Done.** 97 database tests, 5 end-to-end API tests and 6 carousel tests, run on every pull request |
+| Backend schema | **Done.** Follows the Requirements and Team Guide v1.4: students, faculty, projects, members and advisors, consent, a review queue for every student submission, an audit log, and the carousel tables. Visitors only see published projects and students who opted in. Hardened after a security review (https-only links, locked-down internal functions, size limits). See [docs/backend-setup.md](docs/backend-setup.md) |
+| Backend tests and CI | **Done.** 111 database tests, 5 end-to-end API tests and 6 carousel tests, run on every pull request |
 | Carousel | **Runner done; pick pending.** An hourly job calls the `carousel` Edge Function, which saves the day's pick, and admins can re-shuffle. The pick itself is a placeholder until the Algorithms team delivers theirs |
-| Hosted databases | **Set up.** Production ("Franciscan Site") and dev ("Franciscan Site Dev") have the first version of the schema, and both refuse sign-ups from non-university addresses. Dev skips email confirmation so the team can sign up. The new schema goes to both after review |
+| Hosted databases | **Dev is current; production is next.** Dev ("Franciscan Site Dev") runs the full schema and the carousel function, and skips email confirmation so the team can sign up. Production ("Franciscan Site") still has the first version of the schema. Both refuse sign-ups from non-university addresses |
 | Automatic database deploys | **Not working yet.** Supabase's GitHub integration points at a fork and needs to point at this repository. Until then, deploy by hand ([docs/backend-setup.md](docs/backend-setup.md#32-deploying-by-hand)) |
 | Email (sign-up confirmation, review notifications) | **Open**, to settle with ITS: Microsoft sign-in or university SMTP |
 | Frontend | **Moving to React + Vite** (decided October 14). The code in `src/` is still the earlier Next.js scaffold |

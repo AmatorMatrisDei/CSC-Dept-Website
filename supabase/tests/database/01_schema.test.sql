@@ -1,7 +1,7 @@
 -- Guard rails that apply to the whole schema, so a new table or function can't quietly skip them.
 begin;
 \ir _helpers.psql
-select plan(10);
+select plan(12);
 
 select is_empty(
   $$ select c.relname
@@ -69,6 +69,27 @@ select ok(
   pg_has_role('web_reader', 'anon', 'USAGE')
     and (select not (rolsuper or rolbypassrls) from pg_roles where rolname = 'web_reader'),
   'web_reader has exactly the anon role''s access and is subject to row level security'
+);
+
+select is_empty(
+  $$ select p.proname
+     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'private'
+       and (has_function_privilege('anon', p.oid, 'EXECUTE') or has_function_privilege('authenticated', p.oid, 'EXECUTE'))
+       and p.proname <> all (array[
+         'current_app_role', 'is_reviewer', 'is_admin', 'has_consent', 'is_listed_student',
+         'can_submit_for_project', 'can_view_project', 'is_project_published', 'is_on_project_team',
+         'can_manage_media', 'is_existing_project_photo', 'check_submitted_photo',
+         'validate_project_submission', 'require_keys_within', 'uuid_array',
+         'profile_fields', 'project_fields', 'project_link_keys', 'internship_fields']) $$,
+  'users can only call the internal helpers that access rules need'
+);
+
+select is_empty(
+  $$ select p.proname
+     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and p.prosecdef and has_function_privilege('anon', p.oid, 'EXECUTE') $$,
+  'visitors cannot call any function that runs with the owner''s rights'
 );
 
 select * from finish();

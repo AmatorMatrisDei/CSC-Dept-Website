@@ -34,7 +34,7 @@ Names follow the guide (section 3) where SQL allows.
 | `sub_departments`, `categories` | SubDepartment, category tree | Admin-managed lists. Categories can nest (`parent_id`) |
 | `internships`, `alumni_stories` | Internship, AlumniStory | `alumni_stories.job_title` is the guide's `current_role`, a reserved word in SQL |
 | `pending_changes` | PendingChange | Student submissions waiting for review |
-| `audit_log` | AuditLog | Approvals, rejections, removals and re-shuffles. Append-only |
+| `audit_log` | AuditLog | Approvals, rejections, removals, re-shuffles and role changes. Append-only |
 | `monthly_pool`, `daily_carousel`, `carousel_state` | MonthlyPool, DailyCarousel | The carousel's input and output |
 | `posts` | (not in the guide) | Department news, kept by team decision |
 
@@ -67,6 +67,23 @@ Who can do what:
   `submissions/<their id>/`; other folders are for admins. JPEG, PNG and WebP, 5 MB maximum.
   Anyone with a file's URL can load it, including photos in submissions not yet approved.
   Moving pending uploads to a private bucket is an open item.
+- **Links** (website, GitHub, LinkedIn, repo, demo, poster, organization) must start with
+  `https://`, so no `javascript:` links can be stored. Emails and phone numbers must be
+  well-formed. Text fields have length limits, such as 200 characters for a title and 20,000 for
+  a description.
+
+### Security model
+
+- **Row level security** is on for every table, and a test fails if a new table skips it.
+  Visitors can't write anything.
+- **Internal functions** in the `private` schema can only be called by the database itself,
+  except the small set of helpers the access rules need. A test fails if that list grows by
+  accident.
+- **Two functions run with the owner's rights on purpose:** `review_change` and
+  `respond_to_listing`. Each checks its caller (reviewers only, never your own submission; only
+  your own listing). The Supabase Security Advisor flags them as warnings, which is expected.
+- **The carousel function** accepts browser calls only from `CAROUSEL_ALLOWED_ORIGINS`, checks the
+  cron secret in constant time, and never returns database error details.
 
 ### How a submission works (guide 2.4)
 
@@ -84,6 +101,10 @@ it with `review_change`, which applies it. The table of submission types is at t
 
 Approved projects are published and credited to the submitter. Other students they listed must
 confirm with `respond_to_listing` before their names appear (FR-3.7).
+
+A submission waiting for review can't be edited, so a reviewer always approves exactly what they
+saw. To change it, withdraw it and submit again, or wait until a reviewer sends it back, then edit
+and resubmit. Each student can have at most 20 submissions open, and each is limited to 64 KB.
 
 ### The carousel (guide section 4)
 
@@ -286,7 +307,10 @@ affected.
    ```bash
    npx supabase functions deploy carousel
    npx supabase secrets set CAROUSEL_CRON_SECRET=<long random value>
+   npx supabase secrets set CAROUSEL_ALLOWED_ORIGINS=https://<site>,https://*.csc-dept-website.pages.dev
    ```
+
+   On dev, also allow `http://localhost:5173` so the admin panel works from a laptop.
 
    Then in the SQL editor, with the same secret:
 
@@ -384,6 +408,8 @@ await supabase.functions.invoke("carousel", { body: { action: "reshuffle" } });
 | Pending uploads are readable by URL before approval; move them to a private bucket | Back End |
 | Guide clarifications: thumbnail field vs first gallery image; whether Internships and Alumni Stories are project categories; pinned cap (target size or 7); who confirms a removal (assumed: the reviewer who approves it) | Requirements team |
 | Replace the placeholder carousel pick | Algorithms team |
+| Sign-in settings on production: minimum password 8 with letters and digits; Cloudflare Turnstile on sign-up; two-factor sign-in required for reviewers and admins once the admin panel supports enrolling | Back End + Front End |
+| Account email changes skip the university-domain rule (it runs only at sign-up). Block them, or decide graduates may switch to a personal address | Team |
 
 ## 6. Free plan limits
 
