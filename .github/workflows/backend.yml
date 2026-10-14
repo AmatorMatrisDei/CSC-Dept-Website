@@ -1,0 +1,42 @@
+name: Backend
+
+# Runs the database and API tests against a throwaway local Supabase on every pull request.
+# Deploying migrations to the hosted project is done by Supabase's GitHub integration on merge
+# to main, not by this workflow.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    name: Database and API tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Start local Supabase
+        run: npx supabase start -x realtime,studio,edge-runtime,logflare,vector,imgproxy,supavisor,mailpit
+
+      - name: Lint and test the database
+        run: npm run db:test
+
+      - name: Test Auth, Data API and Storage together
+        run: npm run test:api
+
+      - name: Check the generated types are committed
+        run: |
+          npm run db:types
+          if ! git diff --quiet src/lib/database.types.ts; then
+            echo "::error::src/lib/database.types.ts is out of date. Run 'npm run db:types' and commit it."
+            exit 1
+          fi
