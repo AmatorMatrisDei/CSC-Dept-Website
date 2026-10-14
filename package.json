@@ -16,7 +16,9 @@
     "db:reset": "supabase db reset",
     "db:test": "supabase db lint --local -s public,private --fail-on error && supabase test db",
     "db:types": "supabase gen types typescript --local --schema public > src/lib/database.types.ts",
-    "test:api": "node --test supabase/tests/api/api.test.mjs"
+    "test:api": "node --test supabase/tests/api/api.test.mjs",
+    "functions:serve": "supabase functions serve --env-file supabase/functions/.env",
+    "test:carousel": "node --experimental-strip-types --test supabase/functions/_shared/carousel-pick.test.ts"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.20.11",

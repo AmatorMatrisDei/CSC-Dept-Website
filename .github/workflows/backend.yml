@@ -33,6 +33,9 @@ jobs:
       - name: Test Auth, Data API and Storage together
         run: npm run test:api
 
+      - name: Test the carousel pick's contract
+        run: npm run test:carousel
+
       - name: Check the generated types are committed
         run: |
           npm run db:types

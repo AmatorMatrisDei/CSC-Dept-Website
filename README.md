@@ -1,9 +1,29 @@
 # CSC-BUS-Dept-Website
-A landing page for the Department of Engineering and Computing.
+The website for Franciscan University's Department of Computing and Engineering: a place to
+showcase student, capstone and class projects, and for students and faculty to keep profiles.
 
-Built with [Next.js](https://nextjs.org) (React) as the frontend for a headless [Drupal](https://www.drupal.org) CMS,
-hosted on [Cloudflare Workers](https://developers.cloudflare.com/workers/) via [OpenNext](https://opennext.js.org/cloudflare),
-with PostgreSQL on [Supabase](https://supabase.com) (planned move to Azure).
+Built with [React](https://react.dev) and [Vite](https://vite.dev), hosted on
+[Cloudflare Pages](https://developers.cloudflare.com/pages/), with [Supabase](https://supabase.com) as the
+backend (Postgres database, logins, photo storage, and the carousel function).
+
+## Status
+
+As of October 14, 2026. Requirement IDs (FR-…) refer to the Requirements and Team Guide v1.4.
+
+| Area | Status |
+| --- | --- |
+| Backend schema | **Drafted, in review.** Follows the Requirements and Team Guide v1.4: students, faculty, projects, members and advisors, consent, a review queue for every student submission, an audit log, and the carousel tables. Visitors only see published projects and students who opted in. See [docs/backend-setup.md](docs/backend-setup.md) |
+| Backend tests and CI | **Done.** 97 database tests, 5 end-to-end API tests and 6 carousel tests, run on every pull request |
+| Carousel | **Runner done; pick pending.** An hourly job calls the `carousel` Edge Function, which saves the day's pick, and admins can re-shuffle. The pick itself is a placeholder until the Algorithms team delivers theirs |
+| Hosted databases | **Set up.** Production ("Franciscan Site") and dev ("Franciscan Site Dev") have the first version of the schema, and both refuse sign-ups from non-university addresses. Dev skips email confirmation so the team can sign up. The new schema goes to both after review |
+| Automatic database deploys | **Not working yet.** Supabase's GitHub integration points at a fork and needs to point at this repository. Until then, deploy by hand ([docs/backend-setup.md](docs/backend-setup.md#32-deploying-by-hand)) |
+| Email (sign-up confirmation, review notifications) | **Open**, to settle with ITS: Microsoft sign-in or university SMTP |
+| Frontend | **Moving to React + Vite** (decided October 14). The code in `src/` is still the earlier Next.js scaffold |
+| Hosting | **Not live.** The Cloudflare Pages project returns 404 because the Next.js scaffold is built to run as a Worker. A Vite build (`npm run build`, output `dist`) is what Pages serves |
+
+The sections below on Drupal, Next.js, OpenNext, Workers and Hyperdrive describe that earlier
+scaffold, as do `src/lib/drupal.ts` and `wrangler`/OpenNext settings. They go away as the frontend
+team builds the Vite site.
 
 ## Getting started
 
@@ -104,6 +124,7 @@ from git. Requires Docker Desktop.
 npm run db:start    # local Supabase with test accounts and sample projects
 npm run db:test     # database tests
 npm run test:api    # end-to-end tests
+npm run test:carousel   # the carousel pick's rules
 ```
 
 - [docs/backend-setup.md](docs/backend-setup.md): local harness, changing the schema, hosted project setup

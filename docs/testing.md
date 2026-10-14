@@ -2,10 +2,11 @@
 
 | Layer | Command | Checks |
 | --- | --- | --- |
-| Database | `npm run db:test` | Schema lint, plus the access rules and triggers, user by user |
-| API | `npm run test:api` | Sign-up, login, the Data API and photo uploads working together |
-| Frontend | `npm run lint`, `npm run build`, `npm run preview` | The Next.js app builds and runs in the Workers runtime |
-| CI | automatic | The database and API tests on every pull request and push to `main` |
+| Database | `npm run db:test` | Schema lint, plus the access rules, review queue and carousel storage, user by user |
+| API | `npm run test:api` | Sign-up, submissions, review and photo uploads, through the real API |
+| Carousel pick | `npm run test:carousel` | The rules every version of the Algorithms team's pick must keep |
+| Frontend | the frontend team's own checks | The site builds and runs |
+| CI | automatic | The three suites above on every pull request and push to `main` |
 | People | preview links | Faculty and teammates trying real flows before release |
 
 The database and API tests need the local stack running (`npm run db:start`, see
@@ -18,14 +19,16 @@ a transaction that is rolled back, so tests never leave data behind and don't de
 
 | File | Covers |
 | --- | --- |
-| `01_schema.test.sql` | Every table has row level security; visitors can't write anything; the sign-up hook can't be called through the API |
-| `02_profiles.test.sql` | Private and public profiles, editing your own, role changes |
-| `03_projects.test.sql` | Drafts, review, publishing, featuring, editing and deleting |
-| `04_team_photos_posts.test.sql` | Team members, photos and alt text, news posts |
+| `01_schema.test.sql` | Every table has row level security; visitors can't write anything; views respect the caller's access; private functions can't be called through the API |
+| `02_profiles_and_consent.test.sql` | Listed and unlisted students, consent-gated fields, append-only consent, roles |
+| `03_projects.test.sql` | What visitors, team members and other students see; admin-only writes; confirming a listing; priority limits |
+| `04_review_queue.test.sql` | Submitting, validation, approving, rejecting, sending back, project submissions with teammates and photos, removal requests, the audit log |
 | `05_auth_and_storage.test.sql` | Allowed email domains, new-account profiles, upload folders |
+| `06_carousel.test.sql` | Eastern-time days, candidates and the empty-pool fallback, saving picks, re-shuffle counting, what visitors see on cards |
 
-`_helpers.psql` creates five test users and two test projects (listed at the top of that file)
-and the functions for acting as them. A new test looks like this:
+`_helpers.psql` creates five test users (admin, reviewer, a listed student, an unlisted student,
+and a listed student on no project), a faculty member, and two test projects; the comment at the
+top of that file lists their ids. A new test looks like this:
 
 ```sql
 begin;
@@ -33,7 +36,7 @@ begin;
 select pg_temp.create_test_projects();
 select plan(1);
 
--- Act as test.outsider, a student on no projects
+-- Act as test.outsider, a listed student not on test-draft
 select pg_temp.login_as('a0000000-0000-4000-8000-000000000005');
 
 select is_empty(
@@ -47,63 +50,75 @@ rollback;
 
 - `select plan(n)` must match the number of checks in the file.
 - Run `reset role;` before switching users with `pg_temp.login_as(...)` or `pg_temp.login_anon()`.
-- A blocked change surfaces in one of three ways, so test for the right one:
+- A blocked action surfaces in one of four ways, so test for the right one:
   - a row the user can't see or change is silently skipped: use `is_empty`
-  - a row that breaks a rule on insert fails with `42501`: use `throws_ok`
-  - a value that breaks a column rule fails with `23514`: use `throws_ok`
+  - an insert that breaks an access rule fails with `42501`: use `throws_ok`
+  - a value that breaks a column rule, or a missing consent, fails with `23514`: use `throws_ok`
+  - a malformed submission fails with `22023`: use `throws_ok`
 
-Run one file with `npx supabase test db supabase/tests/database/03_projects.test.sql`.
+Run one file with `npx supabase test db supabase/tests/database/04_review_queue.test.sql`.
 
 ## API tests
 
 `supabase/tests/api/api.test.mjs`, using Node's built-in test runner. They call the local stack
 over HTTP the way the website will. Each run creates its own accounts and deletes them afterwards:
 
-- Gmail sign-ups are rejected and university ones accepted
-- a new account's profile is private
-- students edit their profile but cannot promote themselves
-- a student's draft stays hidden until a faculty member publishes it
-- uploads only land in folders the user manages, and only images are accepted
+- Gmail sign-ups are rejected
+- a new account's profile is unlisted
+- direct profile edits don't reach the live profile; a submitted change does once a reviewer
+  approves it, and students can't approve their own
+- a submitted project with a photo goes live only after review
+- uploads only land in the user's own folders, and only images are accepted
 
 If these fail but the database tests pass, check that the stack was restarted after the last
 `config.toml` change: `npm run db:stop && npm run db:start`.
 
+## Carousel pick tests
+
+`supabase/functions/_shared/carousel-pick.test.ts` holds the rules any pick must keep: 5 to 7
+projects from a full pool, only candidates and no repeats, pinned projects included, the same seed
+giving the same pick, small and empty pools. The Algorithms team adds the edge-case and
+statistical tests from guide 4.3 next to them.
+
+To try the whole carousel locally, run `npm run functions:serve` in another terminal, then call
+`select private.request_carousel_refresh();` in Studio's SQL editor. That is what the hourly job
+does.
+
 ## CI
 
 `.github/workflows/backend.yml` starts a fresh local Supabase on GitHub's runners and runs
-`db:test`, `test:api`, and a check that `src/lib/database.types.ts` was regenerated. It runs on
-every pull request, so it can be made a required check under Settings > Branches.
-
-Supabase's GitHub integration deploys migrations to the hosted project after the merge to `main`.
-CI is the only place a broken migration gets caught before that.
+`db:test`, `test:api` and `test:carousel`, plus a check that `src/lib/database.types.ts` was
+regenerated. It runs on every pull request, so it can be made a required check under
+Settings > Branches.
 
 ## Testing with people (preview links)
 
-Cloudflare builds a preview of each pull request, but **not for pull requests from forks**. To get
-a preview link for faculty, push the branch to the shared repository instead of a fork.
+Cloudflare builds a preview of each pull request, but **not for pull requests from forks**, so
+push branches to the shared repository to get a preview link.
 
-There is only one hosted Supabase project, so previews read and write the **production
-database**. When testing on a preview:
+Preview deployments should point at the **dev project** (Franciscan Site Dev), never production.
+On dev:
 
-- use accounts made for testing, and delete them afterwards
-- keep test projects as drafts, and give them titles that start with `TEST`
-- don't publish or feature anything you would not want donors to see
+- use accounts made for testing
+- give test projects titles that start with `TEST`
+- remember dev data is visible to the whole team
 
 A short script for faculty to follow on a preview:
 
 | As | Try | Expect |
 | --- | --- | --- |
-| Visitor | Browse projects and news | Only published items; private students' names absent |
+| Visitor | Browse projects and the student directory | Only published projects and listed students; unconfirmed teammates absent |
 | Visitor | Sign up with a non-university email | Refused |
-| Student | Sign up, fill in the profile, add a photo, turn on "public" | Profile appears on the site |
-| Student | Create a project, add teammates and photos, submit for review | Visible to the team, not to visitors |
-| Faculty | Publish that project; feature one for donors | Appears on the site and in the showcase |
-| Admin | Make a user faculty | They can publish |
+| Student | Agree to be listed, fill in a profile, ask to be added | Nothing public until a reviewer approves |
+| Student | Submit a project with teammates and photos | Live after approval; teammates appear once they confirm |
+| Reviewer | Approve one submission, send another back with a note | The approved one goes live; the other returns to the student |
+| Student | Ask to be removed | Hidden at once |
+| Admin | Pick the monthly pool, press Re-shuffle | The home page carousel changes |
 
 ## Before merging
 
-- [ ] `npm run db:test` and `npm run test:api` pass locally
+- [ ] `npm run db:test`, `npm run test:api` and `npm run test:carousel` pass locally
 - [ ] New tables or rules have tests
 - [ ] `npm run db:types` was run and the types file is committed
-- [ ] No secrets in the diff (`sb_secret_...`, database passwords)
+- [ ] No secrets in the diff (`sb_secret_...`, database passwords, `functions/.env`)
 - [ ] CI is green

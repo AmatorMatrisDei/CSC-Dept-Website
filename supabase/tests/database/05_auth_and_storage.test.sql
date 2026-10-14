@@ -1,7 +1,8 @@
+-- Sign-up rules and upload folders (NFR-4, guide 6.3).
 begin;
 \ir _helpers.psql
 select pg_temp.create_test_projects();
-select plan(14);
+select plan(15);
 
 -- Sign-up hook
 
@@ -32,78 +33,83 @@ select is(
 -- Sign-up trigger
 
 insert into auth.users (id, email, aud, role, raw_user_meta_data) values
-  ('c0000000-0000-4000-8000-000000000001', 'jordan@franciscan.edu', 'authenticated', 'authenticated',
+  ('d0000000-0000-4000-8000-000000000001', 'jordan@franciscan.edu', 'authenticated', 'authenticated',
    '{"full_name": "Jordan Example"}'),
-  ('c0000000-0000-4000-8000-000000000002', 'casey@franciscan.edu', 'authenticated', 'authenticated',
+  ('d0000000-0000-4000-8000-000000000002', 'casey@franciscan.edu', 'authenticated', 'authenticated',
    '{"name": "Casey Microsoft"}');
 
 select results_eq(
-  $$ select full_name from public.profiles
-     where id in ('c0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000002')
-     order by full_name $$,
+  $$ select name from public.profiles
+     where id in ('d0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000002')
+     order by name $$,
   $$ values ('Casey Microsoft'), ('Jordan Example') $$,
   'profiles take the name from the sign-up form or the identity provider'
 );
 
--- Storage folders. Uploads themselves are covered by the API tests.
+-- Upload folders. Uploads themselves are covered by the API tests.
 
 select pg_temp.login_anon();
 
 select ok(
-  not private.can_manage_media('avatars/a0000000-0000-4000-8000-000000000003/me.jpg'),
+  not private.can_manage_media('submissions/a0000000-0000-4000-8000-000000000003/photo.jpg'),
   'visitors cannot upload'
 );
 
--- test.student: created test-draft
 reset role;
 select pg_temp.login_as('a0000000-0000-4000-8000-000000000003');
 
 select ok(
   private.can_manage_media('avatars/a0000000-0000-4000-8000-000000000003/me.jpg'),
-  'users manage their own avatars folder'
+  'students upload to their own avatars folder'
 );
 
 select ok(
-  not private.can_manage_media('avatars/a0000000-0000-4000-8000-000000000004/me.jpg'),
-  'users cannot touch someone else''s avatars'
+  private.can_manage_media('submissions/a0000000-0000-4000-8000-000000000003/photo.jpg'),
+  'students upload to their own submissions folder'
 );
 
 select ok(
-  private.can_manage_media('projects/b0000000-0000-4000-8000-000000000002/photo.jpg'),
-  'project editors manage the project''s folder'
+  not private.can_manage_media('avatars/a0000000-0000-4000-8000-000000000004/me.jpg')
+    and not private.can_manage_media('submissions/a0000000-0000-4000-8000-000000000004/photo.jpg'),
+  'students cannot touch someone else''s folders'
 );
 
 select ok(
-  not private.can_manage_media('projects/not-a-uuid/photo.jpg'),
-  'malformed project folders are refused without an error'
+  not private.can_manage_media('projects/b0000000-0000-4000-8000-000000000001/photo.jpg'),
+  'students cannot write to project folders, even on their own project; they submit photos for review'
 );
 
 select ok(
-  not private.can_manage_media('posts/b0000000-0000-4000-8000-000000000009/cover.jpg'),
-  'students cannot upload news images'
+  not private.can_manage_media('submissions/not-a-user/photo.jpg') and not private.can_manage_media('photo.jpg'),
+  'malformed paths are refused without an error'
 );
 
-select ok(
-  not private.can_manage_media('elsewhere/photo.jpg'),
-  'files outside the known folders are refused'
-);
-
--- test.outsider
-reset role;
-select pg_temp.login_as('a0000000-0000-4000-8000-000000000005');
-
-select ok(
-  not private.can_manage_media('projects/b0000000-0000-4000-8000-000000000002/photo.jpg'),
-  'other students cannot upload to a project'
-);
-
--- Faculty
 reset role;
 select pg_temp.login_as('a0000000-0000-4000-8000-000000000002');
 
 select ok(
-  private.can_manage_media('posts/b0000000-0000-4000-8000-000000000009/cover.jpg'),
-  'faculty upload news images'
+  not private.can_manage_media('projects/b0000000-0000-4000-8000-000000000001/photo.jpg'),
+  'reviewers do not write project photos directly either'
+);
+
+reset role;
+select pg_temp.login_as('a0000000-0000-4000-8000-000000000001');
+
+select ok(
+  private.can_manage_media('projects/b0000000-0000-4000-8000-000000000001/photo.jpg'),
+  'admins write project photos'
+);
+
+select ok(
+  private.can_manage_media('posts/e0000000-0000-4000-8000-000000000001/cover.jpg')
+    and private.can_manage_media('faculty/c0000000-0000-4000-8000-000000000001/portrait.jpg')
+    and private.can_manage_media('alumni/e0000000-0000-4000-8000-000000000002/portrait.jpg'),
+  'admins write news, faculty and alumni photos'
+);
+
+select ok(
+  not private.can_manage_media('elsewhere/photo.jpg'),
+  'files outside the known folders are refused, even for admins'
 );
 
 select * from finish();
