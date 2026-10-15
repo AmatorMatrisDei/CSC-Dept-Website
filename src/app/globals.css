@@ -1,26 +1,110 @@
 @import "tailwindcss";
 
+/* Color tokens. Each is light-dark(light value, dark value), so one block per palette covers
+   both modes. Mode follows the system unless <html data-theme> says "light" or "dark".
+   Default is the "cloister" palette; the others are for comparing only and are switched by
+   data-palette on <html> (see PaletteSwitcher). Once one is chosen, keep its values in :root
+   and delete the rest. Brand colors from Franciscan's web style guide: green #21412a,
+   gold #998643, yellow #fbb555, greys #333333 / #52535a / #e8e8e8.
+
+   Each palette also has a page background pattern (--bg-image / --bg-size) drawn on top of
+   --background. Cards use --surface, which is solid, so text never sits on the pattern. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light dark;
+  --background: light-dark(#e6e9e4, #0e100f);
+  --foreground: light-dark(#1a1f1c, #ececea);
+  --surface: light-dark(#f8f9f7, #181b19);
+  --muted: light-dark(#4b4d54, #a8aba9);
+  --border: light-dark(#cbd0c8, #2a2e2b);
+  --accent: light-dark(#21412a, #d4b95e);
+  --accent-foreground: light-dark(#ffffff, #14200f);
+  --highlight: light-dark(#998643, #d4b95e);
+  --header: light-dark(#ffffff, #141614);
+  --header-foreground: light-dark(#21412a, #f2f2ee);
+  /* Classic: a faint blueprint grid. */
+  --grid: color-mix(in srgb, var(--accent) 10%, transparent);
+  --bg-image: linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  --bg-size: 32px 32px;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+/* Charcoal header, grey page with a gold glow at the top and a dot grid. */
+:root[data-palette="steel"] {
+  --background: light-dark(#e4e5e4, #121414);
+  --foreground: light-dark(#1d1f21, #e8ecec);
+  --surface: light-dark(#f6f6f5, #1d2121);
+  --muted: light-dark(#4b4d54, #a6aeae);
+  --border: light-dark(#c9cbca, #2f3535);
+  --accent: light-dark(#21412a, #7fb08a);
+  --accent-foreground: light-dark(#ffffff, #0c1a10);
+  --highlight: #fbb555;
+  --header: light-dark(#333333, #262828);
+  --header-foreground: #ffffff;
+  --grid: color-mix(in srgb, var(--foreground) 14%, transparent);
+  --bg-image: radial-gradient(ellipse 70% 380px at 50% 0, color-mix(in srgb, var(--highlight) 30%, transparent), transparent),
+    radial-gradient(circle, var(--grid) 1.2px, transparent 1.6px);
+  --bg-size: 100% 100%, 24px 24px;
+}
+
+/* Near-black header, green wash across the corner and fine diagonal hatching. */
+:root[data-palette="ink"] {
+  --background: light-dark(#e3e6e1, #0b0c0c);
+  --foreground: light-dark(#111111, #f0f0f0);
+  --surface: light-dark(#f7f7f5, #161617);
+  --muted: light-dark(#4d4f52, #a9abae);
+  --border: light-dark(#c8ccc4, #2a2a2c);
+  --accent: light-dark(#6e5f2c, #d4b95e);
+  --accent-foreground: light-dark(#ffffff, #1a1500);
+  --highlight: light-dark(#c9a227, #d4b95e);
+  --header: light-dark(#1a1a1a, #000000);
+  --header-foreground: #ffffff;
+  --grid: color-mix(in srgb, var(--foreground) 7%, transparent);
+  --bg-image: linear-gradient(135deg, color-mix(in srgb, #21412a 28%, transparent), transparent 55%),
+    repeating-linear-gradient(45deg, var(--grid) 0 1px, transparent 1px 14px);
+  --bg-size: 100% 100%, auto;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-highlight: var(--highlight);
+  --color-header: var(--header);
+  --color-header-foreground: var(--header-foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background-color: var(--background);
+  background-image: var(--bg-image);
+  background-size: var(--bg-size);
+  color: var(--foreground);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+:focus-visible {
+  outline: 2px solid var(--highlight);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
