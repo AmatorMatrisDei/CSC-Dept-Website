@@ -78,6 +78,7 @@ over HTTP the way the website will. Each run creates its own accounts and delete
 - uploads only land in the user's own folders, and only images are accepted
 - a photo can't be replaced or deleted while a submission or live page uses it, and can once the
   submission is withdrawn
+- an account can be deleted (its profile goes with it), which the admin-edit audit once broke
 
 If these fail but the database tests pass, check that the stack was restarted after the last
 `config.toml` change: `npm run db:stop && npm run db:start`.
