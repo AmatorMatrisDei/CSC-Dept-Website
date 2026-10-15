@@ -270,7 +270,9 @@ Migrations lists the applied versions). If it didn't, deploy by hand as in 3.2.
 
 ### 3.2 Deploying by hand
 
-For the dev project, and for production if the integration's deploy didn't arrive.
+Only to recover when the integration's deploy didn't arrive. Don't push an unmerged branch's
+migrations to dev: the integration then stops deploying to dev until that branch is merged (see
+"How changes go live" in the README).
 
 ```bash
 npx supabase login                              # opens a browser; run it in your own terminal

@@ -22,7 +22,7 @@ As of October 15, 2026.
 | Student accounts and review | **Built.** Students sign in with their university email, choose what they share, and submit their profile, projects (team, advisors, partners, photos) and internships. Reviewers approve, return with a note, or reject at `/review`, seeing what's on the site beside what's proposed. Works on the developer site; production sign-up waits on email delivery (below) |
 | Admin editing | **Built.** Admins turn on Edit mode in the header to change page wording and project, student and faculty details right on the page, and set people's roles on the People page (under My account) |
 | Backend | **Done.** Students, faculty, projects, members and advisors, consent, a review queue for every student submission, an audit log, the carousel, the student directory and URL slugs. Visitors only see published projects and students who opted in. Hardened after a security review. See [docs/backend-setup.md](docs/backend-setup.md) |
-| Tests and CI | **Backend:** 146 database tests, 6 API tests and 6 carousel tests on every pull request. **Site:** a 16-step browser test of the student forms and review queue (`npm run test:e2e`), run by hand for now; lint and build only run in Cloudflare's build |
+| Tests and CI | **Backend:** 175 database tests, 6 API tests and 6 carousel tests on every pull request. **Site:** a 16-step browser test of the student forms and review queue (`npm run test:e2e`), run by hand for now; lint and build only run in Cloudflare's build |
 | Hosted databases | **Both current.** Production ("Franciscan Site") is empty. Dev ("Franciscan Site Dev") has sample content and skips email confirmation so the team can sign up. Both refuse sign-ups from non-university addresses |
 | Carousel | **Runner done; pick pending.** An hourly job picks the day's projects and admins can re-shuffle. The pick is a placeholder until the Algorithms team delivers theirs |
 | Still to build | Adding faculty and partners, news, alumni stories and the monthly carousel pool (FR-6). Email notifications to students when a submission is reviewed (FR-3.6) |
@@ -101,9 +101,11 @@ Every change takes the same path: **feature branch → `staging` → `main`**.
 
 Don't merge feature branches straight into `main`, and don't push to `staging` or `main` directly.
 
-A pull request's preview uses the dev database as `staging` left it. If the branch adds a
-migration, its preview only works once that migration is on dev: after the merge into `staging`,
-or pushed to dev by hand first ([docs/backend-setup.md](docs/backend-setup.md#32-deploying-by-hand)).
+A pull request's preview uses the dev database as `staging` left it, so a branch that changes the
+database can only be tried fully after it merges into `staging`; test it locally before that
+(`npm run db:start`). **Don't push a branch's migrations to dev by hand.** Supabase then finds a
+migration on dev that `staging` doesn't have, and refuses every later deploy to dev ("Remote
+migration versions not found in local migrations directory") until that branch is merged.
 
 ### Deployment settings
 
