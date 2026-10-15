@@ -87,8 +87,8 @@ Who can do what:
   accident. New functions are private by default, so a new RPC for the site needs an explicit
   `grant execute`.
 - **Two functions run with the owner's rights on purpose:** `review_change` and
-  `respond_to_listing`. Each checks its caller (reviewers only, never your own submission; only
-  your own listing). The Supabase Security Advisor flags them as warnings, which is expected.
+  `respond_to_listing`. Each checks its caller (reviewers and admins only, including for their own
+  submissions, which the audit log marks as self-reviews; only your own listing). The Supabase Security Advisor flags them as warnings, which is expected.
 - **The carousel function** accepts browser calls only from `CAROUSEL_ALLOWED_ORIGINS`, checks the
   cron secret in constant time, and never returns database error details.
 

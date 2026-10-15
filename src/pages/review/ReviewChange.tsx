@@ -267,13 +267,12 @@ function Review({ detail }: { detail: ReviewDetail }) {
           {detail.reviewed_at && ` on ${formatDate(detail.reviewed_at)}`}.
           {detail.reason && ` Note: ${detail.reason}`}
         </Notice>
-      ) : own ? (
-        <Notice>This is your own submission, so another reviewer needs to decide on it.</Notice>
       ) : (
         <section aria-labelledby="decision" className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 sm:p-6">
           <h2 id="decision" className="text-xl font-semibold">
             Decision
           </h2>
+          {own && <p className="text-sm text-muted">This is your own submission. Your decision is marked as a self-review in the audit log.</p>}
           <TextArea
             label="Note to the student"
             value={note}
