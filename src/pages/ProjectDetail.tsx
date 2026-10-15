@@ -1,16 +1,30 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router";
 import Cover from "@/components/Cover";
+import Editable from "@/components/Editable";
 import { StatusBadge } from "@/components/ProjectCard";
-import { getProject } from "@/lib/content";
+import { useEdit } from "@/lib/edit";
+import { getProject, saveProject } from "@/lib/content";
 import { formatDate, paragraphs } from "@/lib/format";
 import { useAsync, useTitle } from "@/lib/hooks";
 import { CATEGORY_LABELS } from "@/lib/types";
 import NotFound from "@/pages/NotFound";
 
+// `version` only changes after a staff save, so the page then loads the fresh copy.
+const loadProject = (slug: string, version: number) => (version < 0 ? Promise.resolve(null) : getProject(slug));
+
 export default function ProjectDetail() {
   const { slug = "" } = useParams();
-  const project = useAsync(getProject, slug);
+  const { editing } = useEdit();
+  const [version, setVersion] = useState(0);
+  const project = useAsync(loadProject, slug, version);
   useTitle(project?.title ?? "Project");
+
+  async function save(patch: Parameters<typeof saveProject>[1]) {
+    const error = await saveProject(slug, patch);
+    if (!error) setVersion((v) => v + 1);
+    return error;
+  }
 
   if (project === undefined) return <p className="text-muted">Loading…</p>;
   if (project === null) return <NotFound what="project" />;
@@ -31,8 +45,8 @@ export default function ProjectDetail() {
           <span aria-hidden="true">·</span>
           <span>{CATEGORY_LABELS[project.category]}</span>
         </div>
-        <h1 className="text-3xl font-semibold sm:text-4xl">{project.title}</h1>
-        <p className="text-muted">{project.summary}</p>
+        <Editable as="h1" label="title" value={project.title} maxLength={200} onSave={(title) => save({ title })} className="text-3xl font-semibold sm:text-4xl" />
+        <Editable as="p" label="summary" value={project.summary} multiline maxLength={500} onSave={(summary) => save({ summary })} className="text-muted" />
         {project.open_to_contributors && (
           <p className="w-fit rounded border border-border px-3 py-1 text-sm">Open to contributors</p>
         )}
@@ -55,9 +69,11 @@ export default function ProjectDetail() {
       <div className="grid gap-8 md:grid-cols-[2fr_1fr]">
         <div className="flex flex-col gap-4">
           <h2 className="text-xl font-semibold">About this project</h2>
-          {paragraphs(project.description).map((text, i) => (
-            <p key={i}>{text}</p>
-          ))}
+          <Editable as="div" label="description" value={project.description} multiline maxLength={20000} onSave={(description) => save({ description })} className="flex flex-col gap-4">
+            {paragraphs(project.description).map((text, i) => (
+              <p key={i}>{text}</p>
+            ))}
+          </Editable>
         </div>
 
         <aside className="flex flex-col gap-6" aria-label="Project details">
@@ -109,15 +125,20 @@ export default function ProjectDetail() {
             </section>
           )}
 
-          {(project.contact_email || project.contact_phone || project.links.length > 0) && (
+          {(editing || project.contact_email || project.contact_phone || project.links.length > 0) && (
             <section>
               <h2 className="text-lg font-semibold">Contact and links</h2>
               <ul>
-                {project.contact_email && (
+                {(project.contact_email || editing) && (
                   <li>
-                    <a href={`mailto:${project.contact_email}`} className="inline-flex min-h-11 items-center underline">
-                      {project.contact_email}
-                    </a>
+                    <Editable
+                      as="span"
+                      label="contact email"
+                      value={project.contact_email ?? ""}
+                      maxLength={200}
+                      onSave={(v) => save({ primary_contact_email: v.trim() || null })}
+                      className="inline-flex min-h-11 items-center underline"
+                    />
                   </li>
                 )}
                 {project.contact_phone && <li className="min-h-11 py-2">{project.contact_phone}</li>}

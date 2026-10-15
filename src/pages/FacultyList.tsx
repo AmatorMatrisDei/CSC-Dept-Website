@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import Reveal from "@/components/Reveal";
+import SiteText from "@/components/SiteText";
 import Portrait from "@/components/Portrait";
 import { getAllFaculty } from "@/lib/content";
 import { useAsync, useTitle } from "@/lib/hooks";
@@ -10,7 +11,7 @@ export default function FacultyList() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-3xl font-semibold">Faculty</h1>
+      <SiteText id="faculty.title" as="h1" fallback="Faculty" className="text-3xl font-semibold" />
       {!faculty ? (
         <p className="text-muted">Loading…</p>
       ) : (
