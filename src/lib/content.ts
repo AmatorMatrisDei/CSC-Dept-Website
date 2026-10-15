@@ -11,9 +11,10 @@ import type {
   SubDepartment,
 } from "./types";
 
-// The only file the pages read data from. It reads the public (published, opted-in) rows from
-// Supabase. People come from the listed_students view, never from profiles, so unlisted students
-// never show even to a signed-in reviewer.
+// The only file the public pages read data from; the signed-in pages use account.ts and
+// review.ts. It reads the public (published, opted-in) rows from Supabase. People come from the
+// listed_students view, never from profiles, so unlisted students never show even to a signed-in
+// reviewer.
 
 type FacultyRow = { slug: string; name: string; title: string; email: string | null; photo_path: string | null };
 type ProfileRow = {
@@ -182,6 +183,11 @@ export function getProjects(): Promise<ProjectView[]> {
     throw e;
   });
   return projectsRequest;
+}
+
+// After a reviewer approves a change, the next page reads fresh data instead of this page load's copy.
+export function forgetCachedContent() {
+  projectsRequest = null;
 }
 
 export async function getProject(slug: string): Promise<ProjectView | null> {

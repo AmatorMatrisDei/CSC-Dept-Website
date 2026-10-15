@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { friendlyError } from "./account";
 
 // Runs an async loader (a function from content.ts) and returns its result, or undefined while
 // it loads. Pass the loader and its arguments; it reloads when the arguments change.
@@ -30,4 +31,22 @@ export function useTitle(title: string | undefined) {
   useEffect(() => {
     document.title = title ? `${title} | Engineering & Computing` : "Engineering & Computing";
   }, [title]);
+}
+
+// Runs a form action, tracking whether it is busy and turning failures into a readable message.
+export function useAction() {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function run(action: () => Promise<void>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+    } catch (e) {
+      setError(friendlyError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return { busy, error, run, setError };
 }

@@ -4,12 +4,21 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import SiteFooter from "@/components/SiteFooter";
 import SiteHeader from "@/components/SiteHeader";
 import About from "@/pages/About";
+import AccountLayout from "@/pages/account/AccountLayout";
+import Dashboard from "@/pages/account/Dashboard";
+import InternshipForm from "@/pages/account/InternshipForm";
+import Password from "@/pages/account/Password";
+import ProfileForm from "@/pages/account/ProfileForm";
+import ProjectForm from "@/pages/account/ProjectForm";
+import SignIn from "@/pages/account/SignIn";
 import FacultyList from "@/pages/FacultyList";
 import FacultyMember from "@/pages/FacultyMember";
 import Home from "@/pages/Home";
 import NotFound from "@/pages/NotFound";
 import ProjectDetail from "@/pages/ProjectDetail";
 import Projects from "@/pages/Projects";
+import ReviewChange from "@/pages/review/ReviewChange";
+import ReviewQueue from "@/pages/review/ReviewQueue";
 import StudentPage from "@/pages/StudentPage";
 import StudentRequest from "@/pages/StudentRequest";
 import Students from "@/pages/Students";
@@ -52,6 +61,20 @@ export default function App() {
         <Route path="students/request" element={<StudentRequest />} />
         <Route path="students/:slug" element={<StudentPage />} />
         <Route path="about" element={<About />} />
+        <Route path="account/sign-in" element={<SignIn />} />
+        <Route path="account/password" element={<Password />} />
+        <Route path="account" element={<AccountLayout />}>
+          <Route index element={<Dashboard />} />
+          <Route path="profile" element={<ProfileForm />} />
+          <Route path="projects/new" element={<ProjectForm />} />
+          <Route path="projects/:id" element={<ProjectForm />} />
+          <Route path="internships/new" element={<InternshipForm />} />
+          <Route path="internships/:id" element={<InternshipForm />} />
+        </Route>
+        <Route path="review" element={<AccountLayout reviewer />}>
+          <Route index element={<ReviewQueue />} />
+          <Route path=":id" element={<ReviewChange />} />
+        </Route>
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

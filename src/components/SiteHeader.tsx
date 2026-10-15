@@ -1,6 +1,8 @@
 import { Link } from "react-router";
 import SiteNav, { type NavMenu } from "@/components/SiteNav";
 import ThemeToggle from "@/components/ThemeToggle";
+import { getMyRole } from "@/lib/account";
+import { useSession } from "@/lib/auth";
 import { getAllFaculty, getProjects, getStudents, getSubDepartments } from "@/lib/content";
 import { projectYears } from "@/lib/format";
 import { useAsync } from "@/lib/hooks";
@@ -75,9 +77,42 @@ export default function SiteHeader() {
         </Link>
         <div className="flex flex-wrap items-center gap-x-2">
           <SiteNav menus={menus} />
+          <AccountLinks />
           <ThemeToggle />
         </div>
       </div>
     </header>
+  );
+}
+
+const accountLinkClass = "inline-flex min-h-11 items-center rounded px-3 text-sm hover:bg-current/10";
+
+// Sign in, or the signed-in person's account (and the review queue for reviewers).
+function AccountLinks() {
+  const session = useSession();
+  if (session === undefined) return null;
+  if (!session) {
+    return (
+      <Link to="/account/sign-in" className={accountLinkClass}>
+        Sign in
+      </Link>
+    );
+  }
+  return <SignedInLinks userId={session.user.id} />;
+}
+
+function SignedInLinks({ userId }: { userId: string }) {
+  const me = useAsync(getMyRole, userId);
+  return (
+    <>
+      {me && me.role !== "student" && (
+        <Link to="/review" className={accountLinkClass}>
+          Review
+        </Link>
+      )}
+      <Link to="/account" className={accountLinkClass}>
+        My account
+      </Link>
+    </>
   );
 }
