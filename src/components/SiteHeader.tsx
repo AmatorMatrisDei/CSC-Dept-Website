@@ -15,6 +15,8 @@ export default function SiteHeader() {
   const departments = useAsync(getSubDepartments);
   const faculty = useAsync(getAllFaculty);
   const students = useAsync(getStudents);
+  const session = useSession();
+  const me = useAsync(roleOf, session?.user.id ?? "");
 
   const menus: NavMenu[] = [
     {
@@ -64,6 +66,14 @@ export default function SiteHeader() {
     },
   ];
 
+  // Reviewers and admins get a menu under My account: the review queue, and for admins, people.
+  const accountMenu = !!session && !!me && me.role !== "student";
+  if (accountMenu) {
+    const links = [{ label: "Review queue", href: "/review" }];
+    if (me.role === "admin") links.push({ label: "People and roles", href: "/people" });
+    menus.push({ label: "My account", href: "/account", allLabel: "My account", groups: [{ links }] });
+  }
+
   return (
     <header className="relative border-b-4 border-highlight bg-header text-header-foreground">
       <a
@@ -79,7 +89,7 @@ export default function SiteHeader() {
         <div className="flex flex-wrap items-center gap-x-2">
           <SiteNav menus={menus} />
           <EditToggle />
-          <AccountLinks />
+          <AccountLinks menu={accountMenu} />
           <ThemeToggle />
         </div>
       </div>
@@ -87,10 +97,12 @@ export default function SiteHeader() {
   );
 }
 
+const roleOf = async (userId: string) => (userId ? getMyRole(userId) : null);
+
 const accountLinkClass = "inline-flex min-h-11 items-center rounded px-3 text-sm hover:bg-current/10";
 
 // Sign in, or the signed-in person's account (and the review queue for reviewers).
-function AccountLinks() {
+function AccountLinks({ menu }: { menu: boolean }) {
   const session = useSession();
   if (session === undefined) return null;
   if (!session) {
@@ -100,21 +112,13 @@ function AccountLinks() {
       </Link>
     );
   }
-  return <SignedInLinks userId={session.user.id} />;
+  return menu ? null : <SignedInLinks />;
 }
 
-function SignedInLinks({ userId }: { userId: string }) {
-  const me = useAsync(getMyRole, userId);
+function SignedInLinks() {
   return (
-    <>
-      {me && me.role !== "student" && (
-        <Link to="/review" className={accountLinkClass}>
-          Review
-        </Link>
-      )}
-      <Link to="/account" className={accountLinkClass}>
-        My account
-      </Link>
-    </>
+    <Link to="/account" className={accountLinkClass}>
+      My account
+    </Link>
   );
 }
