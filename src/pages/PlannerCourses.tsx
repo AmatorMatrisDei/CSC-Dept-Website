@@ -5,12 +5,15 @@ import { getMyRole } from "@/lib/account";
 import { useSession } from "@/lib/auth";
 import { useAsync, useTitle } from "@/lib/hooks";
 import { deleteCourse, loadPlannerData, saveCourse } from "@/lib/planner/data";
-import type { Course } from "@/lib/planner/types";
+import type { Course, PrerequisiteGroup, Term } from "@/lib/planner/types";
 
 // Admin page: the planner's course catalog. Whatever is saved here is what the planner shows.
 
 const TERMS = ["fall", "spring", "summer"] as const;
-const blank: Course = { id: "", code: "", title: "", credits: 3, prerequisites: [], corequisites: [], offered: [], description: null };
+const blank: Course = {
+  id: "", code: "", title: "", credits: 3, credits_max: null, prerequisite_groups: [], corequisites: [], offered: [],
+  offered_years: {}, prerequisite_text: null, corequisite_text: null, offered_text: null, catalog_url: null, description: null,
+};
 const idFromCode = (code: string) => code.replace(/\s+/g, "").toUpperCase();
 
 // The version only makes useAsync read the catalog again after a save.
@@ -81,8 +84,10 @@ function Catalog({ isAdmin }: { isAdmin: boolean }) {
         {isAdmin && (
           <p className="max-w-2xl text-sm text-muted">
             Admins: use Add a course or Edit below. Tick Fall or Spring for courses taught in only one of them, and the planner will warn
-            a student who places the course in the wrong semester. Prerequisites and corequisites are course codes, such as CSC 120,
-            separated by commas.
+            a student who places the course in the wrong semester. Write prerequisites as groups: “MTH 220; CSC 144 or CSC 171” means
+            MTH 220, and one of CSC 144 or CSC 171. Keep the catalog's own wording too, for anything a course can't cover (junior
+            standing, instructor permission). Corequisites are course codes separated by commas. Every change is recorded in the
+            audit log.
           </p>
         )}
       </div>
@@ -119,7 +124,7 @@ function Catalog({ isAdmin }: { isAdmin: boolean }) {
             <div className="flex flex-wrap items-center gap-x-4">
               <span className="font-medium">{c.code}</span>
               <span className="min-w-0 flex-1 text-sm text-muted">
-                {c.title} · {c.credits} cr{c.offered.length ? ` · ${c.offered.join(", ")} only` : ""}
+                {c.title} · {creditsOf(c)} cr{c.offered_text ? ` · ${c.offered_text}` : c.offered.length ? ` · ${c.offered.join(", ")} only` : ""}
               </span>
               {isAdmin && (
                 <button type="button" onClick={() => { setNote(null); setEditing({ course: c, isNew: false }); window.scrollTo(0, 0); }} className="min-h-11 text-sm underline">
@@ -128,8 +133,17 @@ function Catalog({ isAdmin }: { isAdmin: boolean }) {
               )}
             </div>
             {c.description && <p className="text-sm">{c.description}</p>}
-            {c.prerequisites.length > 0 && <p className="text-sm text-muted">Prerequisites: {codesOf(c.prerequisites, data.courses)}</p>}
-            {c.corequisites.length > 0 && <p className="text-sm text-muted">Corequisites: {codesOf(c.corequisites, data.courses)}</p>}
+            {(c.prerequisite_text || c.prerequisite_groups.length > 0) && (
+              <p className="text-sm text-muted">Prerequisites: {c.prerequisite_text ?? groupsText(c.prerequisite_groups, data.courses)}</p>
+            )}
+            {(c.corequisite_text || c.corequisites.length > 0) && (
+              <p className="text-sm text-muted">Corequisites: {c.corequisite_text ?? codesOf(c.corequisites, data.courses)}</p>
+            )}
+            {c.catalog_url && (
+              <a href={c.catalog_url} target="_blank" rel="noopener noreferrer" className="w-fit text-sm underline">
+                Catalog page<span className="sr-only"> for {c.code}</span>
+              </a>
+            )}
           </li>
         ))}
       </ul>
@@ -142,6 +156,24 @@ const parseCodes = (text: string, courses: Map<string, Course>) => {
   return { ids, unknown: ids.filter((id) => !courses.has(id)) };
 };
 const codesOf = (ids: string[], courses: Map<string, Course>) => ids.map((id) => courses.get(id)?.code ?? id).join(", ");
+const creditsOf = (c: Course) => (c.credits_max ? `${c.credits}–${c.credits_max}` : String(c.credits));
+
+// Prerequisite groups as admins type them: groups split by ";", alternatives by "or".
+// "MTH 220; CSC 144 or CSC 171" is MTH 220, and one of CSC 144 or CSC 171.
+const groupsText = (groups: PrerequisiteGroup[], courses: Map<string, Course>) =>
+  groups.map((g) => g.courses.map((id) => courses.get(id)?.code ?? id).join(" or ")).join("; ");
+
+// A group keeps its "other" and "concurrent" settings while its courses stay the same.
+function parseGroups(text: string, courses: Map<string, Course>, previous: PrerequisiteGroup[]) {
+  const key = (ids: string[]) => [...ids].sort().join(",");
+  const kept = new Map(previous.map((g) => [key(g.courses), g]));
+  const lists = text
+    .split(";")
+    .map((part) => part.split(/\s+or\s+|,/i).map((s) => idFromCode(s)).filter(Boolean))
+    .filter((ids) => ids.length);
+  const groups = lists.map((ids): PrerequisiteGroup => ({ ...kept.get(key(ids)), courses: [...new Set(ids)] }));
+  return { groups, unknown: lists.flat().filter((id) => !courses.has(id)) };
+}
 
 function CourseForm({
   initial,
@@ -161,7 +193,12 @@ function CourseForm({
   const [code, setCode] = useState(initial.code);
   const [title, setTitle] = useState(initial.title);
   const [credits, setCredits] = useState(String(initial.credits));
-  const [pre, setPre] = useState(codesOf(initial.prerequisites, courses));
+  const [creditsMax, setCreditsMax] = useState(initial.credits_max ? String(initial.credits_max) : "");
+  const [pre, setPre] = useState(groupsText(initial.prerequisite_groups, courses));
+  const [preText, setPreText] = useState(initial.prerequisite_text ?? "");
+  const [coText, setCoText] = useState(initial.corequisite_text ?? "");
+  const [offeredText, setOfferedText] = useState(initial.offered_text ?? "");
+  const [catalogUrl, setCatalogUrl] = useState(initial.catalog_url ?? "");
   const [co, setCo] = useState(codesOf(initial.corequisites, courses));
   const [offered, setOffered] = useState(initial.offered);
   const [about, setAbout] = useState(initial.description ?? "");
@@ -172,15 +209,24 @@ function CourseForm({
     e.preventDefault();
     const id = isNew ? idFromCode(code) : initial.id;
     const n = Number(credits);
-    const prerequisites = parseCodes(pre, courses);
+    const max = creditsMax.trim() ? Number(creditsMax) : null;
+    const prerequisites = parseGroups(pre, courses, initial.prerequisite_groups);
     const corequisites = parseCodes(co, courses);
     const unknown = [...prerequisites.unknown, ...corequisites.unknown];
     if (!id || !title.trim()) return setError("Add a code and a title.");
     if (!Number.isInteger(n) || n < 0 || n > 12) return setError("Credits must be a whole number from 0 to 12.");
+    if (max !== null && (!Number.isInteger(max) || max <= n || max > 12)) return setError("“Up to” credits must be more than the credits, and at most 12.");
+    if (catalogUrl.trim() && !/^https:\/\/\S+$/.test(catalogUrl.trim())) return setError("The catalog page must be an https:// link.");
     if (unknown.length) return setError(`These courses are not in the catalog: ${unknown.join(", ")}. Add them first.`);
     setError(null);
     setBusy(true);
-    await onSave({ id, code: code.trim().toUpperCase(), title: title.trim(), credits: n, prerequisites: prerequisites.ids, corequisites: corequisites.ids, offered, description: about.trim() || null });
+    const years = Object.fromEntries(offered.map((t) => [t, initial.offered_years[t as Term] ?? "every"]));
+    await onSave({
+      id, code: code.trim().toUpperCase(), title: title.trim(), credits: n, credits_max: max,
+      prerequisite_groups: prerequisites.groups, corequisites: corequisites.ids, offered, offered_years: years,
+      prerequisite_text: preText.trim() || null, corequisite_text: coText.trim() || null,
+      offered_text: offeredText.trim() || null, catalog_url: catalogUrl.trim() || null, description: about.trim() || null,
+    });
     setBusy(false);
   }
 
@@ -189,13 +235,23 @@ function CourseForm({
       <Fieldset legend={isNew ? "Add a course" : `Edit ${initial.code}`}>
         <TextField label="Course code" hint="For example CSC 120. It cannot be changed after the course is created." required value={code} onChange={setCode} disabled={!isNew} maxLength={20} />
         <TextField label="Title" required value={title} onChange={setTitle} maxLength={200} />
-        <TextField label="Credits" required type="number" min={0} max={12} value={credits} onChange={setCredits} />
-        <TextField label="Prerequisites" hint="Course codes separated by commas. Leave empty if none." value={pre} onChange={setPre} />
-        <TextField label="Corequisites" hint="Courses taken in the same semester or earlier." value={co} onChange={setCo} />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <TextField label="Credits" required type="number" min={0} max={12} value={credits} onChange={setCredits} />
+          <TextField label="Up to (variable credit)" hint="Only for courses like internships, 1–6 credits." type="number" min={1} max={12} value={creditsMax} onChange={setCreditsMax} />
+        </div>
+        <TextField
+          label="Prerequisites"
+          hint="Separate groups with “;” and alternatives with “or”. “MTH 220; CSC 144 or CSC 171” means MTH 220, and one of CSC 144 or CSC 171."
+          value={pre}
+          onChange={setPre}
+        />
+        <TextArea label="Prerequisites, as the catalog words them" hint="Shown to students. Include what no course covers, such as junior standing or instructor permission." value={preText} onChange={setPreText} maxLength={1000} rows={2} />
+        <TextField label="Corequisites" hint="Course codes separated by commas: courses taken in the same semester or earlier." value={co} onChange={setCo} />
+        <TextField label="Corequisites, as the catalog words them" value={coText} onChange={setCoText} maxLength={1000} />
         <TextArea label="About this course" hint="Optional. A few sentences on what the course covers. Students see it on the planner." value={about} onChange={setAbout} maxLength={1000} rows={4} />
         <fieldset className="flex flex-col">
           <legend className="font-medium">Only offered in</legend>
-          <p className="text-sm text-muted">Leave all unticked if the course is taught in any term.</p>
+          <p className="text-sm text-muted">Leave all unticked if the course is taught in any term. Which years (odd or even) stays as the catalog import set it.</p>
           {TERMS.map((t) => (
             <CheckField
               key={t}
@@ -205,6 +261,8 @@ function CourseForm({
             />
           ))}
         </fieldset>
+        <TextField label="When it's offered, as the catalog words it" hint="For example “Odd falls, every spring”." value={offeredText} onChange={setOfferedText} maxLength={200} />
+        <TextField label="Catalog page" type="url" pattern="https://.*" value={catalogUrl} onChange={setCatalogUrl} />
       </Fieldset>
       {error && <Notice tone="error">{error}</Notice>}
       <div className="flex flex-wrap gap-2">

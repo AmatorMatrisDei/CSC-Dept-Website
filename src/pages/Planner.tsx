@@ -357,7 +357,7 @@ function PlanView({
               <li key={c.id} className="flex flex-wrap items-center gap-x-3">
                 <span className="font-medium">{c.code}</span>
                 <span className="text-sm text-muted">
-                  {c.title} · {c.credits} cr
+                  {c.title} · {c.credits_max ? `${c.credits}–${c.credits_max}` : c.credits} cr
                 </span>
                 <button type="button" onClick={() => change(addCourse(plan, c.id, target))} className="min-h-11 text-sm underline">
                   Add<span className="sr-only"> {c.code}</span>
@@ -442,12 +442,20 @@ function PlanView({
                                 ⚠ {p.message}
                               </p>
                             ))}
-                            {course?.description && (
+                            {course && (course.description || course.prerequisite_text || course.offered_text || course.catalog_url) && (
                               <details className="text-sm">
                                 <summary className="flex min-h-11 cursor-pointer items-center underline md:min-h-7">
                                   About this course<span className="sr-only"> {course.code}</span>
                                 </summary>
-                                <p className="pb-1 text-muted">{course.description}</p>
+                                {course.description && <p className="pb-1 text-muted">{course.description}</p>}
+                                {course.prerequisite_text && <p className="pb-1 text-muted">Prerequisites: {course.prerequisite_text}</p>}
+                                {course.corequisite_text && <p className="pb-1 text-muted">Corequisites: {course.corequisite_text}</p>}
+                                {course.offered_text && <p className="pb-1 text-muted">Offered: {course.offered_text}</p>}
+                                {course.catalog_url && (
+                                  <a href={course.catalog_url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center underline md:min-h-7">
+                                    Catalog page<span className="sr-only"> for {course.code}</span>
+                                  </a>
+                                )}
                               </details>
                             )}
                             <div className="flex flex-wrap items-center gap-x-3 text-sm">

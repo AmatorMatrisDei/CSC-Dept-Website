@@ -1,14 +1,28 @@
 // Shapes for the degree planner (experimental). The catalog is stored in the database tables
 // planner_courses and planner_degrees, which admins edit.
 
+// One prerequisite group: met by any one of `courses` done or planned earlier (or in the same term
+// when `concurrent`), or by `other`, something outside the plan such as high school math. A course
+// needs every one of its groups met. "MTH 220 and either CSC 144 or CSC 171" is two groups.
+export type PrerequisiteGroup = { courses: string[]; other?: string; concurrent?: boolean };
+
+export type Term = "fall" | "spring" | "summer";
+
+// Field names match the planner_courses columns, so a Course saves as it is.
 export type Course = {
   id: string;
   code: string;
   title: string;
   credits: number;
-  prerequisites: string[];
+  credits_max: number | null; // variable-credit courses (internships, 1 to 6); `credits` is the least
+  prerequisite_groups: PrerequisiteGroup[];
   corequisites: string[];
-  offered: string[];
+  offered: string[]; // terms it runs in; empty means any term
+  offered_years: Partial<Record<Term, "every" | "odd" | "even">>; // "Odd falls, every spring"
+  prerequisite_text: string | null; // the catalog's wording, which also covers standing and permission
+  corequisite_text: string | null;
+  offered_text: string | null;
+  catalog_url: string | null;
   description: string | null; // a short note on what the course covers, written by faculty
 };
 

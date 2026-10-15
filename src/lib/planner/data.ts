@@ -5,6 +5,9 @@ import type { Course, Degree, PlannerData, SuggestedSemester } from "./types";
 // it. It is read once per page load and kept until an admin saves a change.
 let cached: Promise<PlannerData> | undefined;
 
+const COURSE_COLUMNS =
+  "id, code, title, credits, credits_max, prerequisite_groups, corequisites, offered, offered_years, prerequisite_text, corequisite_text, offered_text, catalog_url, description";
+
 function client() {
   if (!supabase) throw new Error("Supabase is not configured.");
   return supabase;
@@ -21,13 +24,13 @@ export function loadPlannerData(): Promise<PlannerData> {
 async function fetchPlannerData(): Promise<PlannerData> {
   const db = client();
   const [courses, degrees] = await Promise.all([
-    db.from("planner_courses").select("id, code, title, credits, prerequisites, corequisites, offered, description").order("code"),
+    db.from("planner_courses").select(COURSE_COLUMNS).order("code"),
     db.from("planner_degrees").select("id, name, degree, total_credits, catalog_url, auto_generated, semesters").order("sort_order"),
   ]);
   if (courses.error) throw courses.error;
   if (degrees.error) throw degrees.error;
   return {
-    courses: new Map(courses.data.map((c): [string, Course] => [c.id, c])),
+    courses: new Map(courses.data.map((c): [string, Course] => [c.id, c as unknown as Course])),
     degrees: degrees.data.map(
       (d): Degree => ({
         id: d.id,
@@ -55,7 +58,7 @@ function failure(error: { message: string } | null, rows?: unknown[] | null): st
 }
 
 export async function saveCourse(course: Course): Promise<string | null> {
-  const { data, error } = await client().from("planner_courses").upsert(course).select("id");
+  const { data, error } = await client().from("planner_courses").upsert(course as never).select("id");
   return failure(error, data);
 }
 

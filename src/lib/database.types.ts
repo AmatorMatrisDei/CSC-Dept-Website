@@ -321,14 +321,14 @@ isOneToOne: false
                   ]
                 },"planner_courses": {
                   Row: {
-                    "code": string,"corequisites": (string)[],"credits": number,"description": string | null,"id": string,"offered": (string)[],"prerequisites": (string)[],"title": string,"updated_at": string
+                    "catalog_url": string | null,"code": string,"corequisite_text": string | null,"corequisites": (string)[],"credits": number,"credits_max": number | null,"description": string | null,"id": string,"offered": (string)[],"offered_text": string | null,"offered_years": NonNullable<Json>,"prerequisite_groups": NonNullable<Json>,"prerequisite_text": string | null,"title": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "code": string,"corequisites"?: (string)[],"credits": number,"description"?: string | null,"id": string,"offered"?: (string)[],"prerequisites"?: (string)[],"title": string,"updated_at"?: string
+                    "catalog_url"?: string | null,"code": string,"corequisite_text"?: string | null,"corequisites"?: (string)[],"credits": number,"credits_max"?: number | null,"description"?: string | null,"id": string,"offered"?: (string)[],"offered_text"?: string | null,"offered_years"?: NonNullable<Json>,"prerequisite_groups"?: NonNullable<Json>,"prerequisite_text"?: string | null,"title": string,"updated_at"?: string
                   }
                   Update: {
-                    "code"?: string,"corequisites"?: (string)[],"credits"?: number,"description"?: string | null,"id"?: string,"offered"?: (string)[],"prerequisites"?: (string)[],"title"?: string,"updated_at"?: string
+                    "catalog_url"?: string | null,"code"?: string,"corequisite_text"?: string | null,"corequisites"?: (string)[],"credits"?: number,"credits_max"?: number | null,"description"?: string | null,"id"?: string,"offered"?: (string)[],"offered_text"?: string | null,"offered_years"?: NonNullable<Json>,"prerequisite_groups"?: NonNullable<Json>,"prerequisite_text"?: string | null,"title"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     
@@ -591,6 +591,11 @@ isOneToOne: false
 "list_people":
 { Args: Record<PropertyKey, never>; Returns: {
               "email": string,"id": string,"name": string,"role": Database["public"]['Enums']["app_role"]
+            }[]
+                           },
+"planner_catalog_issues":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "course_id": string,"degree_id": string,"issue": string,"semester_index": number
             }[]
                            },
 "respond_to_listing":

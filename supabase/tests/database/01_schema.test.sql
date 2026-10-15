@@ -79,7 +79,7 @@ select is_empty(
        and p.proname <> all (array[
          'current_app_role', 'is_reviewer', 'is_admin', 'has_consent', 'is_listed_student',
          'can_submit_for_project', 'can_view_project', 'is_project_published', 'is_on_project_team',
-         'can_manage_media', 'can_replace_media', 'is_existing_project_photo', 'check_submitted_photo',
+         'can_manage_media', 'can_replace_media', 'log_admin_edit', 'is_existing_project_photo', 'check_submitted_photo',
          'validate_project_submission', 'require_keys_within', 'uuid_array',
          'profile_fields', 'project_fields', 'project_link_keys', 'internship_fields']) $$,
   'users can only call the internal helpers that access rules need'
