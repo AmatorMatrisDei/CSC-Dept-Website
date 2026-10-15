@@ -48,6 +48,10 @@ export function warnings(plan: Plan, courses: Map<string, Course>, completed: Se
     for (const item of items) {
       const course = item.course ? courses.get(item.course) : undefined;
       if (!course) continue;
+      const term = s % 2 === 0 ? "fall" : "spring";
+      if (course.offered.length && !course.offered.includes(term)) {
+        found.push({ courseId: course.id, message: `Only offered in ${course.offered.map((t) => t[0].toUpperCase() + t.slice(1)).join(" and ")}` });
+      }
       const need = course.prerequisites.filter((p) => !completed.has(p) && !before.has(p));
       if (need.length) found.push({ courseId: course.id, message: `Needs ${need.map((p) => courses.get(p)?.code ?? p).join(", ")} first` });
       const alongside = course.corequisites.filter((p) => !completed.has(p) && !before.has(p) && !now.has(p));
@@ -55,18 +59,4 @@ export function warnings(plan: Plan, courses: Map<string, Course>, completed: Se
     }
   });
   return found;
-}
-
-const csvCell = (text: string) => (/[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text);
-
-// A spreadsheet-friendly copy of the plan (opens in Excel).
-export function planToCsv(plan: Plan, courses: Map<string, Course>): string {
-  const rows = [["Semester", "Course", "Title", "Credits"]];
-  plan.forEach((items, s) => {
-    for (const item of items) {
-      const course = item.course ? courses.get(item.course) : undefined;
-      rows.push([semesterLabel(s), course?.code ?? item.slot ?? item.course ?? "", course?.title ?? "", String(itemCredits(item, courses))]);
-    }
-  });
-  return rows.map((r) => r.map(csvCell).join(",")).join("\n");
 }

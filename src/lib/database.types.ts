@@ -319,6 +319,48 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"planner_courses": {
+                  Row: {
+                    "code": string,"corequisites": (string)[],"credits": number,"description": string | null,"id": string,"offered": (string)[],"prerequisites": (string)[],"title": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "code": string,"corequisites"?: (string)[],"credits": number,"description"?: string | null,"id": string,"offered"?: (string)[],"prerequisites"?: (string)[],"title": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "code"?: string,"corequisites"?: (string)[],"credits"?: number,"description"?: string | null,"id"?: string,"offered"?: (string)[],"prerequisites"?: (string)[],"title"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"planner_degrees": {
+                  Row: {
+                    "auto_generated": boolean,"catalog_url": string | null,"degree": string,"id": string,"name": string,"semesters": NonNullable<Json>,"sort_order": number,"total_credits": number,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "auto_generated"?: boolean,"catalog_url"?: string | null,"degree"?: string,"id": string,"name": string,"semesters": NonNullable<Json>,"sort_order"?: number,"total_credits": number,"updated_at"?: string
+                  }
+                  Update: {
+                    "auto_generated"?: boolean,"catalog_url"?: string | null,"degree"?: string,"id"?: string,"name"?: string,"semesters"?: NonNullable<Json>,"sort_order"?: number,"total_credits"?: number,"updated_at"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"planner_plans": {
+                  Row: {
+                    "state": NonNullable<Json>,"updated_at": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "state": NonNullable<Json>,"updated_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "state"?: NonNullable<Json>,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"posts": {
                   Row: {
                     "author_id": string | null,"body": string,"cover_image_path": string | null,"created_at": string,"id": string,"publish_state": Database["public"]['Enums']["publish_state"],"published_at": string | null,"slug": string,"summary": string,"title": string,"updated_at": string

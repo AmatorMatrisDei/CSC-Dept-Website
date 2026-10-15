@@ -61,6 +61,11 @@ export default function SiteHeader() {
         { links: [{ label: "Request to be added", href: "/students/request" }] },
       ],
     },
+    {
+      label: "Planner",
+      href: "/planner",
+      groups: [{ links: [{ label: "Course catalog", href: "/planner/courses" }] }],
+    },
   ];
 
   return (
