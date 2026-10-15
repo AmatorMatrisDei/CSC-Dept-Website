@@ -479,6 +479,20 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"site_content": {
+                  Row: {
+                    "key": string,"updated_at": string,"value": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "key": string,"updated_at"?: string,"value": string
+                  }
+                  Update: {
+                    "key"?: string,"updated_at"?: string,"value"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"sub_departments": {
                   Row: {
                     "id": string,"name": string,"slug": string,"sort_order": number
