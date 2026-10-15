@@ -97,6 +97,10 @@ as $$
     ('b0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000001');
 $$;
 
+-- New functions are private by default, and tests call these while acting as a user.
+grant execute on function pg_temp.login_as(uuid), pg_temp.login_anon(), pg_temp.category(text),
+  pg_temp.sub_department(text) to public;
+
 do $$
 begin
   perform pg_temp.create_user('a0000000-0000-4000-8000-000000000001', 'test.admin@franciscan.edu', 'admin');

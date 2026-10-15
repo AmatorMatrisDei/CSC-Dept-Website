@@ -11,6 +11,7 @@ follows the Requirements and Team Guide v1.4; requirement IDs such as FR-3.4 ref
 | `supabase/functions/carousel/` | The Edge Function that picks the daily carousel |
 | `supabase/functions/_shared/carousel-pick.ts` | The pick itself, owned by the Algorithms team |
 | `supabase/seed.sql` | Test accounts and sample content, **local only** |
+| `supabase/dev-content.sql` | Sample content for the hosted dev project, without sign-in accounts (see 3.5) |
 | `supabase/config.toml` | Settings for the local stack (ports, auth, hooks, functions) |
 | `supabase/tests/` | Database tests (pgTAP) and end-to-end API tests |
 | `src/lib/database.types.ts` | TypeScript types generated from the schema, for the frontend |
@@ -23,10 +24,11 @@ Names follow the guide (section 3) where SQL allows.
 
 | Table | Guide name | Holds |
 | --- | --- | --- |
-| `profiles` | Student | One per account: name, role, background, major, class year, skills, club roles, photo, contact email and phone, `visible` (listed in the directory) |
+| `profiles` | Student | One per account: name, `slug` for URLs, role, background, major, class year, skills, club roles, photo, contact email and phone, `visible` (listed in the directory) |
+| `listed_students` (view) | Student directory | The students the public may see: approved and consenting. Use it for every public page, even when someone is signed in |
 | `consents` | Consent | A student's permission per scope: `directory`, `photo`, `email`, `phone`. Append-only |
-| `faculty` | Faculty | Professors, linked to the projects they advise. `profile_id` links one to their login if they have one |
-| `projects` | Project | Title, summary, description (Markdown), status, category, sub-department, dates, priority (1–10), pinned, thumbnail, links, contact, open to contributors, published |
+| `faculty` | Faculty | Professors, with a `slug` for URLs, linked to the projects they advise. `profile_id` links one to their login if they have one |
+| `projects` | Project | Title, summary, description (Markdown), status, category, sub-department, dates, priority (1–10), pinned, thumbnail with required alt text, links, contact, open to contributors, published |
 | `contributions` | Contribution | A student (or an outside person's name) on a project, with role, term, and whether they confirmed |
 | `advising` | Advising | Faculty advisor ↔ project |
 | `project_images` | images[] | Project photos in order, each with required alt text |
@@ -58,6 +60,10 @@ Who can do what:
   (`private.allowed_email_domains`).
 - **A student is public only when listed:** `visible` (a reviewer approved their request to be
   added) **and** an active `directory` consent. Withdrawing that consent hides them at once.
+  `listed_students` applies this rule for everyone, including signed-in reviewers, who can see
+  every profile in `profiles`.
+- **Slugs** (`faculty.slug`, `profiles.slug`) are made from the name when the row is created,
+  numbered if taken (`dr-ada-lovelace-2`). Admins may change them; students can't.
 - **Photo, email and phone** are only stored on the profile while the matching consent is
   active. Revoking a consent clears the field, so a hidden field can't leak through any query.
 - **On projects**, visitors only see students who are listed and who confirmed being on that
@@ -78,7 +84,8 @@ Who can do what:
   Visitors can't write anything.
 - **Internal functions** in the `private` schema can only be called by the database itself,
   except the small set of helpers the access rules need. A test fails if that list grows by
-  accident.
+  accident. New functions are private by default, so a new RPC for the site needs an explicit
+  `grant execute`.
 - **Two functions run with the owner's rights on purpose:** `review_change` and
   `respond_to_listing`. Each checks its caller (reviewers only, never your own submission; only
   your own listing). The Supabase Security Advisor flags them as warnings, which is expected.
@@ -344,6 +351,19 @@ Project Settings > API Keys:
 | Project URL and **publishable** key (`sb_publishable_...`) | Frontend environment variables. Safe to expose: the access rules protect the data |
 | **Secret** key (`sb_secret_...`) | Nowhere in the frontend or git. Only trusted server code or admin scripts |
 
+### 3.5 Sample content on dev
+
+`supabase/dev-content.sql` loads made-up projects, faculty, students, posts and a few
+submissions waiting for review into the dev project, and picks the day's carousel from them. The
+students are fake `@sample.invalid` accounts with random passwords, so nobody can sign in as them;
+sign up with your own university address to try signed-in features. With the repo linked to dev:
+
+```bash
+npx supabase db query --linked -f supabase/dev-content.sql
+```
+
+It refuses to run on production, or when the content is already there.
+
 ## 4. Using the backend from the frontend
 
 Use `@supabase/supabase-js` with the project URL and publishable key. Every request carries the
@@ -358,12 +378,25 @@ const supabase = createClient<Database>(url, publishableKey);
 // Home page: today's carousel, in order (FR-5.8)
 const { data: cards } = await supabase.from("carousel_today").select("*");
 
-// Project browser: published projects in a sub-department, newest first (FR-4.4, FR-4.5)
+// Public pages filter for public rows themselves: a signed-in reviewer or admin can read drafts,
+// unlisted students and unconfirmed listings, which the public site must not show.
+
+// Project browser: published projects in a sub-department, newest first (FR-4.4, FR-4.5),
+// with confirmed members named only if they are listed students
 const { data: projects } = await supabase
   .from("projects")
-  .select("id, slug, title, summary, status, thumbnail_path, sub_departments(name), advising(faculty(name))")
+  .select(`slug, title, summary, status, thumbnail_path, thumbnail_alt, sub_departments(name),
+    advising(faculty(slug, name)),
+    contributions(role, external_name, sort_order, listed_students(slug, name))`)
+  .eq("published", true)
+  .eq("contributions.confirmed", true)
   .eq("sub_department_id", subDepartmentId)
   .order("date_started", { ascending: false });
+// A contribution with neither listed_students nor external_name is an unlisted student: skip it.
+
+// Student directory and profile pages (FR-2.1, FR-2.2)
+const { data: students } = await supabase.from("listed_students").select("*").order("name");
+const { data: student } = await supabase.from("listed_students").select("*").eq("slug", slug).maybeSingle();
 
 // Title and keyword search (FR-4.3)
 await supabase.from("projects").select("slug, title").textSearch("search", query, { type: "websearch" });

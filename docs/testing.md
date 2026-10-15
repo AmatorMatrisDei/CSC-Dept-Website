@@ -26,6 +26,7 @@ a transaction that is rolled back, so tests never leave data behind and don't de
 | `05_auth_and_storage.test.sql` | Allowed email domains, new-account profiles, upload folders |
 | `06_carousel.test.sql` | Eastern-time days, candidates and the empty-pool fallback, saving picks, re-shuffle counting, what visitors see on cards |
 | `07_hardening.test.sql` | Internal functions can't be called by users; pending submissions can't be edited; https-only links; email, size and length rules; the open-submission limit; audited role changes |
+| `08_directory_and_slugs.test.sql` | `listed_students` shows only listed students, even to reviewers; slugs are generated, unique and admin-only; thumbnails need alt text |
 
 `_helpers.psql` creates five test users (admin, reviewer, a listed student, an unlisted student,
 and a listed student on no project), a faculty member, and two test projects; the comment at the
