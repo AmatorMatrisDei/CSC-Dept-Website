@@ -1,6 +1,6 @@
 // Supabase client with the publishable key. Row level security decides what the public can
-// see, so this only ever returns published content. Without the env vars the client is null
-// and content.ts falls back to the sample data.
+// see. Without the env vars the client is null and content.ts reports that Supabase is not
+// configured.
 import { createClient } from "@supabase/supabase-js";
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;

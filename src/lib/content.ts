@@ -158,7 +158,14 @@ function compareProjects(a: ProjectView, b: ProjectView): number {
 }
 
 async function fetchProjects(): Promise<ProjectView[]> {
-  const { data, error } = await client().from("projects").select(PROJECT_SELECT).returns<ProjectRow[]>();
+  // Row level security already hides unpublished work from visitors; filtering here keeps it
+  // hidden from signed-in people too, so public pages show the public view.
+  const { data, error } = await client()
+    .from("projects")
+    .select(PROJECT_SELECT)
+    .eq("published", true)
+    .eq("contributions.confirmed", true)
+    .returns<ProjectRow[]>();
   if (error) throw error;
   return data.map(toProject).sort(compareProjects);
 }
@@ -179,14 +186,16 @@ export async function getProject(slug: string): Promise<ProjectView | null> {
 
 // Today's pick, saved by the back end's hourly job (carousel_today view). If it has not run
 // yet, fall back to the top of the normal ordering.
-export async function getCarouselProjects(max = 6): Promise<ProjectView[]> {
+// Shows the daily pick as chosen (it can be 7 projects, FR-5.1). Only the fallback, used when no
+// pick exists yet, is limited to `fallbackMax`.
+export async function getCarouselProjects(fallbackMax = 6): Promise<ProjectView[]> {
   const [projects, { data, error }] = await Promise.all([
     getProjects(),
     client().from("carousel_today").select("slug, position").order("position").returns<{ slug: string; position: number }[]>(),
   ]);
   if (error) throw error;
   const picked = data.flatMap((row) => projects.find((p) => p.slug === row.slug) ?? []);
-  return (picked.length ? picked : projects).slice(0, max);
+  return picked.length ? picked : projects.slice(0, fallbackMax);
 }
 
 export async function getSubDepartments(): Promise<SubDepartment[]> {
