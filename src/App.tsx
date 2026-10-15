@@ -4,11 +4,15 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import SiteFooter from "@/components/SiteFooter";
 import SiteHeader from "@/components/SiteHeader";
 import About from "@/pages/About";
+import Account from "@/pages/Account";
+import Admin from "@/pages/Admin";
+import AdminLogin from "@/pages/AdminLogin";
 import FacultyList from "@/pages/FacultyList";
 import FacultyMember from "@/pages/FacultyMember";
 import Home from "@/pages/Home";
 import NotFound from "@/pages/NotFound";
 import ProjectDetail from "@/pages/ProjectDetail";
+import ProjectSubmit from "@/pages/ProjectSubmit";
 import Projects from "@/pages/Projects";
 import StudentPage from "@/pages/StudentPage";
 import StudentRequest from "@/pages/StudentRequest";
@@ -45,13 +49,18 @@ export default function App() {
       <Route element={<Layout />}>
         <Route index element={<Home />} />
         <Route path="projects" element={<Projects />} />
+        <Route path="projects/submit" element={<ProjectSubmit />} />
         <Route path="projects/:slug" element={<ProjectDetail />} />
+        <Route path="projects/:slug/edit" element={<ProjectSubmit />} />
         <Route path="faculty" element={<FacultyList />} />
         <Route path="faculty/:slug" element={<FacultyMember />} />
         <Route path="students" element={<Students />} />
         <Route path="students/request" element={<StudentRequest />} />
         <Route path="students/:slug" element={<StudentPage />} />
         <Route path="about" element={<About />} />
+        <Route path="account" element={<Account />} />
+        <Route path="admin" element={<Admin />} />
+        <Route path="admin/login" element={<AdminLogin />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

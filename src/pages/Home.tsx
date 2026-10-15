@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import Carousel from "@/components/Carousel";
 import ProjectBrowser from "@/components/ProjectBrowser";
+import SiteText from "@/components/SiteText";
 import { getAllFaculty, getCarouselProjects, getProjects, getSubDepartments } from "@/lib/content";
 import { useAsync, useTitle } from "@/lib/hooks";
 
@@ -14,11 +15,12 @@ export default function Home() {
   return (
     <div className="flex flex-col gap-12">
       <section className="flex flex-col gap-3">
-        <h1 className="text-3xl font-semibold sm:text-4xl">Engineering &amp; Computing</h1>
-        <p className="max-w-2xl text-muted">
-          See what our students and faculty are building, from capstones and class projects to
-          internships and partner work.
-        </p>
+        <SiteText id="home.title" as="h1" fallback="Engineering & Computing" className="text-3xl font-semibold sm:text-4xl" />
+        <SiteText
+          id="home.intro"
+          fallback="See what our students and faculty are building, from capstones and class projects to internships and partner work."
+          className="max-w-2xl text-muted"
+        />
         <div>
           <Link
             to="/projects"
@@ -29,17 +31,13 @@ export default function Home() {
         </div>
       </section>
 
-      <section aria-labelledby="featured" className="flex flex-col gap-4">
-        <h2 id="featured" className="text-2xl font-semibold">
-          Featured projects
-        </h2>
+      <section aria-label="Featured projects" className="flex flex-col gap-4">
+        <SiteText id="home.featured" as="h2" fallback="Featured projects" className="text-2xl font-semibold" />
         {featured ? <Carousel projects={featured} /> : <p className="text-muted">Loading…</p>}
       </section>
 
-      <section aria-labelledby="find" className="flex flex-col gap-4">
-        <h2 id="find" className="text-2xl font-semibold">
-          Find a project
-        </h2>
+      <section aria-label="Find a project" className="flex flex-col gap-4">
+        <SiteText id="home.find" as="h2" fallback="Find a project" className="text-2xl font-semibold" />
         {projects && departments && advisors ? (
           <ProjectBrowser
             projects={projects}

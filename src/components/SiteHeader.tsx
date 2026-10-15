@@ -1,5 +1,6 @@
 import { Link } from "react-router";
-import SiteNav, { type NavMenu } from "@/components/SiteNav";
+import EditToggle from "@/components/EditToggle";
+import SiteNav,{ type NavMenu } from "@/components/SiteNav";
 import ThemeToggle from "@/components/ThemeToggle";
 import { getAllFaculty, getProjects, getStudents, getSubDepartments } from "@/lib/content";
 import { projectYears } from "@/lib/format";
@@ -76,6 +77,7 @@ export default function SiteHeader() {
         <div className="flex flex-wrap items-center gap-x-2">
           <SiteNav menus={menus} />
           <ThemeToggle />
+          <EditToggle />
         </div>
       </div>
     </header>
