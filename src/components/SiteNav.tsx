@@ -1,6 +1,4 @@
-"use client";
-
-import Link from "next/link";
+import { Link } from "react-router";
 import { useEffect, useRef, useState } from "react";
 
 export type NavLink = { label: string; href: string };
@@ -53,13 +51,13 @@ export default function SiteNav({ menus }: { menus: NavMenu[] }) {
             {isOpen && (
               <div
                 id={`menu-${menu.label}`}
-                className="absolute left-0 right-0 z-20 mt-1 max-h-[70vh] overflow-y-auto rounded-lg border border-border bg-background p-3 text-foreground shadow-lg md:left-0 md:right-auto md:w-72"
+                className="menu-panel absolute left-0 right-0 z-20 mt-1 max-h-[70vh] overflow-y-auto rounded-lg border border-border bg-background p-3 text-foreground shadow-lg md:left-0 md:right-auto md:w-72"
                 onClick={(e) => {
                   if ((e.target as HTMLElement).closest("a")) setOpen(null);
                 }}
               >
                 <Link
-                  href={menu.href}
+                  to={menu.href}
                   className="flex min-h-11 items-center rounded px-2 font-medium hover:bg-surface"
                 >
                   All {menu.label.toLowerCase()}
@@ -75,7 +73,7 @@ export default function SiteNav({ menus }: { menus: NavMenu[] }) {
                       {group.links.map((link) => (
                         <li key={link.href + link.label}>
                           <Link
-                            href={link.href}
+                            to={link.href}
                             className="flex min-h-11 items-center rounded px-2 hover:bg-surface"
                           >
                             {link.label}

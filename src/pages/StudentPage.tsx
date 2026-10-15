@@ -1,43 +1,36 @@
-import Link from "next/link";
-import { notFound } from "next/navigation";
-import Cover from "@/components/Cover";
+import { Link, useParams } from "react-router";
+import Portrait from "@/components/Portrait";
 import { StatusBadge } from "@/components/ProjectCard";
-import { getStudent, getStudents } from "@/lib/content";
+import { getStudent } from "@/lib/content";
 import { paragraphs } from "@/lib/format";
+import { useAsync, useTitle } from "@/lib/hooks";
+import NotFound from "@/pages/NotFound";
 
-export async function generateStaticParams() {
-  return (await getStudents()).map((s) => ({ slug: s.slug }));
-}
+export default function StudentPage() {
+  const { slug = "" } = useParams();
+  const student = useAsync(getStudent, slug);
+  useTitle(student?.name ?? "Student");
 
-export async function generateMetadata({ params }: PageProps<"/students/[slug]">) {
-  const { slug } = await params;
-  return { title: (await getStudent(slug))?.name ?? "Student" };
-}
-
-export default async function StudentPage({ params }: PageProps<"/students/[slug]">) {
-  const { slug } = await params;
-  const student = await getStudent(slug);
-  if (!student) notFound();
+  if (student === undefined) return <p className="text-muted">Loading…</p>;
+  if (student === null) return <NotFound what="student" />;
 
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-2">
-        <Link href="/students" className="inline-flex min-h-11 w-fit items-center text-sm underline">
+        <Link to="/students" className="inline-flex min-h-11 w-fit items-center text-sm underline">
           All students
         </Link>
-        {student.photo && (
-          <div className="w-40">
-            <Cover src={student.photo.url} alt={student.photo.alt} />
-          </div>
-        )}
+        <Portrait src={student.photo?.url} alt={student.photo?.alt ?? ""} name={student.name} className="size-28 text-3xl" />
         <h1 className="text-3xl font-semibold">{student.name}</h1>
         <p className="text-muted">
-          {student.major === "CSC" ? "Computer Science" : "Engineering"} · Class of {student.class_year}
+          {student.headline}
         </p>
         <div className="flex flex-wrap gap-x-4">
-          <a href={`mailto:${student.email}`} className="inline-flex min-h-11 items-center underline">
-            {student.email}
-          </a>
+          {student.email && (
+            <a href={`mailto:${student.email}`} className="inline-flex min-h-11 items-center underline">
+              {student.email}
+            </a>
+          )}
           {student.linkedin_url && (
             <a href={student.linkedin_url} className="inline-flex min-h-11 items-center underline">
               LinkedIn
@@ -86,7 +79,7 @@ export default async function StudentPage({ params }: PageProps<"/students/[slug
           <ul>
             {student.projects.map(({ project, role }) => (
               <li key={project.slug} className="flex flex-wrap items-center gap-2">
-                <Link href={`/projects/${project.slug}`} className="inline-flex min-h-11 items-center underline">
+                <Link to={`/projects/${project.slug}`} className="inline-flex min-h-11 items-center underline">
                   {project.title}
                 </Link>
                 <span className="text-sm text-muted">{role}</span>

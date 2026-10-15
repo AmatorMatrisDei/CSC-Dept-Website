@@ -1,16 +1,15 @@
-import Link from "next/link";
-import { Suspense } from "react";
+import { Link } from "react-router";
 import Carousel from "@/components/Carousel";
 import ProjectBrowser from "@/components/ProjectBrowser";
 import { getAllFaculty, getCarouselProjects, getProjects, getSubDepartments } from "@/lib/content";
+import { useAsync, useTitle } from "@/lib/hooks";
 
-export default async function Home() {
-  const [featured, projects, departments, advisors] = await Promise.all([
-    getCarouselProjects(),
-    getProjects(),
-    getSubDepartments(),
-    getAllFaculty(),
-  ]);
+export default function Home() {
+  useTitle(undefined);
+  const featured = useAsync(getCarouselProjects);
+  const projects = useAsync(getProjects);
+  const departments = useAsync(getSubDepartments);
+  const advisors = useAsync(getAllFaculty);
 
   return (
     <div className="flex flex-col gap-12">
@@ -22,7 +21,7 @@ export default async function Home() {
         </p>
         <div>
           <Link
-            href="/projects"
+            to="/projects"
             className="inline-flex min-h-11 items-center rounded bg-accent px-4 text-accent-foreground"
           >
             Browse all projects
@@ -34,21 +33,23 @@ export default async function Home() {
         <h2 id="featured" className="text-2xl font-semibold">
           Featured projects
         </h2>
-        <Carousel projects={featured} />
+        {featured ? <Carousel projects={featured} /> : <p className="text-muted">Loading…</p>}
       </section>
 
       <section aria-labelledby="find" className="flex flex-col gap-4">
         <h2 id="find" className="text-2xl font-semibold">
           Find a project
         </h2>
-        <Suspense fallback={<p className="text-muted">Loading projects…</p>}>
+        {projects && departments && advisors ? (
           <ProjectBrowser
             projects={projects}
             departments={departments}
             advisors={advisors}
             filters={["advisor", "department"]}
           />
-        </Suspense>
+        ) : (
+          <p className="text-muted">Loading projects…</p>
+        )}
       </section>
     </div>
   );

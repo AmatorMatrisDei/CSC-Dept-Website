@@ -1,5 +1,6 @@
-﻿import Link from "next/link";
+import { Link } from "react-router";
 import Cover from "@/components/Cover";
+import { peopleLine } from "@/lib/format";
 import type { ProjectView, Status } from "@/lib/types";
 
 export function StatusBadge({ status }: { status: Status }) {
@@ -10,24 +11,18 @@ export function StatusBadge({ status }: { status: Status }) {
   );
 }
 
-// "A, B and C" style list of the people on a project, for cards.
-export function peopleLine(project: ProjectView): string {
-  const names = [...project.members.map((m) => m.student.name), ...project.advisors.map((a) => a.name)];
-  return names.join(", ");
-}
-
 export default function ProjectCard({ project }: { project: ProjectView }) {
   const people = peopleLine(project);
   return (
-    <article className="flex w-full flex-col overflow-hidden rounded-lg border border-border bg-surface">
-      <Cover src={project.thumbnail?.url ?? null} alt={project.thumbnail?.alt ?? ""} />
+    <article className="lift group relative flex w-full flex-col overflow-hidden rounded-lg border border-border bg-surface">
+      <Cover src={project.thumbnail?.url ?? null} alt={project.thumbnail?.alt ?? ""} label={project.title} />
       <div className="flex flex-1 flex-col gap-2 p-4">
         <div className="flex items-center gap-2">
           <StatusBadge status={project.status} />
           <span className="text-xs text-muted">{project.sub_department.name}</span>
         </div>
         <h2 className="text-lg font-semibold">
-          <Link href={`/projects/${project.slug}`} className="hover:underline">
+          <Link to={`/projects/${project.slug}`} className="after:absolute after:inset-0 hover:underline">
             {project.title}
           </Link>
         </h2>

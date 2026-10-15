@@ -1,8 +1,9 @@
-export const metadata = { title: "Request to be added" };
+import { useTitle } from "@/lib/hooks";
 
 // Placeholder. The real form needs consent wording (FERPA opt-in) and a place to send it,
 // both still to be decided with the back end and requirements teams.
-export default function RequestPage() {
+export default function StudentRequest() {
+  useTitle("Request to be added");
   return (
     <div className="flex max-w-2xl flex-col gap-4">
       <h1 className="text-3xl font-semibold">Request to be added</h1>

@@ -1,9 +1,8 @@
-"use client";
-
-import Link from "next/link";
+import { Link } from "react-router";
 import { useEffect, useState } from "react";
 import Cover from "@/components/Cover";
-import { peopleLine, StatusBadge } from "@/components/ProjectCard";
+import { StatusBadge } from "@/components/ProjectCard";
+import { peopleLine } from "@/lib/format";
 import type { ProjectView } from "@/lib/types";
 
 const INTERVAL_MS = 6000;
@@ -74,9 +73,9 @@ export default function Carousel({ projects }: { projects: ProjectView[] }) {
                   transform: `translateX(${offset * 100}%)`,
                   visibility: visible ? "visible" : "hidden",
                 }}
-                className="grid w-full bg-background transition-[transform,visibility] duration-500 ease-out md:grid-cols-2"
+                className="relative grid w-full bg-background transition-[transform,visibility] duration-500 ease-out md:grid-cols-2"
               >
-                <Cover src={project.thumbnail?.url ?? null} alt={project.thumbnail?.alt ?? ""} />
+                <Cover src={project.thumbnail?.url ?? null} alt={project.thumbnail?.alt ?? ""} label={project.title} />
                 <div className="flex flex-col justify-center gap-3 p-6">
                   <div className="flex items-center gap-2">
                     <StatusBadge status={project.status} />
@@ -86,8 +85,8 @@ export default function Carousel({ projects }: { projects: ProjectView[] }) {
                   <p className="text-muted">{project.summary}</p>
                   {peopleLine(project) && <p className="text-sm text-muted">{peopleLine(project)}</p>}
                   <Link
-                    href={`/projects/${project.slug}`}
-                    className="inline-flex min-h-11 w-fit items-center rounded bg-accent px-4 text-accent-foreground hover:opacity-90"
+                    to={`/projects/${project.slug}`}
+                    className="inline-flex min-h-11 w-fit items-center rounded after:absolute after:inset-0 bg-accent px-4 text-accent-foreground hover:opacity-90"
                   >
                     View project
                   </Link>

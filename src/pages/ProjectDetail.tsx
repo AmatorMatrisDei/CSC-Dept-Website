@@ -1,25 +1,19 @@
-import Link from "next/link";
-import { notFound } from "next/navigation";
+import { Link, useParams } from "react-router";
 import Cover from "@/components/Cover";
 import { StatusBadge } from "@/components/ProjectCard";
-import { getProject, getProjects } from "@/lib/content";
+import { getProject } from "@/lib/content";
 import { formatDate, paragraphs } from "@/lib/format";
+import { useAsync, useTitle } from "@/lib/hooks";
 import { CATEGORY_LABELS } from "@/lib/types";
+import NotFound from "@/pages/NotFound";
 
-export async function generateStaticParams() {
-  return (await getProjects()).map((p) => ({ slug: p.slug }));
-}
+export default function ProjectDetail() {
+  const { slug = "" } = useParams();
+  const project = useAsync(getProject, slug);
+  useTitle(project?.title ?? "Project");
 
-export async function generateMetadata({ params }: PageProps<"/projects/[slug]">) {
-  const { slug } = await params;
-  const project = await getProject(slug);
-  return { title: project?.title ?? "Project" };
-}
-
-export default async function ProjectPage({ params }: PageProps<"/projects/[slug]">) {
-  const { slug } = await params;
-  const project = await getProject(slug);
-  if (!project) notFound();
+  if (project === undefined) return <p className="text-muted">Loading…</p>;
+  if (project === null) return <NotFound what="project" />;
 
   const photos = project.images.length ? project.images : project.thumbnail ? [project.thumbnail] : [];
 
@@ -27,7 +21,7 @@ export default async function ProjectPage({ params }: PageProps<"/projects/[slug
     <article className="flex flex-col gap-8">
       <header className="flex flex-col gap-3">
         <p className="text-sm">
-          <Link href="/projects" className="inline-flex min-h-11 items-center underline">
+          <Link to="/projects" className="inline-flex min-h-11 items-center underline">
             All projects
           </Link>
         </p>
@@ -44,15 +38,19 @@ export default async function ProjectPage({ params }: PageProps<"/projects/[slug
         )}
       </header>
 
-      {photos.length > 0 && (
-        <ul className="grid gap-4 sm:grid-cols-2">
-          {photos.map((photo) => (
+      <ul className="grid gap-4 sm:grid-cols-2">
+        {photos.length === 0 ? (
+          <li>
+            <Cover src={null} alt="" label={project.title} />
+          </li>
+        ) : (
+          photos.map((photo) => (
             <li key={photo.url}>
               <Cover src={photo.url} alt={photo.alt} />
             </li>
-          ))}
-        </ul>
-      )}
+          ))
+        )}
+      </ul>
 
       <div className="grid gap-8 md:grid-cols-[2fr_1fr]">
         <div className="flex flex-col gap-4">
@@ -82,7 +80,7 @@ export default async function ProjectPage({ params }: PageProps<"/projects/[slug
               <ul>
                 {project.advisors.map((a) => (
                   <li key={a.slug}>
-                    <Link href={`/faculty/${a.slug}`} className="inline-flex min-h-11 items-center underline">
+                    <Link to={`/faculty/${a.slug}`} className="inline-flex min-h-11 items-center underline">
                       {a.name}
                     </Link>
                   </li>
@@ -95,11 +93,15 @@ export default async function ProjectPage({ params }: PageProps<"/projects/[slug
             <section>
               <h2 className="text-lg font-semibold">Team</h2>
               <ul>
-                {project.members.map(({ student, role }) => (
-                  <li key={student.slug}>
-                    <Link href={`/students/${student.slug}`} className="inline-flex min-h-11 items-center underline">
-                      {student.name}
-                    </Link>{" "}
+                {project.members.map(({ name, slug: studentSlug, role }) => (
+                  <li key={`${name}-${role}`} className="flex min-h-11 flex-wrap items-center gap-x-2">
+                    {studentSlug ? (
+                      <Link to={`/students/${studentSlug}`} className="underline">
+                        {name}
+                      </Link>
+                    ) : (
+                      <span>{name}</span>
+                    )}
                     <span className="text-sm text-muted">{role}</span>
                   </li>
                 ))}

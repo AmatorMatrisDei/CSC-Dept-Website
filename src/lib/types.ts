@@ -1,16 +1,15 @@
-// Shapes the pages use. Names follow the Requirements Guide (Section 3), not the current
-// Supabase schema, which does not match yet (see NOTES-to-flag-to-others.md). When real data
-// is connected, only src/lib/content.ts should need to change.
+// Shapes the pages use. Only src/lib/content.ts knows how they map to the Supabase tables.
 
+// The database stores lowercase statuses; content.ts capitalizes them for display and URLs.
 export const STATUSES = ["Active", "Planned", "Completed"] as const;
 export type Status = (typeof STATUSES)[number];
 
+// Keys are the `categories.slug` values in the database. Internships and alumni stories are
+// separate tables, not project categories, so they are not listed here.
 export const CATEGORY_LABELS = {
-  current: "Current Student / Personal",
+  personal: "Current Student / Personal",
   capstone: "Capstone",
   class: "Class",
-  internship: "Internships",
-  alumni: "Alumni Stories",
   partner: "Collaborating Organizations",
 } as const;
 export type Category = keyof typeof CATEGORY_LABELS;
@@ -19,36 +18,41 @@ export type SubDepartment = { slug: string; name: string };
 
 export type Photo = { url: string; alt: string };
 
+// `slug` is the row id for faculty and students until the database has real slugs.
 export type Faculty = {
   slug: string;
   name: string;
   title: string;
-  email: string;
+  email: string | null;
   photo: Photo | null;
 };
 
-// Only students who opted in are ever returned by the data layer.
+// Only students who opted in are ever returned by the database (row level security).
 export type Student = {
   slug: string;
   name: string;
-  email: string;
+  headline: string;
+  email: string | null; // present only if the student consented to showing it
   photo: Photo | null;
   linkedin_url: string | null;
-  major: "CSC" | "EGR";
-  class_year: number;
+  major: string | null;
+  class_year: number | null;
   background: string;
   skills: string[];
   clubs_roles: string[];
 };
 
-export type Project = {
+// `slug` is null for people who are not students in the directory (outside mentors, etc.).
+export type Member = { name: string; slug: string | null; role: string };
+
+export type ProjectView = {
   slug: string;
   title: string;
-  summary: string; // short text for cards (not in the guide yet: ask Data Structures)
+  summary: string;
   description: string;
   category: Category;
   status: Status;
-  sub_department: string; // SubDepartment.slug
+  sub_department: SubDepartment;
   date_started: string | null;
   date_finished: string | null;
   date_updated: string;
@@ -60,15 +64,7 @@ export type Project = {
   contact_email: string | null;
   contact_phone: string | null;
   open_to_contributors: boolean;
-  partner_type: "Grant" | "Organization" | null;
-  members: { student: string; role: string }[]; // Student.slug
-  advisors: string[]; // Faculty.slug
-};
-
-// A project with its people and department looked up, ready to display.
-export type ProjectView = Omit<Project, "members" | "advisors" | "sub_department"> & {
-  sub_department: SubDepartment;
-  members: { student: Student; role: string }[];
+  members: Member[];
   advisors: Faculty[];
 };
 

@@ -1,33 +1,154 @@
-import { FACULTY, PROJECTS, STUDENTS, SUB_DEPARTMENTS } from "./sample-data";
-import type { Faculty, FacultyView, Project, ProjectView, Student, StudentView, SubDepartment } from "./types";
+import { mediaUrl, supabase } from "./supabase";
+import type {
+  Category,
+  Faculty,
+  FacultyView,
+  Photo,
+  ProjectView,
+  Status,
+  Student,
+  StudentView,
+  SubDepartment,
+} from "./types";
 
-// The only file the pages read data from. It returns sample data for now. When the real schema
-// is settled, replace the bodies below (src/lib/supabase.ts has a small REST helper) and keep
-// the return types, and no page should need to change.
+// The only file the pages read data from. It reads the public (published, opted-in) rows from
+// Supabase; row level security does the filtering, so nothing here needs to check it again.
 
-export const USING_SAMPLE_DATA = true;
+type FacultyRow = { id: string; name: string; title: string; email: string | null; photo_path: string | null };
+type ProfileRow = {
+  id: string;
+  name: string;
+  headline: string;
+  contact_email: string | null;
+  photo_path: string | null;
+  linkedin_url: string | null;
+  major: string | null;
+  class_year: number | null;
+  background: string;
+  skills: string[];
+  clubs_roles: string[];
+};
+type ProjectRow = {
+  slug: string;
+  title: string;
+  summary: string;
+  description: string;
+  status: "planned" | "active" | "completed";
+  priority: number;
+  is_pinned: boolean;
+  open_to_contributors: boolean;
+  date_started: string | null;
+  date_finished: string | null;
+  updated_at: string;
+  thumbnail_path: string | null;
+  poster_url: string | null;
+  repo_url: string | null;
+  demo_url: string | null;
+  primary_contact_email: string | null;
+  primary_contact_phone: string | null;
+  sub_departments: SubDepartment;
+  categories: { slug: string };
+  project_images: { storage_path: string; alt_text: string; sort_order: number }[];
+  contributions: {
+    role: string;
+    external_name: string | null;
+    sort_order: number;
+    profiles: { id: string; name: string } | null;
+  }[];
+  advising: { faculty: FacultyRow }[];
+};
 
-const bySlug = <T extends { slug: string }>(items: T[]) => new Map(items.map((i) => [i.slug, i]));
+const PROJECT_SELECT = `
+  slug, title, summary, description, status, priority, is_pinned, open_to_contributors,
+  date_started, date_finished, updated_at, thumbnail_path, poster_url, repo_url, demo_url,
+  primary_contact_email, primary_contact_phone,
+  sub_departments(slug, name), categories(slug),
+  project_images(storage_path, alt_text, sort_order),
+  contributions(role, external_name, sort_order, profiles(id, name)),
+  advising(faculty(id, name, title, email, photo_path))`;
 
-function resolve(project: Project): ProjectView {
-  const students = bySlug(STUDENTS);
-  const faculty = bySlug(FACULTY);
-  const departments = bySlug(SUB_DEPARTMENTS);
+const PROFILE_SELECT =
+  "id, name, headline, contact_email, photo_path, linkedin_url, major, class_year, background, skills, clubs_roles";
+
+function client() {
+  if (!supabase) {
+    throw new Error("Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in .env.local.");
+  }
+  return supabase;
+}
+
+function photo(path: string | null, alt: string): Photo | null {
+  const url = mediaUrl(path);
+  return url ? { url, alt } : null;
+}
+
+function toFaculty(row: FacultyRow): Faculty {
   return {
-    ...project,
-    sub_department: departments.get(project.sub_department) ?? { slug: project.sub_department, name: "Other" },
-    // A student who is not in the (opted-in) list is never shown.
-    members: project.members.flatMap((m) => {
-      const student = students.get(m.student);
-      return student ? [{ student, role: m.role }] : [];
-    }),
-    advisors: project.advisors.flatMap((slug) => faculty.get(slug) ?? []),
+    slug: row.id,
+    name: row.name,
+    title: row.title,
+    email: row.email,
+    photo: photo(row.photo_path, row.name),
+  };
+}
+
+function toStudent(row: ProfileRow): Student {
+  return {
+    slug: row.id,
+    name: row.name,
+    headline: row.headline,
+    email: row.contact_email,
+    photo: photo(row.photo_path, row.name),
+    linkedin_url: row.linkedin_url,
+    major: row.major,
+    class_year: row.class_year,
+    background: row.background,
+    skills: row.skills,
+    clubs_roles: row.clubs_roles,
+  };
+}
+
+function toProject(row: ProjectRow): ProjectView {
+  const links = [
+    { label: "Source code", url: row.repo_url },
+    { label: "Live demo", url: row.demo_url },
+    { label: "Poster", url: row.poster_url },
+  ].flatMap((l) => (l.url ? [{ label: l.label, url: l.url }] : []));
+
+  return {
+    slug: row.slug,
+    title: row.title,
+    summary: row.summary,
+    description: row.description,
+    category: row.categories.slug as Category,
+    status: (row.status.charAt(0).toUpperCase() + row.status.slice(1)) as Status,
+    sub_department: row.sub_departments,
+    date_started: row.date_started,
+    date_finished: row.date_finished,
+    date_updated: row.updated_at,
+    priority: row.priority,
+    is_pinned: row.is_pinned,
+    thumbnail: photo(row.thumbnail_path, ""),
+    images: [...row.project_images]
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .flatMap((i) => photo(i.storage_path, i.alt_text) ?? []),
+    links,
+    contact_email: row.primary_contact_email,
+    contact_phone: row.primary_contact_phone,
+    open_to_contributors: row.open_to_contributors,
+    members: [...row.contributions]
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .flatMap((c) => {
+        const name = c.profiles?.name ?? c.external_name;
+        return name ? [{ name, slug: c.profiles?.id ?? null, role: c.role }] : [];
+      }),
+    advisors: row.advising.map((a) => toFaculty(a.faculty)),
   };
 }
 
 // Pinned first, then higher priority, then most recently updated, then title, so the order
 // never jumps around.
-function compareProjects(a: Project, b: Project): number {
+function compareProjects(a: ProjectView, b: ProjectView): number {
   return (
     Number(b.is_pinned) - Number(a.is_pinned) ||
     b.priority - a.priority ||
@@ -36,43 +157,81 @@ function compareProjects(a: Project, b: Project): number {
   );
 }
 
-export async function getProjects(): Promise<ProjectView[]> {
-  return [...PROJECTS].sort(compareProjects).map(resolve);
+async function fetchProjects(): Promise<ProjectView[]> {
+  const { data, error } = await client().from("projects").select(PROJECT_SELECT).returns<ProjectRow[]>();
+  if (error) throw error;
+  return data.map(toProject).sort(compareProjects);
+}
+
+// Several parts of a page ask for the same lists, so share one request per page load.
+let projectsRequest: Promise<ProjectView[]> | null = null;
+export function getProjects(): Promise<ProjectView[]> {
+  projectsRequest ??= fetchProjects().catch((e) => {
+    projectsRequest = null;
+    throw e;
+  });
+  return projectsRequest;
 }
 
 export async function getProject(slug: string): Promise<ProjectView | null> {
   return (await getProjects()).find((p) => p.slug === slug) ?? null;
 }
 
-// Stand-in for the nightly pick (done by the back end). Pinned projects first, then priority.
+// Today's pick, saved by the back end's hourly job (carousel_today view). If it has not run
+// yet, fall back to the top of the normal ordering.
 export async function getCarouselProjects(max = 6): Promise<ProjectView[]> {
-  return (await getProjects()).slice(0, max);
+  const [projects, { data, error }] = await Promise.all([
+    getProjects(),
+    client().from("carousel_today").select("slug, position").order("position").returns<{ slug: string; position: number }[]>(),
+  ]);
+  if (error) throw error;
+  const picked = data.flatMap((row) => projects.find((p) => p.slug === row.slug) ?? []);
+  return (picked.length ? picked : projects).slice(0, max);
 }
 
 export async function getSubDepartments(): Promise<SubDepartment[]> {
-  return SUB_DEPARTMENTS;
+  const { data, error } = await client()
+    .from("sub_departments")
+    .select("slug, name")
+    .order("sort_order")
+    .returns<SubDepartment[]>();
+  if (error) throw error;
+  return data;
 }
 
 export async function getAllFaculty(): Promise<Faculty[]> {
-  return [...FACULTY].sort((a, b) => a.name.localeCompare(b.name));
+  const { data, error } = await client()
+    .from("faculty")
+    .select("id, name, title, email, photo_path")
+    .order("name")
+    .returns<FacultyRow[]>();
+  if (error) throw error;
+  return data.map(toFaculty);
 }
 
 export async function getFaculty(slug: string): Promise<FacultyView | null> {
-  const person = FACULTY.find((f) => f.slug === slug);
+  const person = (await getAllFaculty()).find((f) => f.slug === slug);
   if (!person) return null;
   const projects = (await getProjects()).filter((p) => p.advisors.some((a) => a.slug === slug));
   return { ...person, projects };
 }
 
 export async function getStudents(): Promise<Student[]> {
-  return [...STUDENTS].sort((a, b) => a.name.localeCompare(b.name));
+  const { data, error } = await client()
+    .from("profiles")
+    .select(PROFILE_SELECT)
+    .eq("role", "student")
+    .order("name")
+    .returns<ProfileRow[]>();
+  if (error) throw error;
+  return data.map(toStudent);
 }
 
 export async function getStudent(slug: string): Promise<StudentView | null> {
-  const person = STUDENTS.find((s) => s.slug === slug);
+  const person = (await getStudents()).find((s) => s.slug === slug);
   if (!person) return null;
   const projects = (await getProjects()).flatMap((project) => {
-    const member = project.members.find((m) => m.student.slug === slug);
+    const member = project.members.find((m) => m.slug === slug);
     return member ? [{ project, role: member.role }] : [];
   });
   return { ...person, projects };

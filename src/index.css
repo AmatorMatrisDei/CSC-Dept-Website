@@ -1,0 +1,183 @@
+@import "tailwindcss";
+
+/* Color tokens. Each is light-dark(light value, dark value), so one block covers both modes.
+   Mode follows the system. Brand colors from Franciscan's web style guide: green #21412a,
+   gold #998643, yellow #fbb555, greys #333333 / #52535a / #e8e8e8.
+
+   The page background pattern (--bg-image / --bg-size) is drawn on top of --background.
+   Cards use --surface, which is solid, so text never sits on the pattern. */
+:root {
+  color-scheme: light dark;
+  /* Parchment + Amber: parchment's green header, cream cards and gold accents on amber's warm
+     greige page with a dot grid and a soft amber glow at the top. */
+  --background: light-dark(#e2ddd5, #0f0e0c);
+  --foreground: light-dark(#1d2a21, #ece9df);
+  --surface: light-dark(#faf6ea, #19201a);
+  --muted: light-dark(#54574e, #aeb2a6);
+  --border: light-dark(#cbc3b3, #2b312a);
+  --accent: light-dark(#21412a, #d9bf68);
+  --accent-foreground: light-dark(#ffffff, #14200f);
+  --highlight: light-dark(#998643, #d9bf68);
+  --focus: light-dark(#6b5a20, #d9bf68);
+  --header: light-dark(#21412a, #0b1a10);
+  --header-foreground: #f6f1e0;
+  --grid: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --bg-image: radial-gradient(ellipse 80% 300px at 50% 0, color-mix(in srgb, #fbb555 26%, transparent), transparent),
+    radial-gradient(circle, var(--grid) 1px, transparent 1.4px);
+  --bg-size: 100% 100%, 20px 20px;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-highlight: var(--highlight);
+  --color-header: var(--header);
+  --color-header-foreground: var(--header-foreground);
+  --font-sans: "Montserrat", system-ui, sans-serif;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background-color: var(--background);
+  background-image: var(--bg-image);
+  background-size: var(--bg-size);
+  color: var(--foreground);
+}
+
+#root {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+header :focus-visible {
+  outline-color: var(--header-foreground);
+}
+
+/* Motion. Timing lives in these variables. Only fades, slides and color changes; nothing moves
+   the layout. Visitors who ask for reduced motion get none (see the media query below). */
+:root {
+  --motion-fast: 150ms;
+  --motion-duration: 600ms;
+  --motion-rise: 16px;
+  --motion-stagger: 80ms;
+}
+
+a,
+button {
+  transition:
+    color var(--motion-fast),
+    background-color var(--motion-fast),
+    border-color var(--motion-fast),
+    text-decoration-color var(--motion-fast);
+}
+
+a.underline:hover {
+  color: var(--accent);
+  text-decoration-thickness: 2px;
+}
+
+/* Cards: lift, gold border and a soft shadow on hover or keyboard focus. */
+.lift {
+  transition:
+    transform 200ms,
+    box-shadow 200ms,
+    border-color 200ms;
+}
+
+.lift:hover,
+.lift:focus-within {
+  border-color: var(--highlight);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--foreground) 16%, transparent);
+  transform: translateY(-3px);
+}
+
+/* Dropdown menus ease in. */
+.menu-panel {
+  animation: menu-in 160ms ease-out;
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+/* Scroll reveal (see Reveal.tsx): fades up when it enters the screen, staggered by --step.
+   If the script never runs, the failsafe animation shows everything after 3 seconds. */
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(var(--motion-rise));
+  transition:
+    opacity var(--motion-duration) ease-out,
+    transform var(--motion-duration) ease-out;
+  transition-delay: calc(var(--step, 0) * var(--motion-stagger));
+}
+
+[data-reveal][data-revealed] {
+  opacity: 1;
+  transform: none;
+}
+
+[data-reveal]:not([data-revealed]) {
+  animation: reveal-failsafe 0.01s 3s forwards;
+}
+
+@keyframes reveal-failsafe {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media print {
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+  }
+
+  .lift:hover,
+  .lift:focus-within {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
