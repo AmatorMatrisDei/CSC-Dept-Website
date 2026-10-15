@@ -16,6 +16,8 @@ import FacultyMember from "@/pages/FacultyMember";
 import Home from "@/pages/Home";
 import NotFound from "@/pages/NotFound";
 import ProjectDetail from "@/pages/ProjectDetail";
+import Planner from "@/pages/Planner";
+import PlannerCourses from "@/pages/PlannerCourses";
 import People from "@/pages/People";
 import Projects from "@/pages/Projects";
 import ReviewChange from "@/pages/review/ReviewChange";
@@ -79,6 +81,8 @@ export default function App() {
           <Route index element={<ReviewQueue />} />
           <Route path=":id" element={<ReviewChange />} />
         </Route>
+        <Route path="planner" element={<Planner />} />
+        <Route path="planner/courses" element={<PlannerCourses />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
