@@ -24,7 +24,7 @@ As of October 15, 2026.
 | Hosted databases | **Both current.** Production ("Franciscan Site") is empty. Dev ("Franciscan Site Dev") has sample content and skips email confirmation so the team can sign up. Both refuse sign-ups from non-university addresses |
 | Carousel | **Runner done; pick pending.** An hourly job picks the day's projects and admins can re-shuffle. The pick is a placeholder until the Algorithms team delivers theirs |
 | Still to build | Sign-in, the student forms (request to be added, edit profile, submit project), the reviewer queue and the admin panel (FR-3, FR-6) |
-| Open | Email delivery with ITS (Microsoft sign-in or university SMTP); Supabase's GitHub integration points at a fork, so database changes are deployed by hand ([docs/backend-setup.md](docs/backend-setup.md#32-deploying-by-hand)) |
+| Open | Email delivery with ITS (Microsoft sign-in or university SMTP) |
 
 ## Getting started
 
@@ -84,14 +84,17 @@ get no preview, so push branches to this repository.
 If the site ever talks to a new address (another Supabase project, an image host), add it to the
 `Content-Security-Policy` in `public/_headers`, or the browser will block it.
 
-**The database and carousel function.** These deploy from `main` with the Supabase CLI. See
-[docs/backend-setup.md](docs/backend-setup.md), section 3.
+**The database and carousel function.** Supabase's GitHub integration deploys them to production
+when a pull request merges into `main`: it applies new migrations and deploys the `carousel`
+function. It doesn't run `seed.sql` or change Auth settings. The dev project is updated by hand.
+See [docs/backend-setup.md](docs/backend-setup.md), section 3.
 
 ## Contributing
 
 1. Create a branch in this repository (not a fork), so the pull request gets a preview link.
 2. Open a pull request. CI runs the backend tests, and Cloudflare builds a preview against dev.
-3. Get a review, then merge. `main` deploys the site to production right away; database changes
-   are deployed separately (above).
+3. Get a review, then merge. Merging deploys to production right away: Cloudflare publishes the
+   site, and Supabase applies new migrations and deploys the carousel function. A migration can't
+   be undone by reverting the pull request, so try it locally and on dev first.
 
 Keep secrets out of git. `.env.local` and `supabase/functions/.env` are ignored.
