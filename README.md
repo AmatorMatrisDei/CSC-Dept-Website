@@ -2,10 +2,10 @@
 The website for Franciscan University's Department of Computing and Engineering: a place to
 showcase student, capstone and class projects, and for students and faculty to keep profiles.
 
-**Live:** https://csc-dept-website.pages.dev (the production database)
+**Live site:** https://csc-dept-website.pages.dev (the `main` branch, on the production database)
 
-**Developer site:** https://frontend-initial-layout.csc-dept-website.pages.dev (the latest build of the
-`frontend/initial-layout` branch, against the dev database and its sample content)
+**Developer site:** https://staging.csc-dept-website.pages.dev (the `staging` branch, on the dev
+database with sample content). Every change is checked here before it goes live.
 
 Built with [React](https://react.dev) and [Vite](https://vite.dev), hosted on
 [Cloudflare Pages](https://developers.cloudflare.com/pages/), with [Supabase](https://supabase.com) as the
@@ -71,34 +71,52 @@ Never put the secret key (`sb_secret_...`) in `.env.local` or anywhere in the si
 | `tests/e2e/` | The browser test of the student forms |
 | `docs/` | [backend-setup.md](docs/backend-setup.md) and [testing.md](docs/testing.md) |
 
-## Deploying
+## How changes go live
 
-**The site.** Cloudflare Pages builds every push to this repository:
+Every change takes the same path: **feature branch → `staging` → `main`**.
 
-| Branch | Deploys to | Uses |
-| --- | --- | --- |
-| `main` | https://csc-dept-website.pages.dev | the production Supabase project |
-| any other branch | a preview link, posted on its pull request | the dev Supabase project |
+| Step | Branch | Site | Database |
+| --- | --- | --- | --- |
+| 1. Build it | your feature branch | a preview link on its pull request | dev |
+| 2. Check it | `staging` | the developer site, https://staging.csc-dept-website.pages.dev | dev |
+| 3. Publish it | `main` | the live site, https://csc-dept-website.pages.dev | production |
 
-The Pages project's build settings: build command `npm run build`, output directory `dist`, and
-the environment variables `NODE_VERSION=22`, `VITE_SUPABASE_URL` and
-`VITE_SUPABASE_PUBLISHABLE_KEY` (set separately for Production and Preview). Branches in forks
-get no preview, so push branches to this repository.
+1. **Start from `staging`.**
+   ```bash
+   git switch staging && git pull
+   git switch -c feature/short-description
+   ```
+   Push the branch to this repository, not a fork, so it gets a preview link.
+2. **Open a pull request into `staging`**, not `main`. CI runs the backend tests and Cloudflare
+   builds a preview. Get a teammate's review.
+3. **Merge it into `staging`.** Cloudflare updates the developer site, and Supabase applies any
+   new migrations to the dev database.
+4. **Check it on the developer site** with teammates and faculty
+   ([docs/testing.md](docs/testing.md#testing-with-people-developer-site)).
+5. **When `staging` is ready to go live, open a pull request from `staging` into `main`.** Merging
+   it publishes the site and applies the new migrations to the production database. A migration
+   can't be undone by reverting, which is why it runs on dev first.
+
+Don't merge feature branches straight into `main`, and don't push to `staging` or `main` directly.
+
+A pull request's preview uses the dev database as `staging` left it. If the branch adds a
+migration, its preview only works once that migration is on dev: after the merge into `staging`,
+or pushed to dev by hand first ([docs/backend-setup.md](docs/backend-setup.md#32-deploying-by-hand)).
+
+### Deployment settings
+
+**The site.** Cloudflare Pages builds every push. `main` is the production deployment and uses
+the production Supabase project; every other branch, `staging` included, is a preview and uses
+the dev project. Build command `npm run build`, output directory `dist`, and the environment
+variables `NODE_VERSION=22`, `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (set
+separately for Production and Preview).
 
 If the site ever talks to a new address (another Supabase project, an image host), add it to the
 `Content-Security-Policy` in `public/_headers`, or the browser will block it.
 
-**The database and carousel function.** Supabase's GitHub integration deploys them to production
-when a pull request merges into `main`: it applies new migrations and deploys the `carousel`
-function. It doesn't run `seed.sql` or change Auth settings. The dev project is updated by hand.
+**The databases and the carousel function.** Supabase's GitHub integration deploys them: merging
+into `staging` updates the dev project, and merging into `main` updates production. It applies new
+migrations and deploys the `carousel` function; it doesn't run `seed.sql` or change Auth settings.
 See [docs/backend-setup.md](docs/backend-setup.md), section 3.
-
-## Contributing
-
-1. Create a branch in this repository (not a fork), so the pull request gets a preview link.
-2. Open a pull request. CI runs the backend tests, and Cloudflare builds a preview against dev.
-3. Get a review, then merge. Merging deploys to production right away: Cloudflare publishes the
-   site, and Supabase applies new migrations and deploys the carousel function. A migration can't
-   be undone by reverting the pull request, so try it locally and on dev first.
 
 Keep secrets out of git. `.env.local` and `supabase/functions/.env` are ignored.

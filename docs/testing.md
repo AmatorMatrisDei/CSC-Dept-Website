@@ -117,12 +117,14 @@ changes to the forms.
 regenerated. It runs on every pull request, so it can be made a required check under
 Settings > Branches.
 
-## Testing with people (preview links)
+## Testing with people (developer site)
 
-Cloudflare builds a preview of each pull request, but **not for pull requests from forks**, so
-push branches to the shared repository to get a preview link.
+Once a change is merged into `staging`, check it with teammates and faculty on the developer site,
+https://staging.csc-dept-website.pages.dev, before opening the pull request from `staging` into
+`main`. Each pull request also gets its own preview link, but **not pull requests from forks**, so
+push branches to the shared repository.
 
-Preview deployments should point at the **dev project** (Franciscan Site Dev), never production.
+The developer site and previews use the **dev project** (Franciscan Site Dev), never production.
 On dev:
 
 - use accounts made for testing
