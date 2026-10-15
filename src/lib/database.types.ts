@@ -129,6 +129,12 @@ isOneToOne: false
       foreignKeyName: "project_members_profile_id_fkey"
       columns: ["student_id"]
 isOneToOne: false
+      referencedRelation: "listed_students"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "project_members_profile_id_fkey"
+      columns: ["student_id"]
+isOneToOne: false
       referencedRelation: "profiles"
       referencedColumns: ["id"]
     },{
@@ -173,17 +179,23 @@ isOneToOne: false
                   ]
                 },"faculty": {
                   Row: {
-                    "created_at": string,"email": string | null,"id": string,"name": string,"photo_path": string | null,"profile_id": string | null,"title": string,"updated_at": string
+                    "created_at": string,"email": string | null,"id": string,"name": string,"photo_path": string | null,"profile_id": string | null,"slug": string,"title": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"email"?: string | null,"id"?: string,"name": string,"photo_path"?: string | null,"profile_id"?: string | null,"title"?: string,"updated_at"?: string
+                    "created_at"?: string,"email"?: string | null,"id"?: string,"name": string,"photo_path"?: string | null,"profile_id"?: string | null,"slug": string,"title"?: string,"updated_at"?: string
                   }
                   Update: {
-                    "created_at"?: string,"email"?: string | null,"id"?: string,"name"?: string,"photo_path"?: string | null,"profile_id"?: string | null,"title"?: string,"updated_at"?: string
+                    "created_at"?: string,"email"?: string | null,"id"?: string,"name"?: string,"photo_path"?: string | null,"profile_id"?: string | null,"slug"?: string,"title"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
+      foreignKeyName: "faculty_profile_id_fkey"
+      columns: ["profile_id"]
+isOneToOne: true
+      referencedRelation: "listed_students"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "faculty_profile_id_fkey"
       columns: ["profile_id"]
 isOneToOne: true
@@ -204,6 +216,12 @@ isOneToOne: true
                   }
                   Relationships: [
                     {
+      foreignKeyName: "internships_student_id_fkey"
+      columns: ["student_id"]
+isOneToOne: false
+      referencedRelation: "listed_students"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "internships_student_id_fkey"
       columns: ["student_id"]
 isOneToOne: false
@@ -234,6 +252,12 @@ isOneToOne: false
       columns: ["project_id"]
 isOneToOne: false
       referencedRelation: "projects"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "monthly_pool_selected_by_fkey"
+      columns: ["selected_by"]
+isOneToOne: false
+      referencedRelation: "listed_students"
       referencedColumns: ["id"]
     },{
       foreignKeyName: "monthly_pool_selected_by_fkey"
@@ -273,7 +297,19 @@ isOneToOne: false
       foreignKeyName: "pending_changes_reviewer_id_fkey"
       columns: ["reviewer_id"]
 isOneToOne: false
+      referencedRelation: "listed_students"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pending_changes_reviewer_id_fkey"
+      columns: ["reviewer_id"]
+isOneToOne: false
       referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pending_changes_submitter_id_fkey"
+      columns: ["submitter_id"]
+isOneToOne: false
+      referencedRelation: "listed_students"
       referencedColumns: ["id"]
     },{
       foreignKeyName: "pending_changes_submitter_id_fkey"
@@ -299,20 +335,26 @@ isOneToOne: false
       foreignKeyName: "posts_author_id_fkey"
       columns: ["author_id"]
 isOneToOne: false
+      referencedRelation: "listed_students"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "posts_author_id_fkey"
+      columns: ["author_id"]
+isOneToOne: false
       referencedRelation: "profiles"
       referencedColumns: ["id"]
     }
                   ]
                 },"profiles": {
                   Row: {
-                    "background": string,"class_year": number | null,"clubs_roles": (string)[],"contact_email": string | null,"contact_phone": string | null,"created_at": string,"github_url": string | null,"headline": string,"id": string,"linkedin_url": string | null,"major": string | null,"name": string,"photo_path": string | null,"role": Database["public"]['Enums']["app_role"],"skills": (string)[],"updated_at": string,"visible": boolean,"website_url": string | null
+                    "background": string,"class_year": number | null,"clubs_roles": (string)[],"contact_email": string | null,"contact_phone": string | null,"created_at": string,"github_url": string | null,"headline": string,"id": string,"linkedin_url": string | null,"major": string | null,"name": string,"photo_path": string | null,"role": Database["public"]['Enums']["app_role"],"skills": (string)[],"slug": string,"updated_at": string,"visible": boolean,"website_url": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "background"?: string,"class_year"?: number | null,"clubs_roles"?: (string)[],"contact_email"?: string | null,"contact_phone"?: string | null,"created_at"?: string,"github_url"?: string | null,"headline"?: string,"id": string,"linkedin_url"?: string | null,"major"?: string | null,"name"?: string,"photo_path"?: string | null,"role"?: Database["public"]['Enums']["app_role"],"skills"?: (string)[],"updated_at"?: string,"visible"?: boolean,"website_url"?: string | null
+                    "background"?: string,"class_year"?: number | null,"clubs_roles"?: (string)[],"contact_email"?: string | null,"contact_phone"?: string | null,"created_at"?: string,"github_url"?: string | null,"headline"?: string,"id": string,"linkedin_url"?: string | null,"major"?: string | null,"name"?: string,"photo_path"?: string | null,"role"?: Database["public"]['Enums']["app_role"],"skills"?: (string)[],"slug": string,"updated_at"?: string,"visible"?: boolean,"website_url"?: string | null
                   }
                   Update: {
-                    "background"?: string,"class_year"?: number | null,"clubs_roles"?: (string)[],"contact_email"?: string | null,"contact_phone"?: string | null,"created_at"?: string,"github_url"?: string | null,"headline"?: string,"id"?: string,"linkedin_url"?: string | null,"major"?: string | null,"name"?: string,"photo_path"?: string | null,"role"?: Database["public"]['Enums']["app_role"],"skills"?: (string)[],"updated_at"?: string,"visible"?: boolean,"website_url"?: string | null
+                    "background"?: string,"class_year"?: number | null,"clubs_roles"?: (string)[],"contact_email"?: string | null,"contact_phone"?: string | null,"created_at"?: string,"github_url"?: string | null,"headline"?: string,"id"?: string,"linkedin_url"?: string | null,"major"?: string | null,"name"?: string,"photo_path"?: string | null,"role"?: Database["public"]['Enums']["app_role"],"skills"?: (string)[],"slug"?: string,"updated_at"?: string,"visible"?: boolean,"website_url"?: string | null
                   }
                   Relationships: [
                     
@@ -340,6 +382,12 @@ isOneToOne: false
       columns: ["project_id"]
 isOneToOne: false
       referencedRelation: "projects"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "project_images_uploaded_by_fkey"
+      columns: ["uploaded_by"]
+isOneToOne: false
+      referencedRelation: "listed_students"
       referencedColumns: ["id"]
     },{
       foreignKeyName: "project_images_uploaded_by_fkey"
@@ -383,14 +431,14 @@ isOneToOne: false
                   ]
                 },"projects": {
                   Row: {
-                    "category_id": string,"created_at": string,"created_by": string | null,"date_finished": string | null,"date_started": string | null,"demo_url": string | null,"description": string,"id": string,"is_pinned": boolean,"open_to_contributors": boolean,"poster_url": string | null,"primary_contact_email": string | null,"primary_contact_phone": string | null,"primary_contact_student_id": string | null,"priority": number,"published": boolean,"published_at": string | null,"repo_url": string | null,"search": unknown,"slug": string,"status": Database["public"]['Enums']["project_status"],"sub_department_id": string,"summary": string,"tags": (string)[],"thumbnail_path": string | null,"title": string,"updated_at": string
+                    "category_id": string,"created_at": string,"created_by": string | null,"date_finished": string | null,"date_started": string | null,"demo_url": string | null,"description": string,"id": string,"is_pinned": boolean,"open_to_contributors": boolean,"poster_url": string | null,"primary_contact_email": string | null,"primary_contact_phone": string | null,"primary_contact_student_id": string | null,"priority": number,"published": boolean,"published_at": string | null,"repo_url": string | null,"search": unknown,"slug": string,"status": Database["public"]['Enums']["project_status"],"sub_department_id": string,"summary": string,"tags": (string)[],"thumbnail_alt": string | null,"thumbnail_path": string | null,"title": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "category_id": string,"created_at"?: string,"created_by"?: string | null,"date_finished"?: string | null,"date_started"?: string | null,"demo_url"?: string | null,"description"?: string,"id"?: string,"is_pinned"?: boolean,"open_to_contributors"?: boolean,"poster_url"?: string | null,"primary_contact_email"?: string | null,"primary_contact_phone"?: string | null,"primary_contact_student_id"?: string | null,"priority"?: number,"published"?: boolean,"published_at"?: string | null,"repo_url"?: string | null,"search"?: never,"slug": string,"status"?: Database["public"]['Enums']["project_status"],"sub_department_id": string,"summary"?: string,"tags"?: (string)[],"thumbnail_path"?: string | null,"title": string,"updated_at"?: string
+                    "category_id": string,"created_at"?: string,"created_by"?: string | null,"date_finished"?: string | null,"date_started"?: string | null,"demo_url"?: string | null,"description"?: string,"id"?: string,"is_pinned"?: boolean,"open_to_contributors"?: boolean,"poster_url"?: string | null,"primary_contact_email"?: string | null,"primary_contact_phone"?: string | null,"primary_contact_student_id"?: string | null,"priority"?: number,"published"?: boolean,"published_at"?: string | null,"repo_url"?: string | null,"search"?: never,"slug": string,"status"?: Database["public"]['Enums']["project_status"],"sub_department_id": string,"summary"?: string,"tags"?: (string)[],"thumbnail_alt"?: string | null,"thumbnail_path"?: string | null,"title": string,"updated_at"?: string
                   }
                   Update: {
-                    "category_id"?: string,"created_at"?: string,"created_by"?: string | null,"date_finished"?: string | null,"date_started"?: string | null,"demo_url"?: string | null,"description"?: string,"id"?: string,"is_pinned"?: boolean,"open_to_contributors"?: boolean,"poster_url"?: string | null,"primary_contact_email"?: string | null,"primary_contact_phone"?: string | null,"primary_contact_student_id"?: string | null,"priority"?: number,"published"?: boolean,"published_at"?: string | null,"repo_url"?: string | null,"search"?: never,"slug"?: string,"status"?: Database["public"]['Enums']["project_status"],"sub_department_id"?: string,"summary"?: string,"tags"?: (string)[],"thumbnail_path"?: string | null,"title"?: string,"updated_at"?: string
+                    "category_id"?: string,"created_at"?: string,"created_by"?: string | null,"date_finished"?: string | null,"date_started"?: string | null,"demo_url"?: string | null,"description"?: string,"id"?: string,"is_pinned"?: boolean,"open_to_contributors"?: boolean,"poster_url"?: string | null,"primary_contact_email"?: string | null,"primary_contact_phone"?: string | null,"primary_contact_student_id"?: string | null,"priority"?: number,"published"?: boolean,"published_at"?: string | null,"repo_url"?: string | null,"search"?: never,"slug"?: string,"status"?: Database["public"]['Enums']["project_status"],"sub_department_id"?: string,"summary"?: string,"tags"?: (string)[],"thumbnail_alt"?: string | null,"thumbnail_path"?: string | null,"title"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -403,7 +451,19 @@ isOneToOne: false
       foreignKeyName: "projects_created_by_fkey"
       columns: ["created_by"]
 isOneToOne: false
+      referencedRelation: "listed_students"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "projects_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
       referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "projects_primary_contact_student_id_fkey"
+      columns: ["primary_contact_student_id"]
+isOneToOne: false
+      referencedRelation: "listed_students"
       referencedColumns: ["id"]
     },{
       foreignKeyName: "projects_primary_contact_student_id_fkey"
@@ -442,6 +502,20 @@ isOneToOne: false
                   }
                   ComputedFields: never
                   Relationships: [
+                    
+                  ]
+                },"listed_students": {
+                  Row: {
+                    "background": string | null,"class_year": number | null,"clubs_roles": (string)[] | null,"contact_email": string | null,"contact_phone": string | null,"github_url": string | null,"headline": string | null,"id": string | null,"linkedin_url": string | null,"major": string | null,"name": string | null,"photo_path": string | null,"skills": (string)[] | null,"slug": string | null,"website_url": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                           "background"?: string | null,"class_year"?: number | null,"clubs_roles"?: (string)[] | null,"contact_email"?: string | null,"contact_phone"?: string | null,"github_url"?: string | null,"headline"?: string | null,"id"?: string | null,"linkedin_url"?: string | null,"major"?: string | null,"name"?: string | null,"photo_path"?: string | null,"skills"?: (string)[] | null,"slug"?: string | null,"website_url"?: string | null
+                         }
+                        Update: {
+                           "background"?: string | null,"class_year"?: number | null,"clubs_roles"?: (string)[] | null,"contact_email"?: string | null,"contact_phone"?: string | null,"github_url"?: string | null,"headline"?: string | null,"id"?: string | null,"linkedin_url"?: string | null,"major"?: string | null,"name"?: string | null,"photo_path"?: string | null,"skills"?: (string)[] | null,"slug"?: string | null,"website_url"?: string | null
+                         }
+                        Relationships: [
                     
                   ]
                 }

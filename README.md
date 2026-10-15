@@ -13,7 +13,7 @@ As of October 14, 2026. Requirement IDs (FR-…) refer to the Requirements and T
 | Area | Status |
 | --- | --- |
 | Backend schema | **Done.** Follows the Requirements and Team Guide v1.4: students, faculty, projects, members and advisors, consent, a review queue for every student submission, an audit log, and the carousel tables. Visitors only see published projects and students who opted in. Hardened after a security review (https-only links, locked-down internal functions, size limits). See [docs/backend-setup.md](docs/backend-setup.md) |
-| Backend tests and CI | **Done.** 111 database tests, 5 end-to-end API tests and 6 carousel tests, run on every pull request |
+| Backend tests and CI | **Done.** 122 database tests, 5 end-to-end API tests and 6 carousel tests, run on every pull request |
 | Carousel | **Runner done; pick pending.** An hourly job calls the `carousel` Edge Function, which saves the day's pick, and admins can re-shuffle. The pick itself is a placeholder until the Algorithms team delivers theirs |
 | Hosted databases | **Both current.** Production ("Franciscan Site") and dev ("Franciscan Site Dev") run the full schema, the security hardening and the carousel function on its hourly schedule. Both refuse sign-ups from non-university addresses. Dev skips email confirmation so the team can sign up; production has no content yet |
 | Automatic database deploys | **Not working yet.** Supabase's GitHub integration points at a fork and needs to point at this repository. Until then, deploy by hand ([docs/backend-setup.md](docs/backend-setup.md#32-deploying-by-hand)) |
