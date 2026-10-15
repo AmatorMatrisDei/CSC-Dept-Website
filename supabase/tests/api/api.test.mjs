@@ -287,3 +287,12 @@ test("a photo cannot be swapped or deleted while a submission or live page uses 
   const removed = await remove();
   assert.equal(removed.data.length, 1, "and to delete");
 });
+
+test("an account can be deleted", async () => {
+  const doomed = await signUp(uniqueEmail("deleted"), "API Deleted");
+  const res = await call(`/auth/v1/admin/users/${doomed.id}`, { method: "DELETE", key: SECRET_KEY });
+  assert.equal(res.status, 200, JSON.stringify(res.data));
+  const gone = await call(`/rest/v1/profiles?id=eq.${doomed.id}&select=id`, { key: SECRET_KEY });
+  assert.deepEqual(gone.data, [], "the profile goes with the account");
+  created.users = created.users.filter((id) => id !== doomed.id);
+});
