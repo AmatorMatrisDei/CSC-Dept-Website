@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { useEdit } from "@/lib/edit";
 
 // Edit mode switch in the header. Only admins see it.
@@ -5,6 +6,7 @@ export default function EditToggle() {
   const { canEdit, editing, setEditing } = useEdit();
   if (!canEdit) return null;
   return (
+    <>
     <button
       type="button"
       role="switch"
@@ -17,5 +19,9 @@ export default function EditToggle() {
       </span>
       Edit mode
     </button>
+    <Link to="/people" className="inline-flex min-h-11 items-center rounded px-3 text-sm hover:bg-current/10">
+      People
+    </Link>
+    </>
   );
 }

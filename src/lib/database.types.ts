@@ -546,6 +546,11 @@ isOneToOne: false
 "hook_before_user_created":
 { Args: { "event": Json }; Returns: Json
                            },
+"list_people":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "email": string,"id": string,"name": string,"role": Database["public"]['Enums']["app_role"]
+            }[]
+                           },
 "respond_to_listing":
 { Args: { "accept": boolean,"listing_id": string }; Returns: undefined
                            },
