@@ -12,6 +12,8 @@ create trigger set_updated_at before update on public.site_content
 
 alter table public.site_content enable row level security;
 
+-- New tables start with every privilege for the API roles; keep only what is needed.
+revoke all on public.site_content from anon, authenticated;
 grant select on public.site_content to anon, authenticated;
 grant insert, update, delete on public.site_content to authenticated;
 
