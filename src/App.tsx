@@ -18,6 +18,7 @@ import NotFound from "@/pages/NotFound";
 import ProjectDetail from "@/pages/ProjectDetail";
 import Planner from "@/pages/Planner";
 import PlannerCourses from "@/pages/PlannerCourses";
+import People from "@/pages/People";
 import Projects from "@/pages/Projects";
 import ReviewChange from "@/pages/review/ReviewChange";
 import ReviewQueue from "@/pages/review/ReviewQueue";
@@ -72,6 +73,9 @@ export default function App() {
           <Route path="projects/:id" element={<ProjectForm />} />
           <Route path="internships/new" element={<InternshipForm />} />
           <Route path="internships/:id" element={<InternshipForm />} />
+        </Route>
+        <Route path="people" element={<AccountLayout />}>
+          <Route index element={<People />} />
         </Route>
         <Route path="review" element={<AccountLayout reviewer />}>
           <Route index element={<ReviewQueue />} />

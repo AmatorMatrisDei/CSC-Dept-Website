@@ -1,4 +1,6 @@
+import { Link } from "react-router";
 import ProjectBrowser from "@/components/ProjectBrowser";
+import SiteText from "@/components/SiteText";
 import { getAllFaculty, getProjects, getSubDepartments } from "@/lib/content";
 import { useAsync, useTitle } from "@/lib/hooks";
 
@@ -10,7 +12,13 @@ export default function Projects() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-3xl font-semibold">Projects</h1>
+      <SiteText id="projects.title" as="h1" fallback="Projects" className="text-3xl font-semibold" />
+      <p className="text-muted">
+        Have a project to show?{" "}
+        <Link to="/account/projects/new" className="underline">
+          Submit a project
+        </Link>
+      </p>
       {projects && departments && advisors ? (
         <ProjectBrowser
           projects={projects}

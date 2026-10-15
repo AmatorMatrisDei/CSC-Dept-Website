@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import { useEffect, useRef, useState } from "react";
 
 export type NavLink = { label: string; href: string };
-export type NavMenu = { label: string; href: string; groups: { heading?: string; links: NavLink[] }[] };
+export type NavMenu = { label: string; href: string; allLabel?: string; groups: { heading?: string; links: NavLink[] }[] };
 
 // Top bar menus. Each is a button that opens a panel of links. Works with the keyboard
 // (Tab to the button, Enter/Space to open, Escape to close) and closes on outside click.
@@ -60,7 +60,7 @@ export default function SiteNav({ menus }: { menus: NavMenu[] }) {
                   to={menu.href}
                   className="flex min-h-11 items-center rounded px-2 font-medium hover:bg-surface"
                 >
-                  All {menu.label.toLowerCase()}
+                  {menu.allLabel ?? `All ${menu.label.toLowerCase()}`}
                 </Link>
                 {menu.groups.map((group, i) => (
                   <div key={i} className="mt-2 border-t border-border pt-2">
