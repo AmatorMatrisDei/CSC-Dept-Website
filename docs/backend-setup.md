@@ -225,7 +225,7 @@ about it, and it can make the deploy fail.
    npm run db:types
    ```
 
-5. Open a pull request. CI runs the same tests. After it merges, deploy it (section 3).
+5. Open a pull request. CI runs the same tests. Merging deploys it to production (section 3.1).
 
 Never edit a migration that has already been merged. Write a new one that changes what you need.
 
@@ -252,18 +252,25 @@ Supabase dashboard > Project Settings > Integrations > GitHub, on each project:
 | GitHub repository | `AmatorMatrisDei/CSC-Dept-Website`, the shared repository, not a fork |
 | Working directory | `.` |
 | Deploy to production | On |
-| Production branch name | `main` |
+| Production branch name | `main` on Franciscan Site, `staging` on Franciscan Site Dev |
 
 Connecting the shared repository requires its owner to approve the Supabase GitHub app. Connecting
 a fork does not work: the integration deploys when a pull request is merged in the connected
 repository, and syncing a fork does not count.
 
-On merge to `main`, the integration applies new migrations. It does not apply `seed.sql` or the
-Auth settings in `config.toml`, so the local test accounts and localhost URLs never reach a hosted
-project. After a merge, check that the change arrived (Database > Migrations lists the applied
-versions). If it didn't, deploy by hand as in 3.2.
+So **merging into `staging` updates the dev project, and merging into `main` updates
+production**, matching the branch workflow in the README. Production has followed `main` since
+October 15, 2026; dev follows `staging`.
+
+On each merge, the integration applies new migrations and deploys the Edge Functions
+declared in `config.toml` (`carousel`). It ignores `seed.sql` and the Auth and API settings in
+`config.toml` (there is no `[remotes]` block), so the local test accounts and localhost URLs
+never reach a hosted project. After a merge, check that the change arrived (Database >
+Migrations lists the applied versions). If it didn't, deploy by hand as in 3.2.
 
 ### 3.2 Deploying by hand
+
+For the dev project, and for production if the integration's deploy didn't arrive.
 
 ```bash
 npx supabase login                              # opens a browser; run it in your own terminal

@@ -1,13 +1,13 @@
 name: Backend
 
-# Runs the database and API tests against a throwaway local Supabase on every pull request.
-# Deploying migrations to the hosted project is done by Supabase's GitHub integration on merge
-# to main, not by this workflow.
+# Runs the database and API tests against a throwaway local Supabase on every pull request, and
+# after merges into staging and main. Deploying migrations to the hosted projects is done by
+# Supabase's GitHub integration (staging to dev, main to production), not by this workflow.
 
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, staging]
 
 jobs:
   test:
