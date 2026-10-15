@@ -2,7 +2,10 @@
 The website for Franciscan University's Department of Computing and Engineering: a place to
 showcase student, capstone and class projects, and for students and faculty to keep profiles.
 
-**Live:** https://csc-dept-website.pages.dev
+**Live:** https://csc-dept-website.pages.dev (the production database)
+
+**Developer site:** https://frontend-initial-layout.csc-dept-website.pages.dev (the latest build of the
+`frontend/initial-layout` branch, against the dev database and its sample content)
 
 Built with [React](https://react.dev) and [Vite](https://vite.dev), hosted on
 [Cloudflare Pages](https://developers.cloudflare.com/pages/), with [Supabase](https://supabase.com) as the
