@@ -38,9 +38,14 @@ export function addCourse(plan: Plan, courseId: string, to: number): Plan {
 
 export type Warning = { courseId: string; message: string };
 
-// Flags courses whose prerequisites are not done or planned earlier, and corequisites that are not
-// planned in the same or an earlier semester. Courses marked completed count as done.
-export function warnings(plan: Plan, courses: Map<string, Course>, completed: Set<string>): Warning[] {
+// Calendar year of a semester, counting from the fall a student starts (index 0 is that fall).
+const yearOf = (index: number, firstFall: number) => firstFall + Math.floor(index / 2) + (index % 2);
+
+// Flags prerequisite groups nothing done or planned earlier meets, corequisites not planned in the
+// same or an earlier semester, and courses placed in a term (or, given `firstFall`, a year) they
+// aren't offered. Courses marked completed count as done. A group with `other` can be met outside
+// the plan (high school math, placement), so it never warns; the catalog wording says how.
+export function warnings(plan: Plan, courses: Map<string, Course>, completed: Set<string>, firstFall?: number): Warning[] {
   const found: Warning[] = [];
   plan.forEach((items, s) => {
     const before = new Set(plan.slice(0, s).flatMap((x) => x.flatMap((i) => (i.course ? [i.course] : []))));
@@ -52,8 +57,15 @@ export function warnings(plan: Plan, courses: Map<string, Course>, completed: Se
       if (course.offered.length && !course.offered.includes(term)) {
         found.push({ courseId: course.id, message: `Only offered in ${course.offered.map((t) => t[0].toUpperCase() + t.slice(1)).join(" and ")}` });
       }
-      const need = course.prerequisites.filter((p) => !completed.has(p) && !before.has(p));
-      if (need.length) found.push({ courseId: course.id, message: `Needs ${need.map((p) => courses.get(p)?.code ?? p).join(", ")} first` });
+      const parity = course.offered_years[term];
+      if (firstFall && (parity === "odd" || parity === "even") && (yearOf(s, firstFall) % 2 === 1) !== (parity === "odd")) {
+        found.push({ courseId: course.id, message: `Only offered in ${parity} years (${course.offered_text ?? parity})` });
+      }
+      for (const group of course.prerequisite_groups) {
+        if (group.other) continue;
+        const met = group.courses.some((p) => completed.has(p) || before.has(p) || (group.concurrent && now.has(p)));
+        if (!met) found.push({ courseId: course.id, message: `Needs ${group.courses.map((p) => courses.get(p)?.code ?? p).join(" or ")} first` });
+      }
       const alongside = course.corequisites.filter((p) => !completed.has(p) && !before.has(p) && !now.has(p));
       if (alongside.length) found.push({ courseId: course.id, message: `Take with ${alongside.map((p) => courses.get(p)?.code ?? p).join(", ")}` });
     }
