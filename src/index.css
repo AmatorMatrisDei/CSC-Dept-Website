@@ -19,6 +19,7 @@
   --accent-foreground: light-dark(#ffffff, #14200f);
   --highlight: light-dark(#998643, #d9bf68);
   --focus: light-dark(#6b5a20, #d9bf68);
+  --danger: light-dark(#b3261e, #f2b8b5);
   --header: light-dark(#21412a, #0b1a10);
   --header-foreground: #f6f1e0;
   --grid: color-mix(in srgb, var(--foreground) 10%, transparent);
@@ -44,6 +45,7 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-highlight: var(--highlight);
+  --color-danger: var(--danger);
   --color-header: var(--header);
   --color-header-foreground: var(--header-foreground);
   --font-sans: "Montserrat", system-ui, sans-serif;

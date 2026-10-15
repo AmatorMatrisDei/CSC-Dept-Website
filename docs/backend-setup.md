@@ -288,9 +288,10 @@ affected.
    function > `public.hook_before_user_created`. Without this, anyone can sign up.
 2. **URLs.** Authentication > URL Configuration:
    - Site URL: the site's address (production), or `http://localhost:5173` (dev).
-   - Redirect URLs: `http://localhost:3000/**`, `http://localhost:5173/**`,
-     `http://localhost:8787/**`, the production address, and a wildcard for preview deployments,
-     for example `https://*.csc-dept-website.pages.dev/**`.
+   - Redirect URLs: `http://localhost:5173/**`, `http://localhost:4173/**`,
+     `https://csc-dept-website.pages.dev/**`, and a wildcard for preview deployments,
+     `https://*.csc-dept-website.pages.dev/**`. Sign-up confirmation and password reset emails
+     link back to `/account` and `/account/password`, so those must be allowed.
 3. **Passwords and email.** Authentication > Sign In / Providers > Email: minimum password
    length 8. Keep "Confirm email" on in production. On dev, turning it off lets teammates sign
    up without email delivery.

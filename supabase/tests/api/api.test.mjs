@@ -236,3 +236,54 @@ test("photos upload only into the user's own folders", async () => {
   });
   assert.ok(notAnImage.status >= 400, `non-image upload returned ${notAnImage.status}`);
 });
+
+test("a photo cannot be swapped or deleted while a submission or live page uses it", async () => {
+  const photo = `submissions/${student.id}/api-swap-test.png`;
+  const upload = await call(`/storage/v1/object/media/${photo}`, {
+    method: "POST",
+    token: student.token,
+    body: PNG,
+    headers: { "Content-Type": "image/png" },
+  });
+  assert.equal(upload.status, 200, JSON.stringify(upload.data));
+  created.files.push(photo);
+
+  const changeId = await submit(student, {
+    target_type: "project",
+    action: "create",
+    proposed_data: {
+      title: "API swap test",
+      category_id: await lookupId("categories", "class"),
+      sub_department_id: await lookupId("sub_departments", "computer-science"),
+      images: [{ storage_path: photo, alt_text: "A test image" }],
+    },
+  });
+
+  const replace = () => call(`/storage/v1/object/media/${photo}`, {
+    method: "PUT",
+    token: student.token,
+    body: PNG,
+    headers: { "Content-Type": "image/png" },
+  });
+  const remove = () => call("/storage/v1/object/media", { method: "DELETE", token: student.token, json: { prefixes: [photo] } });
+
+  const swapped = await replace();
+  assert.ok(swapped.status >= 400, `replacing a photo under review returned ${swapped.status}`);
+  const deleted = await remove();
+  assert.deepEqual(deleted.data, [], "deleting a photo under review should remove nothing");
+  const stillThere = await fetch(`${API_URL}/storage/v1/object/public/media/${photo}`);
+  assert.equal(stillThere.status, 200);
+  await stillThere.arrayBuffer();
+
+  const withdrawn = await call(`/rest/v1/pending_changes?id=eq.${changeId}`, {
+    method: "PATCH",
+    token: student.token,
+    json: { status: "withdrawn" },
+  });
+  assert.equal(withdrawn.status, 204, JSON.stringify(withdrawn.data));
+
+  const replaced = await replace();
+  assert.equal(replaced.status, 200, `once withdrawn, the photo is the student's to replace: ${JSON.stringify(replaced.data)}`);
+  const removed = await remove();
+  assert.equal(removed.data.length, 1, "and to delete");
+});

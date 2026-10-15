@@ -19,11 +19,12 @@ As of October 15, 2026.
 | Area | Status |
 | --- | --- |
 | Website | **Live.** Home (carousel and project browser), projects, faculty, students and about pages, with security headers. Production has no content yet, and the About text is a placeholder |
+| Student accounts and review | **Built.** Students sign in with their university email, choose what they share, and submit their profile, projects (team, advisors, partners, photos) and internships. Reviewers approve, return with a note, or reject at `/review`, seeing what's on the site beside what's proposed. Works on the developer site; production sign-up waits on email delivery (below) |
 | Backend | **Done.** Students, faculty, projects, members and advisors, consent, a review queue for every student submission, an audit log, the carousel, the student directory and URL slugs. Visitors only see published projects and students who opted in. Hardened after a security review. See [docs/backend-setup.md](docs/backend-setup.md) |
-| Tests and CI | **Done for the backend:** 122 database tests, 5 end-to-end API tests and 6 carousel tests on every pull request. The site's lint and build only run in Cloudflare's build so far |
+| Tests and CI | **Backend:** 137 database tests, 6 API tests and 6 carousel tests on every pull request. **Site:** a 15-step browser test of the student forms and review queue (`npm run test:e2e`), run by hand for now; lint and build only run in Cloudflare's build |
 | Hosted databases | **Both current.** Production ("Franciscan Site") is empty. Dev ("Franciscan Site Dev") has sample content and skips email confirmation so the team can sign up. Both refuse sign-ups from non-university addresses |
 | Carousel | **Runner done; pick pending.** An hourly job picks the day's projects and admins can re-shuffle. The pick is a placeholder until the Algorithms team delivers theirs |
-| Still to build | Sign-in, the student forms (request to be added, edit profile, submit project), the reviewer queue and the admin panel (FR-3, FR-6) |
+| Still to build | The admin panel: faculty, partners, news, alumni stories, roles and the monthly carousel pool (FR-6). Email notifications to students when a submission is reviewed (FR-3.6) |
 | Open | Email delivery with ITS (Microsoft sign-in or university SMTP); Supabase's GitHub integration points at a fork, so database changes are deployed by hand ([docs/backend-setup.md](docs/backend-setup.md#32-deploying-by-hand)) |
 
 ## Getting started
@@ -53,18 +54,21 @@ Never put the secret key (`sb_secret_...`) in `.env.local` or anywhere in the si
 | `npm run preview` | Serve the built `dist/` locally |
 | `npm run lint` | Lint the site's code |
 | `npm run db:start`, `db:test`, `test:api`, … | The backend harness; see [docs/backend-setup.md](docs/backend-setup.md) |
+| `npm run test:e2e` | The student forms and review queue in Chrome, against the local stack; see [docs/testing.md](docs/testing.md) |
 
 ## Project layout
 
 | Path | What it is |
 | --- | --- |
-| `src/pages/` | One component per page |
-| `src/components/` | Shared UI: header, navigation, carousel, project browser, directory |
+| `src/pages/` | One component per page. `account/` holds sign-in and the student forms, `review/` the reviewer queue |
+| `src/components/` | Shared UI: header, navigation, carousel, project browser, directory, form fields and photo pickers (`Form.tsx`) |
 | `src/lib/content.ts` | Every database read the site makes. It applies the public rules itself (published projects, confirmed members, `listed_students`), so pages look the same when someone is signed in |
+| `src/lib/account.ts`, `auth.ts`, `review.ts` | Signing in, and everything students and reviewers send: consents, submissions to the review queue, photo uploads (resized in the browser) and review decisions |
 | `src/lib/supabase.ts` | The Supabase client (publishable key only) and photo URLs |
 | `src/lib/database.types.ts` | Types generated from the schema (`npm run db:types`); don't edit by hand |
 | `public/_headers` | Security headers Cloudflare sends with every page |
 | `supabase/` | The backend: migrations, the carousel function, seed and dev content, tests |
+| `tests/e2e/` | The browser test of the student forms |
 | `docs/` | [backend-setup.md](docs/backend-setup.md) and [testing.md](docs/testing.md) |
 
 ## Deploying

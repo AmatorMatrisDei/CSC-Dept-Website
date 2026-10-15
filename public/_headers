@@ -1,4 +1,4 @@
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data: https://rhvvvurfpzblbpsipgen.supabase.co https://zekufoxhojjqqbmcxmtu.supabase.co; connect-src https://rhvvvurfpzblbpsipgen.supabase.co https://zekufoxhojjqqbmcxmtu.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data: blob: https://rhvvvurfpzblbpsipgen.supabase.co https://zekufoxhojjqqbmcxmtu.supabase.co; connect-src https://rhvvvurfpzblbpsipgen.supabase.co https://zekufoxhojjqqbmcxmtu.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
   X-Frame-Options: DENY
   Permissions-Policy: camera=(), microphone=(), geolocation=()
