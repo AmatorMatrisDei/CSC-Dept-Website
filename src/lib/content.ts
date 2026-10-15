@@ -12,11 +12,12 @@ import type {
 } from "./types";
 
 // The only file the pages read data from. It reads the public (published, opted-in) rows from
-// Supabase; row level security does the filtering, so nothing here needs to check it again.
+// Supabase. People come from the listed_students view, never from profiles, so unlisted students
+// never show even to a signed-in reviewer.
 
-type FacultyRow = { id: string; name: string; title: string; email: string | null; photo_path: string | null };
+type FacultyRow = { slug: string; name: string; title: string; email: string | null; photo_path: string | null };
 type ProfileRow = {
-  id: string;
+  slug: string;
   name: string;
   headline: string;
   contact_email: string | null;
@@ -41,6 +42,7 @@ type ProjectRow = {
   date_finished: string | null;
   updated_at: string;
   thumbnail_path: string | null;
+  thumbnail_alt: string | null;
   poster_url: string | null;
   repo_url: string | null;
   demo_url: string | null;
@@ -53,22 +55,22 @@ type ProjectRow = {
     role: string;
     external_name: string | null;
     sort_order: number;
-    profiles: { id: string; name: string } | null;
+    listed_students: { slug: string; name: string } | null;
   }[];
   advising: { faculty: FacultyRow }[];
 };
 
 const PROJECT_SELECT = `
   slug, title, summary, description, status, priority, is_pinned, open_to_contributors,
-  date_started, date_finished, updated_at, thumbnail_path, poster_url, repo_url, demo_url,
+  date_started, date_finished, updated_at, thumbnail_path, thumbnail_alt, poster_url, repo_url, demo_url,
   primary_contact_email, primary_contact_phone,
   sub_departments(slug, name), categories(slug),
   project_images(storage_path, alt_text, sort_order),
-  contributions(role, external_name, sort_order, profiles(id, name)),
-  advising(faculty(id, name, title, email, photo_path))`;
+  contributions(role, external_name, sort_order, listed_students(slug, name)),
+  advising(faculty(slug, name, title, email, photo_path))`;
 
 const PROFILE_SELECT =
-  "id, name, headline, contact_email, photo_path, linkedin_url, major, class_year, background, skills, clubs_roles";
+  "slug, name, headline, contact_email, photo_path, linkedin_url, major, class_year, background, skills, clubs_roles";
 
 function client() {
   if (!supabase) {
@@ -84,7 +86,7 @@ function photo(path: string | null, alt: string): Photo | null {
 
 function toFaculty(row: FacultyRow): Faculty {
   return {
-    slug: row.id,
+    slug: row.slug,
     name: row.name,
     title: row.title,
     email: row.email,
@@ -94,7 +96,7 @@ function toFaculty(row: FacultyRow): Faculty {
 
 function toStudent(row: ProfileRow): Student {
   return {
-    slug: row.id,
+    slug: row.slug,
     name: row.name,
     headline: row.headline,
     email: row.contact_email,
@@ -128,7 +130,7 @@ function toProject(row: ProjectRow): ProjectView {
     date_updated: row.updated_at,
     priority: row.priority,
     is_pinned: row.is_pinned,
-    thumbnail: photo(row.thumbnail_path, ""),
+    thumbnail: photo(row.thumbnail_path, row.thumbnail_alt ?? ""),
     images: [...row.project_images]
       .sort((a, b) => a.sort_order - b.sort_order)
       .flatMap((i) => photo(i.storage_path, i.alt_text) ?? []),
@@ -139,8 +141,10 @@ function toProject(row: ProjectRow): ProjectView {
     members: [...row.contributions]
       .sort((a, b) => a.sort_order - b.sort_order)
       .flatMap((c) => {
-        const name = c.profiles?.name ?? c.external_name;
-        return name ? [{ name, slug: c.profiles?.id ?? null, role: c.role }] : [];
+        // listed_students only has students who are approved and consenting, so anyone else is
+        // shown only if the project names them by hand (external_name).
+        const name = c.listed_students?.name ?? c.external_name;
+        return name ? [{ name, slug: c.listed_students?.slug ?? null, role: c.role }] : [];
       }),
     advisors: row.advising.map((a) => toFaculty(a.faculty)),
   };
@@ -211,7 +215,7 @@ export async function getSubDepartments(): Promise<SubDepartment[]> {
 export async function getAllFaculty(): Promise<Faculty[]> {
   const { data, error } = await client()
     .from("faculty")
-    .select("id, name, title, email, photo_path")
+    .select("slug, name, title, email, photo_path")
     .order("name")
     .returns<FacultyRow[]>();
   if (error) throw error;
@@ -227,9 +231,8 @@ export async function getFaculty(slug: string): Promise<FacultyView | null> {
 
 export async function getStudents(): Promise<Student[]> {
   const { data, error } = await client()
-    .from("profiles")
+    .from("listed_students")
     .select(PROFILE_SELECT)
-    .eq("role", "student")
     .order("name")
     .returns<ProfileRow[]>();
   if (error) throw error;
