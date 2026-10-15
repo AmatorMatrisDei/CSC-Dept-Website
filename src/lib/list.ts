@@ -4,3 +4,10 @@ export const splitList = (text: string) =>
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+
+// One entry per line, for lists whose entries can contain commas (clubs: "ACM, treasurer").
+export const splitLines = (text: string) =>
+  text
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);

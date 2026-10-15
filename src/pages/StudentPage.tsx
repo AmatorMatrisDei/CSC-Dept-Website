@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link, useParams } from "react-router";
 import Editable from "@/components/Editable";
 import Portrait from "@/components/Portrait";
@@ -6,18 +5,14 @@ import { StatusBadge } from "@/components/ProjectCard";
 import { useEdit } from "@/lib/edit";
 import { getStudent, saveStudent } from "@/lib/content";
 import { paragraphs } from "@/lib/format";
-import { useAsync, useTitle } from "@/lib/hooks";
-import { splitList } from "@/lib/list";
+import { useReloadable, useTitle } from "@/lib/hooks";
+import { splitLines, splitList } from "@/lib/list";
 import NotFound from "@/pages/NotFound";
-
-// `version` only changes after a staff save, so the page then loads the fresh copy.
-const loadStudent = (slug: string, version: number) => (version < 0 ? Promise.resolve(null) : getStudent(slug));
 
 export default function StudentPage() {
   const { slug = "" } = useParams();
   const { editing } = useEdit();
-  const [version, setVersion] = useState(0);
-  const student = useAsync(loadStudent, slug, version);
+  const [student, reload] = useReloadable(getStudent, slug);
   useTitle(student?.name ?? "Student");
 
   if (student === undefined) return <p className="text-muted">Loading…</p>;
@@ -25,7 +20,7 @@ export default function StudentPage() {
 
   async function save(patch: Parameters<typeof saveStudent>[1]) {
     const error = await saveStudent(slug, patch);
-    if (!error) setVersion((v) => v + 1);
+    if (!error) reload();
     return error;
   }
 
@@ -89,7 +84,7 @@ export default function StudentPage() {
             <section>
               <h2 className="text-xl font-semibold">Clubs and roles</h2>
               {editing ? (
-                <Editable label="clubs and roles (separate with commas)" value={student.clubs_roles.join(", ")} maxLength={500} onSave={(v) => save({ clubs_roles: splitList(v) })} />
+                <Editable label="clubs and roles (one per line)" value={student.clubs_roles.join("\n")} multiline maxLength={2000} onSave={(v) => save({ clubs_roles: splitLines(v) })} />
               ) : (
                 <ul className="list-disc pl-5">
                   {student.clubs_roles.map((c) => (

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link, useParams } from "react-router";
 import Cover from "@/components/Cover";
 import Editable from "@/components/Editable";
@@ -6,23 +5,19 @@ import { StatusBadge } from "@/components/ProjectCard";
 import { useEdit } from "@/lib/edit";
 import { getProject, saveProject } from "@/lib/content";
 import { formatDate, paragraphs } from "@/lib/format";
-import { useAsync, useTitle } from "@/lib/hooks";
+import { useReloadable, useTitle } from "@/lib/hooks";
 import { CATEGORY_LABELS } from "@/lib/types";
 import NotFound from "@/pages/NotFound";
-
-// `version` only changes after a staff save, so the page then loads the fresh copy.
-const loadProject = (slug: string, version: number) => (version < 0 ? Promise.resolve(null) : getProject(slug));
 
 export default function ProjectDetail() {
   const { slug = "" } = useParams();
   const { editing } = useEdit();
-  const [version, setVersion] = useState(0);
-  const project = useAsync(loadProject, slug, version);
+  const [project, reload] = useReloadable(getProject, slug);
   useTitle(project?.title ?? "Project");
 
   async function save(patch: Parameters<typeof saveProject>[1]) {
     const error = await saveProject(slug, patch);
-    if (!error) setVersion((v) => v + 1);
+    if (!error) reload();
     return error;
   }
 

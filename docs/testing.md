@@ -29,6 +29,7 @@ a transaction that is rolled back, so tests never leave data behind and don't de
 | `07_hardening.test.sql` | Internal functions can't be called by users; pending submissions can't be edited; https-only links; email, size and length rules; the open-submission limit; audited role changes |
 | `08_directory_and_slugs.test.sql` | `listed_students` shows only listed students, even to reviewers; slugs are generated, unique and admin-only; thumbnails need alt text |
 | `09_student_submissions.test.sql` | Project slugs made at approval and numbered when taken; students can't swap or delete a photo that a live page or an open submission uses |
+| `10_cms_and_people.test.sql` | Only admins change page text; everyone reads it; only admins see the People list with sign-up emails; students can't change their own role |
 
 `_helpers.psql` creates five test users (admin, reviewer, a listed student, an unlisted student,
 and a listed student on no project), a faculty member, and two test projects; the comment at the

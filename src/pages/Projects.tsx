@@ -15,7 +15,7 @@ export default function Projects() {
       <SiteText id="projects.title" as="h1" fallback="Projects" className="text-3xl font-semibold" />
       <p className="text-muted">
         Have a project to show?{" "}
-        <Link to="/projects/submit" className="underline">
+        <Link to="/account/projects/new" className="underline">
           Submit a project
         </Link>
       </p>

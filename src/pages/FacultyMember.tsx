@@ -1,21 +1,16 @@
-import { useState } from "react";
 import { Link, useParams } from "react-router";
 import Editable from "@/components/Editable";
 import Portrait from "@/components/Portrait";
 import ProjectCard from "@/components/ProjectCard";
 import { useEdit } from "@/lib/edit";
 import { getFaculty, saveFaculty } from "@/lib/content";
-import { useAsync, useTitle } from "@/lib/hooks";
+import { useReloadable, useTitle } from "@/lib/hooks";
 import NotFound from "@/pages/NotFound";
-
-// `version` only changes after a staff save, so the page then loads the fresh copy.
-const loadFaculty = (slug: string, version: number) => (version < 0 ? Promise.resolve(null) : getFaculty(slug));
 
 export default function FacultyMember() {
   const { slug = "" } = useParams();
   const { editing } = useEdit();
-  const [version, setVersion] = useState(0);
-  const person = useAsync(loadFaculty, slug, version);
+  const [person, reload] = useReloadable(getFaculty, slug);
   useTitle(person?.name ?? "Faculty");
 
   if (person === undefined) return <p className="text-muted">Loading…</p>;
@@ -23,7 +18,7 @@ export default function FacultyMember() {
 
   async function save(patch: Parameters<typeof saveFaculty>[1]) {
     const error = await saveFaculty(slug, patch);
-    if (!error) setVersion((v) => v + 1);
+    if (!error) reload();
     return error;
   }
 

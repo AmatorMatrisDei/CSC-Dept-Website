@@ -20,11 +20,12 @@ As of October 15, 2026.
 | --- | --- |
 | Website | **Live.** Home (carousel and project browser), projects, faculty, students and about pages, with security headers. Production has no content yet, and the About text is a placeholder |
 | Student accounts and review | **Built.** Students sign in with their university email, choose what they share, and submit their profile, projects (team, advisors, partners, photos) and internships. Reviewers approve, return with a note, or reject at `/review`, seeing what's on the site beside what's proposed. Works on the developer site; production sign-up waits on email delivery (below) |
+| Admin editing | **Built.** Admins turn on Edit mode in the header to change page wording and project, student and faculty details right on the page, and set people's roles on the People page (under My account) |
 | Backend | **Done.** Students, faculty, projects, members and advisors, consent, a review queue for every student submission, an audit log, the carousel, the student directory and URL slugs. Visitors only see published projects and students who opted in. Hardened after a security review. See [docs/backend-setup.md](docs/backend-setup.md) |
 | Tests and CI | **Backend:** 137 database tests, 6 API tests and 6 carousel tests on every pull request. **Site:** a 15-step browser test of the student forms and review queue (`npm run test:e2e`), run by hand for now; lint and build only run in Cloudflare's build |
 | Hosted databases | **Both current.** Production ("Franciscan Site") is empty. Dev ("Franciscan Site Dev") has sample content and skips email confirmation so the team can sign up. Both refuse sign-ups from non-university addresses |
 | Carousel | **Runner done; pick pending.** An hourly job picks the day's projects and admins can re-shuffle. The pick is a placeholder until the Algorithms team delivers theirs |
-| Still to build | The admin panel: faculty, partners, news, alumni stories, roles and the monthly carousel pool (FR-6). Email notifications to students when a submission is reviewed (FR-3.6) |
+| Still to build | Adding faculty and partners, news, alumni stories and the monthly carousel pool (FR-6). Email notifications to students when a submission is reviewed (FR-3.6) |
 | Open | Email delivery with ITS (Microsoft sign-in or university SMTP); Supabase's GitHub integration points at a fork, so database changes are deployed by hand ([docs/backend-setup.md](docs/backend-setup.md#32-deploying-by-hand)) |
 
 ## Getting started
@@ -69,6 +70,7 @@ Never put the secret key (`sb_secret_...`) in `.env.local` or anywhere in the si
 | `public/_headers` | Security headers Cloudflare sends with every page |
 | `supabase/` | The backend: migrations, the carousel function, seed and dev content, tests |
 | `tests/e2e/` | The browser test of the student forms |
+| `src/components/Editable.tsx`, `SiteText.tsx`, `EditProvider.tsx` | Click-to-edit for admins; page wording is stored in the `site_content` table |
 | `docs/` | [backend-setup.md](docs/backend-setup.md) and [testing.md](docs/testing.md) |
 
 ## Deploying
