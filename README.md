@@ -2,134 +2,93 @@
 The website for Franciscan University's Department of Computing and Engineering: a place to
 showcase student, capstone and class projects, and for students and faculty to keep profiles.
 
+**Live:** https://csc-dept-website.pages.dev
+
 Built with [React](https://react.dev) and [Vite](https://vite.dev), hosted on
 [Cloudflare Pages](https://developers.cloudflare.com/pages/), with [Supabase](https://supabase.com) as the
-backend (Postgres database, logins, photo storage, and the carousel function).
+backend (Postgres database, logins, photo storage, and the carousel function). Requirement IDs
+(FR-…) refer to the Requirements and Team Guide v1.4.
 
 ## Status
 
-As of October 14, 2026. Requirement IDs (FR-…) refer to the Requirements and Team Guide v1.4.
+As of October 15, 2026.
 
 | Area | Status |
 | --- | --- |
-| Backend schema | **Done.** Follows the Requirements and Team Guide v1.4: students, faculty, projects, members and advisors, consent, a review queue for every student submission, an audit log, and the carousel tables. Visitors only see published projects and students who opted in. Hardened after a security review (https-only links, locked-down internal functions, size limits). See [docs/backend-setup.md](docs/backend-setup.md) |
-| Backend tests and CI | **Done.** 122 database tests, 5 end-to-end API tests and 6 carousel tests, run on every pull request |
-| Carousel | **Runner done; pick pending.** An hourly job calls the `carousel` Edge Function, which saves the day's pick, and admins can re-shuffle. The pick itself is a placeholder until the Algorithms team delivers theirs |
-| Hosted databases | **Both current.** Production ("Franciscan Site") and dev ("Franciscan Site Dev") run the full schema, the security hardening and the carousel function on its hourly schedule. Both refuse sign-ups from non-university addresses. Dev skips email confirmation so the team can sign up; production has no content yet |
-| Automatic database deploys | **Not working yet.** Supabase's GitHub integration points at a fork and needs to point at this repository. Until then, deploy by hand ([docs/backend-setup.md](docs/backend-setup.md#32-deploying-by-hand)) |
-| Email (sign-up confirmation, review notifications) | **Open**, to settle with ITS: Microsoft sign-in or university SMTP |
-| Frontend | **Moving to React + Vite** (decided October 14). The code in `src/` is still the earlier Next.js scaffold |
-| Hosting | **Not live.** The Cloudflare Pages project returns 404 because the Next.js scaffold is built to run as a Worker. A Vite build (`npm run build`, output `dist`) is what Pages serves |
-
-The sections below on Drupal, Next.js, OpenNext, Workers and Hyperdrive describe that earlier
-scaffold, as do `src/lib/drupal.ts` and `wrangler`/OpenNext settings. They go away as the frontend
-team builds the Vite site.
+| Website | **Live.** Home (carousel and project browser), projects, faculty, students and about pages, with security headers. Production has no content yet, and the About text is a placeholder |
+| Backend | **Done.** Students, faculty, projects, members and advisors, consent, a review queue for every student submission, an audit log, the carousel, the student directory and URL slugs. Visitors only see published projects and students who opted in. Hardened after a security review. See [docs/backend-setup.md](docs/backend-setup.md) |
+| Tests and CI | **Done for the backend:** 122 database tests, 5 end-to-end API tests and 6 carousel tests on every pull request. The site's lint and build only run in Cloudflare's build so far |
+| Hosted databases | **Both current.** Production ("Franciscan Site") is empty. Dev ("Franciscan Site Dev") has sample content and skips email confirmation so the team can sign up. Both refuse sign-ups from non-university addresses |
+| Carousel | **Runner done; pick pending.** An hourly job picks the day's projects and admins can re-shuffle. The pick is a placeholder until the Algorithms team delivers theirs |
+| Still to build | Sign-in, the student forms (request to be added, edit profile, submit project), the reviewer queue and the admin panel (FR-3, FR-6) |
+| Open | Email delivery with ITS (Microsoft sign-in or university SMTP); Supabase's GitHub integration points at a fork, so database changes are deployed by hand ([docs/backend-setup.md](docs/backend-setup.md#32-deploying-by-hand)) |
 
 ## Getting started
 
-Requires **Node.js 22+** (Wrangler needs it). With nvm: `nvm use`.
+Requires **Node.js 22+**, and **Docker Desktop** if you run the database locally.
 
 ```bash
 npm install
-cp .env.example .env.local   # optional: point at a Drupal site
-npm run dev                  # Next.js dev server at http://localhost:3000
-npm run preview              # production build running in the local Workers runtime
+cp .env.example .env.local   # fill in a Supabase URL and publishable key (below)
+npm run db:start             # optional: a local Supabase with test accounts and sample content
+npm run dev                  # the site at http://localhost:5173
 ```
 
-Without `DRUPAL_BASE_URL` set, the site shows sample content.
+For `.env.local`, use either:
 
-## Connecting Drupal
+- **the local stack:** `http://127.0.0.1:54321` and the "Publishable" key from `npx supabase status`.
+  Test accounts are listed in [docs/backend-setup.md](docs/backend-setup.md#1-local-harness-everyone).
+- **the hosted dev project:** `https://zekufoxhojjqqbmcxmtu.supabase.co` and its publishable key
+  from the Supabase dashboard (Project Settings > API Keys). No Docker needed.
 
-1. In Drupal, enable the core **JSON:API** module (`drush en jsonapi`).
-2. Set `DRUPAL_BASE_URL` in `.env.local` for local dev, and in `wrangler.jsonc` → `vars` for Cloudflare
-   (also set it in the build environment so pages are prerendered with real content).
-3. Articles are read from `/jsonapi/node/article` — see `src/lib/drupal.ts`.
+Never put the secret key (`sb_secret_...`) in `.env.local` or anywhere in the site's code.
 
-Content is cached for up to an hour. To refresh immediately when editors save,
-have Drupal send a `POST` to `/api/revalidate` with header
-`x-revalidate-secret: <DRUPAL_REVALIDATE_SECRET>`.
-
-Drupal itself is PHP and **cannot run on Cloudflare** — it needs its own host (e.g. Pantheon, Acquia,
-a VM, or Azure App Service later). It can use the same Supabase Postgres as its database.
-
-## Database (Supabase → Azure)
-
-The site connects to Postgres through Cloudflare **Hyperdrive** (`src/lib/db.ts`, binding `HYPERDRIVE`).
-Hyperdrive pools connections at the edge, and because the code only sees a standard Postgres
-connection string, moving to Azure Database for PostgreSQL is a config change, not a code change.
-
-- Use Supabase's **direct connection** (port 5432) or **session pooler** string for Hyperdrive —
-  not the transaction pooler (6543), since Hyperdrive does its own pooling.
-- `GET /api/health` checks the database connection.
-- Local dev uses `localConnectionString` in `wrangler.jsonc`. Point it at the local read-only login:
-  `postgresql://web_reader:web_reader_local@127.0.0.1:54322/postgres`.
-- Connect as `web_reader`, not `postgres`: `postgres` bypasses the database's access rules.
-  See [docs/backend-setup.md](docs/backend-setup.md#4-using-the-backend-from-the-frontend).
-
-To migrate to Azure later:
-```bash
-npx wrangler hyperdrive update <HYPERDRIVE_ID> --connection-string="postgres://...azure..."
-```
-
-## Deploying to Cloudflare (one-time setup)
-
-```bash
-npx wrangler login
-npx wrangler r2 bucket create csc-dept-website-cache
-npx wrangler d1 create csc-dept-website-tags         # paste database_id into wrangler.jsonc
-npx wrangler hyperdrive create csc-dept-website-db \
-  --connection-string="postgres://web_reader.<project-ref>:<password>@<session-pooler-host>:5432/postgres"
-                                                      # paste id into wrangler.jsonc
-npx wrangler secret put DRUPAL_REVALIDATE_SECRET
-npm run cf-typegen                                    # regenerate types after editing wrangler.jsonc
-npm run deploy
-```
-
-For automatic deploys on merge to `main`, connect this repo in the Cloudflare dashboard
-(Workers & Pages → your worker → Settings → Builds) with build command `npx opennextjs-cloudflare build`
-and deploy command `npx opennextjs-cloudflare deploy`.
-
-### Cloudflare resources used
-
-| Binding | Service | Purpose |
-| --- | --- | --- |
-| `ASSETS` | Workers Static Assets | JS/CSS/images |
-| `NEXT_INC_CACHE_R2_BUCKET` | R2 | Cached pages and data |
-| `NEXT_TAG_CACHE_D1` | D1 | Cache tags for `/api/revalidate` |
-| `NEXT_CACHE_DO_QUEUE` | Durable Objects | Background hourly revalidation |
-| `HYPERDRIVE` | Hyperdrive | Postgres connection pooling |
-| `IMAGES` | Images | `next/image` optimization |
+| Command | Does |
+| --- | --- |
+| `npm run dev` | Run the site with live reload |
+| `npm run build` | Type-check and build the site into `dist/` |
+| `npm run preview` | Serve the built `dist/` locally |
+| `npm run lint` | Lint the site's code |
+| `npm run db:start`, `db:test`, `test:api`, … | The backend harness; see [docs/backend-setup.md](docs/backend-setup.md) |
 
 ## Project layout
 
-- `src/app/` — pages (`/`, `/news`, `/news/[id]`) and API routes (`/api/revalidate`, `/api/health`)
-- `src/components/` — shared UI (header, footer, article list)
-- `src/lib/drupal.ts` — Drupal JSON:API client and sample fallback content
-- `src/lib/db.ts` — Postgres access via Hyperdrive
-- `wrangler.jsonc`, `open-next.config.ts` — Cloudflare Workers configuration
+| Path | What it is |
+| --- | --- |
+| `src/pages/` | One component per page |
+| `src/components/` | Shared UI: header, navigation, carousel, project browser, directory |
+| `src/lib/content.ts` | Every database read the site makes. It applies the public rules itself (published projects, confirmed members, `listed_students`), so pages look the same when someone is signed in |
+| `src/lib/supabase.ts` | The Supabase client (publishable key only) and photo URLs |
+| `src/lib/database.types.ts` | Types generated from the schema (`npm run db:types`); don't edit by hand |
+| `public/_headers` | Security headers Cloudflare sends with every page |
+| `supabase/` | The backend: migrations, the carousel function, seed and dev content, tests |
+| `docs/` | [backend-setup.md](docs/backend-setup.md) and [testing.md](docs/testing.md) |
 
-## Known limitations
+## Deploying
 
-- **Next.js is pinned to 16.3.8.** 16.4.0 crashes on Workers with OpenNext 1.20.11
-  (`Unexpected loadManifest(/.next/server/preview-props.json)`). Upgrade once OpenNext supports it.
-- **Cache Components (`cacheComponents`) is off.** With it enabled, re-rendering after revalidation
-  hangs in the Workers runtime. Caching uses `fetch` `next.revalidate`/`tags` instead.
+**The site.** Cloudflare Pages builds every push to this repository:
 
-## Backend (Supabase)
+| Branch | Deploys to | Uses |
+| --- | --- | --- |
+| `main` | https://csc-dept-website.pages.dev | the production Supabase project |
+| any other branch | a preview link, posted on its pull request | the dev Supabase project |
 
-The database schema, access rules, sign-up rules and photo storage live in `supabase/` and deploy
-from git. Requires Docker Desktop.
+The Pages project's build settings: build command `npm run build`, output directory `dist`, and
+the environment variables `NODE_VERSION=22`, `VITE_SUPABASE_URL` and
+`VITE_SUPABASE_PUBLISHABLE_KEY` (set separately for Production and Preview). Branches in forks
+get no preview, so push branches to this repository.
 
-```bash
-npm run db:start    # local Supabase with test accounts and sample projects
-npm run db:test     # database tests
-npm run test:api    # end-to-end tests
-npm run test:carousel   # the carousel pick's rules
-```
+If the site ever talks to a new address (another Supabase project, an image host), add it to the
+`Content-Security-Policy` in `public/_headers`, or the browser will block it.
 
-- [docs/backend-setup.md](docs/backend-setup.md): local harness, changing the schema, hosted project setup
-- [docs/testing.md](docs/testing.md): what the tests cover and how to test with faculty
+**The database and carousel function.** These deploy from `main` with the Supabase CLI. See
+[docs/backend-setup.md](docs/backend-setup.md), section 3.
 
-## To edit code
-- Fork the repository, make changes, and send a Pull Request (PR)
-- Review edits and Merge to instantly update the repository
+## Contributing
+
+1. Create a branch in this repository (not a fork), so the pull request gets a preview link.
+2. Open a pull request. CI runs the backend tests, and Cloudflare builds a preview against dev.
+3. Get a review, then merge. `main` deploys the site to production right away; database changes
+   are deployed separately (above).
+
+Keep secrets out of git. `.env.local` and `supabase/functions/.env` are ignored.
