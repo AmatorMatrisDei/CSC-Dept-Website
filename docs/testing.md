@@ -23,7 +23,7 @@ a transaction that is rolled back, so tests never leave data behind and don't de
 | `01_schema.test.sql` | Every table has row level security; visitors can't write anything; views respect the caller's access; only the allowed internal helpers can be called by users |
 | `02_profiles_and_consent.test.sql` | Listed and unlisted students, consent-gated fields, append-only consent, roles |
 | `03_projects.test.sql` | What visitors, team members and other students see; admin-only writes; confirming a listing; priority limits |
-| `04_review_queue.test.sql` | Submitting, validation, approving, rejecting, sending back, project submissions with teammates and photos, removal requests, the audit log |
+| `04_review_queue.test.sql` | Submitting, validation, approving, rejecting, sending back, project submissions with teammates and photos, reviewers approving their own submissions (logged as self-reviews), removal requests, the audit log |
 | `05_auth_and_storage.test.sql` | Allowed email domains, new-account profiles, upload folders |
 | `06_carousel.test.sql` | Eastern-time days, candidates and the empty-pool fallback, saving picks, re-shuffle counting, what visitors see on cards |
 | `07_hardening.test.sql` | Internal functions can't be called by users; pending submissions can't be edited; https-only links; email, size and length rules; the open-submission limit; audited role changes |

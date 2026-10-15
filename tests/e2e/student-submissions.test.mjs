@@ -90,6 +90,7 @@ after(async () => {
     fetch(API_URL + path, { ...init, headers: { apikey: SECRET_KEY, Authorization: `Bearer ${SECRET_KEY}`, "Content-Type": "application/json" } });
   const people = await (await admin(`/rest/v1/profiles?name=eq.${encodeURIComponent(student.name)}&select=id`)).json();
   await admin(`/rest/v1/projects?title=eq.${encodeURIComponent(projectTitle)}`, { method: "DELETE" });
+  await admin(`/rest/v1/internships?company=eq.${encodeURIComponent(`Self Review Corp ${tag}`)}`, { method: "DELETE" });
   for (const { id } of people) {
     for (const folder of [`avatars/${id}`, `submissions/${id}`]) {
       const files = await (await admin("/storage/v1/object/list/media", { method: "POST", body: JSON.stringify({ prefix: folder }) })).json();
@@ -312,6 +313,20 @@ test("asking to be removed hides the student at once", async () => {
   await page.goto(projectUrl);
   await page.locator("main").getByText("Outside Mentor").first().waitFor();
   assert.equal(await page.locator("main").getByText(student.name).count(), 0);
+});
+
+test("a reviewer can approve their own submission", async () => {
+  await signOut();
+  await signIn("reviewer@franciscan.edu", "password123");
+  await page.goto(`${BASE}/account/internships/new`);
+  await page.getByLabel("Company").fill(`Self Review Corp ${tag}`);
+  await page.getByRole("button", { name: "Send for review" }).click();
+  await flash("Your internship was sent for review.");
+  await page.goto(`${BASE}/review`);
+  await page.getByRole("listitem").filter({ hasText: `Self Review Corp ${tag}` }).getByRole("link").click();
+  await page.getByText("This is your own submission.").waitFor();
+  await page.getByRole("button", { name: "Approve and publish" }).click();
+  await flash(`Approved: New internship: Self Review Corp ${tag}.`);
 });
 
 test("the forms fit a phone screen", async () => {
