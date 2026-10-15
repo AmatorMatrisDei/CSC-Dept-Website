@@ -50,3 +50,28 @@ export function useAction() {
   }
   return { busy, error, run, setError };
 }
+
+// Like useAsync, plus a reload function for after an edit. While the fresh copy loads, the page
+// keeps showing the current one instead of "Loading…", so the editor and its "Saved" note stay.
+export function useReloadable<A extends unknown[], T>(load: (...args: A) => Promise<T>, ...args: A): [T | undefined, () => void] {
+  const key = JSON.stringify(args);
+  const [version, setVersion] = useState(0);
+  const [state, setState] = useState<{ key: string; value: T }>();
+
+  useEffect(() => {
+    let current = true;
+    load(...(JSON.parse(key) as A)).then(
+      (value) => {
+        if (current) setState({ key, value });
+      },
+      (error) => {
+        if (current) setState(() => { throw error; });
+      },
+    );
+    return () => {
+      current = false;
+    };
+  }, [load, key, version]);
+
+  return [state?.key === key ? state.value : undefined, () => setVersion((v) => v + 1)];
+}

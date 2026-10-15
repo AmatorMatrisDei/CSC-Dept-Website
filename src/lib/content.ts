@@ -190,6 +190,55 @@ export function forgetCachedContent() {
   projectsRequest = null;
 }
 
+// Staff edit (admin only; the database rejects anyone else). Clears the shared cache so the next
+// read shows the change.
+export async function saveProject(
+  slug: string,
+  patch: Partial<{
+    title: string;
+    summary: string;
+    description: string;
+    primary_contact_email: string | null;
+    primary_contact_phone: string | null;
+    repo_url: string | null;
+    demo_url: string | null;
+    poster_url: string | null;
+    thumbnail_alt: string | null;
+  }>,
+): Promise<string | null> {
+  const error = await saveRow("projects", slug, patch);
+  if (!error) projectsRequest = null;
+  return error;
+}
+
+// Staff edits to a student's page (admin only; the database rejects anyone else).
+export function saveStudent(
+  slug: string,
+  patch: Partial<{
+    name: string;
+    headline: string;
+    background: string;
+    major: string | null;
+    contact_email: string | null;
+    linkedin_url: string | null;
+    skills: string[];
+    clubs_roles: string[];
+  }>,
+) {
+  return saveRow("profiles", slug, patch);
+}
+
+export function saveFaculty(slug: string, patch: Partial<{ name: string; title: string; email: string | null }>) {
+  return saveRow("faculty", slug, patch);
+}
+
+async function saveRow(table: "projects" | "profiles" | "faculty", slug: string, patch: Record<string, unknown>) {
+  const { data, error } = await client().from(table).update(patch).eq("slug", slug).select("slug");
+  if (error) return "Could not save: " + error.message;
+  if (!data?.length) return "Could not save: you may not have permission.";
+  return null;
+}
+
 export async function getProject(slug: string): Promise<ProjectView | null> {
   return (await getProjects()).find((p) => p.slug === slug) ?? null;
 }

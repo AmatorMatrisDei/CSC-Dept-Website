@@ -479,6 +479,20 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"site_content": {
+                  Row: {
+                    "key": string,"updated_at": string,"value": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "key": string,"updated_at"?: string,"value": string
+                  }
+                  Update: {
+                    "key"?: string,"updated_at"?: string,"value"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"sub_departments": {
                   Row: {
                     "id": string,"name": string,"slug": string,"sort_order": number
@@ -531,6 +545,11 @@ isOneToOne: false
                            },
 "hook_before_user_created":
 { Args: { "event": Json }; Returns: Json
+                           },
+"list_people":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "email": string,"id": string,"name": string,"role": Database["public"]['Enums']["app_role"]
+            }[]
                            },
 "respond_to_listing":
 { Args: { "accept": boolean,"listing_id": string }; Returns: undefined
