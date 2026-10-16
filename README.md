@@ -2,10 +2,15 @@
 The website for Franciscan University's Department of Computing and Engineering: a place to
 showcase student, capstone and class projects, and for students and faculty to keep profiles.
 
-**Live:** https://csc-dept-website.pages.dev (the production database)
+**Working site: https://staging.csc-dept-website.pages.dev** (use this one). It runs the `staging`
+branch on the dev database, with student sign-in and submissions, the review queue, admin editing
+and the degree planner.
 
-**Developer site:** https://frontend-initial-layout.csc-dept-website.pages.dev (the latest build of the
-`frontend/initial-layout` branch, against the dev database and its sample content)
+**Production address:** https://csc-dept-website.pages.dev runs `main`, an older version without
+accounts. It will catch up when the team releases `staging`.
+
+> **This branch is behind.** The team works on `staging` for now. The current README, status and
+> docs are on the [`staging` branch](https://github.com/AmatorMatrisDei/CSC-Dept-Website/blob/staging/README.md).
 
 Built with [React](https://react.dev) and [Vite](https://vite.dev), hosted on
 [Cloudflare Pages](https://developers.cloudflare.com/pages/), with [Supabase](https://supabase.com) as the
@@ -14,17 +19,8 @@ backend (Postgres database, logins, photo storage, and the carousel function). R
 
 ## Status
 
-As of October 15, 2026.
-
-| Area | Status |
-| --- | --- |
-| Website | **Live.** Home (carousel and project browser), projects, faculty, students and about pages, with security headers. Production has no content yet, and the About text is a placeholder |
-| Backend | **Done.** Students, faculty, projects, members and advisors, consent, a review queue for every student submission, an audit log, the carousel, the student directory and URL slugs. Visitors only see published projects and students who opted in. Hardened after a security review. See [docs/backend-setup.md](docs/backend-setup.md) |
-| Tests and CI | **Done for the backend:** 122 database tests, 5 end-to-end API tests and 6 carousel tests on every pull request. The site's lint and build only run in Cloudflare's build so far |
-| Hosted databases | **Both current.** Production ("Franciscan Site") is empty. Dev ("Franciscan Site Dev") has sample content and skips email confirmation so the team can sign up. Both refuse sign-ups from non-university addresses |
-| Carousel | **Runner done; pick pending.** An hourly job picks the day's projects and admins can re-shuffle. The pick is a placeholder until the Algorithms team delivers theirs |
-| Still to build | Sign-in, the student forms (request to be added, edit profile, submit project), the reviewer queue and the admin panel (FR-3, FR-6) |
-| Open | Email delivery with ITS (Microsoft sign-in or university SMTP) |
+See the [README on `staging`](https://github.com/AmatorMatrisDei/CSC-Dept-Website/blob/staging/README.md#status).
+`main` will be updated when the project is released.
 
 ## Getting started
 
@@ -74,6 +70,7 @@ Never put the secret key (`sb_secret_...`) in `.env.local` or anywhere in the si
 | Branch | Deploys to | Uses |
 | --- | --- | --- |
 | `main` | https://csc-dept-website.pages.dev | the production Supabase project |
+| `staging` | https://staging.csc-dept-website.pages.dev (the working site) | the dev Supabase project |
 | any other branch | a preview link, posted on its pull request | the dev Supabase project |
 
 The Pages project's build settings: build command `npm run build`, output directory `dist`, and
@@ -84,17 +81,19 @@ get no preview, so push branches to this repository.
 If the site ever talks to a new address (another Supabase project, an image host), add it to the
 `Content-Security-Policy` in `public/_headers`, or the browser will block it.
 
-**The database and carousel function.** Supabase's GitHub integration deploys them to production
-when a pull request merges into `main`: it applies new migrations and deploys the `carousel`
-function. It doesn't run `seed.sql` or change Auth settings. The dev project is updated by hand.
-See [docs/backend-setup.md](docs/backend-setup.md), section 3.
+**The database and carousel function.** Supabase's GitHub integration deploys them: merges into
+`staging` go to the dev project, and merges into `main` to production. It applies new migrations
+and deploys the `carousel` function. It doesn't run `seed.sql` or change Auth settings. See
+[docs/backend-setup.md](docs/backend-setup.md), section 3.
 
 ## Contributing
 
-1. Create a branch in this repository (not a fork), so the pull request gets a preview link.
-2. Open a pull request. CI runs the backend tests, and Cloudflare builds a preview against dev.
-3. Get a review, then merge. Merging deploys to production right away: Cloudflare publishes the
-   site, and Supabase applies new migrations and deploys the carousel function. A migration can't
-   be undone by reverting the pull request, so try it locally and on dev first.
+1. Create a branch from `staging` in this repository (not a fork), so the pull request gets a
+   preview link.
+2. Open the pull request **against `staging`, not `main`**. CI runs the tests, and Cloudflare builds
+   a preview against dev.
+3. Get a review, then merge. Merging into `staging` updates the working site and applies new
+   migrations to the dev database. `main` (production) only changes when `staging` is released.
+   A migration can't be undone by reverting the pull request, so try it locally first.
 
 Keep secrets out of git. `.env.local` and `supabase/functions/.env` are ignored.
