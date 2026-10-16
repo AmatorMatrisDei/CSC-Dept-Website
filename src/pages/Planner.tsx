@@ -18,12 +18,13 @@ import {
   suggestedPlan,
   warnings,
   type RequirementStatus,
+  type Start,
 } from "@/lib/planner/plan";
 import { emptyState, getPlannerState, planKey, savePlannerState, type PlannerState } from "@/lib/planner/store";
 import type { Catalog, Course, Degree, Plan, PlannerData, SuggestedSemester } from "@/lib/planner/types";
 
-// Experimental degree planner. Courses and requirements follow the catalog of the year a student
-// started. Anyone can preview each program's suggested plan; signed-in people build their own,
+// Experimental degree planner. Courses and requirements follow the catalog of the academic year
+// a student started in (a spring 2025 start follows the 2024-2025 catalog). Anyone can preview each program's suggested plan; signed-in people build their own,
 // saved to their account. Admins can also edit the suggested plans here and the courses on the
 // course catalog page.
 
@@ -98,7 +99,7 @@ function Workspace({ catalogs, userId, initial, isAdmin }: { catalogs: Catalog[]
         </Notice>
       )}
       {userId && !state.catalog && (
-        <Notice>Pick the year you started at Franciscan, so the planner uses the courses and requirements of your catalog.</Notice>
+        <Notice>Pick the semester you started at Franciscan, so the planner uses the courses and requirements of your catalog.</Notice>
       )}
 
       <UserGuide signedIn={!!userId} />
@@ -106,22 +107,29 @@ function Workspace({ catalogs, userId, initial, isAdmin }: { catalogs: Catalog[]
 
       <div className="grid gap-4 md:grid-cols-3">
         <label className="flex flex-col gap-1 font-medium">
-          Year you started
+          Semester you started
           <select
-            value={year}
+            value={`${year}|${state.start}`}
             disabled={adminEditing}
-            onChange={(e) => update({ ...state, catalog: e.target.value })}
+            onChange={(e) => {
+              const [catalog, start] = e.target.value.split("|");
+              update({ ...state, catalog, start: start === "spring" ? "spring" : "fall" });
+            }}
             className={fieldClass}
             aria-describedby="catalog-hint"
           >
-            {[...catalogs].reverse().map((c) => (
-              <option key={c.year} value={c.year}>
+            {[...catalogs].reverse().flatMap((c) => [
+              <option key={`${c.year}|spring`} value={`${c.year}|spring`}>
+                Spring {firstFall(c.year) + 1} ({yearLabel(c.year)} catalog)
+              </option>,
+              <option key={`${c.year}|fall`} value={`${c.year}|fall`}>
                 Fall {firstFall(c.year)} ({yearLabel(c.year)} catalog)
-              </option>
-            ))}
+              </option>,
+            ])}
           </select>
           <span id="catalog-hint" className="text-sm font-normal text-muted">
-            Your courses and requirements come from the catalog of the year you started.
+            Your courses and requirements come from the catalog of the academic year you started in. A spring start uses the
+            catalog from the fall before it.
           </span>
         </label>
         {data ? (
@@ -242,7 +250,7 @@ function ProgramView({
   const degree: Degree = edits[key] ? { ...base, semesters: edits[key] } : base;
   return (
     <PlanView
-      key={`${data.catalog.year}-${degree.id}-${mode}`}
+      key={`${data.catalog.year}-${degree.id}-${mode}-${state.start}`}
       data={data}
       degree={degree}
       minor={minor}
@@ -262,8 +270,8 @@ function UserGuide({ signedIn }: { signedIn: boolean }) {
       <summary className="min-h-11 cursor-pointer py-2 font-medium">How to use the planner</summary>
       <ul className="list-disc pl-5 pt-2 text-sm">
         <li>
-          Pick the year you started. Courses, credits and requirements change from one catalog to the next, and yours are the ones
-          in the catalog of the year you started.
+          Pick the semester you started. Courses, credits and requirements change from one catalog to the next, and yours are the
+          ones in the catalog of the academic year you started in: spring 2025 counts as the 2024–2025 catalog, like fall 2024.
         </li>
         <li>
           Pick your program. The suggested plan is the catalog's recommended order of courses: eight semesters for a major, or the
@@ -364,8 +372,12 @@ function PlanView({
 }) {
   const { courses, catalog } = data;
   const fall = firstFall(catalog.year);
-  const key = planKey(catalog.year, degree.id);
-  const suggested = useMemo(() => suggestedPlan(degree), [degree]);
+  // Admins edit the catalog's own plan, which always begins in a fall.
+  const spring = state.start === "spring" && mode !== "admin";
+  const start: Start = useMemo(() => ({ firstFall: fall, spring }), [fall, spring]);
+  const offset = spring ? 1 : 0;
+  const key = planKey(catalog.year, degree.id, spring);
+  const suggested = useMemo(() => suggestedPlan(degree, start), [degree, start]);
   const stored = state.plans[key];
   const mine = stored && stored.length === suggested.length ? stored : suggested;
   const [draft, setDraft] = useState<Plan>(suggested);
@@ -380,8 +392,8 @@ function PlanView({
   const plan = mode === "mine" ? mine : mode === "admin" ? draft : suggested;
   const editing = mode !== "suggested";
   const problems = useMemo(
-    () => (editing ? warnings(plan, courses, mode === "admin" ? new Set() : completed, fall) : []),
-    [editing, plan, courses, completed, mode, fall],
+    () => (editing ? warnings(plan, courses, mode === "admin" ? new Set() : completed, start) : []),
+    [editing, plan, courses, completed, mode, start],
   );
   const total = plan.reduce((sum, items) => sum + semesterCredits(items, courses), 0);
   const placed = new Set(plan.flat().flatMap((i) => (i.course ? [i.course] : [])));
@@ -420,7 +432,7 @@ function PlanView({
         .slice(0, 8)
     : [];
 
-  const fileName = `${degree.id}-${catalog.year}-${mode === "mine" ? "my-plan" : "suggested-plan"}`;
+  const fileName = `${degree.id}-${catalog.year}${spring ? "-spring-start" : ""}-${mode === "mine" ? "my-plan" : "suggested-plan"}`;
   const title = `${degree.name} plan (${yearLabel(catalog.year)} catalog)`;
   const checked = mode === "mine" ? { planned: placed, completed } : null;
 
@@ -442,10 +454,10 @@ function PlanView({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" onClick={() => void downloadExcel(plan, courses, completed, fileName, title, fall)} className={secondaryButtonClass}>
+        <button type="button" onClick={() => void downloadExcel(plan, courses, completed, fileName, title, start)} className={secondaryButtonClass}>
           Download Excel (.xlsx)
         </button>
-        <button type="button" onClick={() => downloadCsv(plan, courses, completed, fileName, fall)} className={secondaryButtonClass}>
+        <button type="button" onClick={() => downloadCsv(plan, courses, completed, fileName, start)} className={secondaryButtonClass}>
           Download CSV
         </button>
         {isAdmin && mode !== "admin" && (
@@ -474,6 +486,12 @@ function PlanView({
             : `The catalog's recommended sequence for ${degree.name}. Your actual schedule may vary.`}{" "}
         {total} credits planned of {degree.totalCredits} in the plan.
       </p>
+      {spring && (
+        <p className="rounded-lg border border-border bg-surface p-3 text-sm">
+          You started in spring {fall + 1}. The catalog's plan begins in a fall, so here it starts in fall {fall + 1}, and spring{" "}
+          {fall + 1} is open for core courses or anything you can take first. Your advisor can help you move courses earlier.
+        </p>
+      )}
       {degree.kind === "pre_engineering" && (
         <p className="rounded-lg border border-border bg-surface p-3 text-sm">
           This is a transfer program: the plan covers your semesters at Franciscan ({degree.degree.toLowerCase()}). The transfer
@@ -504,7 +522,7 @@ function PlanView({
               <select value={target} onChange={(e) => setTarget(Number(e.target.value))} className={fieldClass}>
                 {plan.map((_, s) => (
                   <option key={s} value={s}>
-                    {semesterLabel(s, fall)}
+                    {semesterLabel(s, start)}
                   </option>
                 ))}
               </select>
@@ -543,7 +561,7 @@ function PlanView({
       )}
 
       <div className="flex flex-col gap-6">
-        {Array.from({ length: Math.ceil(plan.length / 2) }, (_, year) => (
+        {Array.from({ length: Math.floor((plan.length - 1 + offset) / 2) + 1 }, (_, year) => (
           <section key={year} aria-labelledby={`year-${year}`} className="flex flex-col gap-2">
             <h2 id={`year-${year}`} className="text-lg font-semibold">
               Year {year + 1}{" "}
@@ -552,7 +570,7 @@ function PlanView({
               </span>
             </h2>
             <ol className="grid gap-3 md:grid-cols-2">
-              {[year * 2, year * 2 + 1].filter((s) => s < plan.length).map((s) => {
+              {[year * 2 - offset, year * 2 + 1 - offset].filter((s) => s >= 0 && s < plan.length).map((s) => {
                 const items = plan[s];
                 const credits = semesterCredits(items, courses);
                 const tooMany = credits > MAX_CREDITS;
@@ -574,13 +592,17 @@ function PlanView({
                     className={`flex flex-col gap-2 rounded-lg border p-3 ${dropTarget === s ? "border-accent bg-surface" : "border-border"}`}
                   >
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <h3 className="font-semibold">{semesterLabel(s, fall).split(", ")[1]}</h3>
+                      <h3 className="font-semibold">{semesterLabel(s, start).split(", ")[1]}</h3>
                       <span className={`text-sm ${tooMany ? "font-semibold" : "text-muted"}`}>
                         {credits} cr{tooMany ? ` (over ${MAX_CREDITS})` : ""}
                       </span>
                     </div>
-                    {!editing && degree.semesters[s]?.note && <p className="text-sm text-muted">{degree.semesters[s].note}</p>}
-                    {items.length === 0 && <p className="text-sm text-muted">Nothing planned.</p>}
+                    {!editing && degree.semesters[s - offset]?.note && <p className="text-sm text-muted">{degree.semesters[s - offset].note}</p>}
+                    {spring && s === 0 && items.length === 0 ? (
+                      <p className="text-sm text-muted">Your first semester. The catalog's plan starts next fall, so this one is yours to fill.</p>
+                    ) : (
+                      items.length === 0 && <p className="text-sm text-muted">Nothing planned.</p>
+                    )}
                     <ul className="flex flex-col gap-1.5">
                       {items.map((item) => {
                         const course = item.course ? courses.get(item.course) : undefined;
@@ -622,7 +644,7 @@ function PlanView({
                                   >
                                     {plan.map((_, n) => (
                                       <option key={n} value={n}>
-                                        {semesterLabel(n, fall)}
+                                        {semesterLabel(n, start)}
                                       </option>
                                     ))}
                                   </select>

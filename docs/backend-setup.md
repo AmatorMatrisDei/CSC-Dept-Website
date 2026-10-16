@@ -131,8 +131,10 @@ and resubmit. Each student can have at most 20 submissions open, and each is lim
 
 ### The degree planner
 
-- Courses, credits and requirements follow the catalog of the year a student started, so each
-  catalog year (`planner_catalogs`) has its own copy of every course and program. A course is
+- Courses, credits and requirements follow the catalog of the academic year a student started
+  in, so each catalog year (`planner_catalogs`) has its own copy of every course and program. A
+  spring start follows the catalog from the fall before it (spring 2025 uses 2024-2025); the
+  planner then begins in that spring, with the catalog's fall-start plan from the next fall. A course is
   keyed by `(catalog_year, id)`, and its prerequisites name courses of the same year. Editing a
   course or a suggested plan changes that year only.
 - The 2022-2023 through 2026-2027 undergraduate catalogs were loaded from

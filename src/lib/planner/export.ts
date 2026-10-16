@@ -1,16 +1,16 @@
-import { itemCredits, semesterCredits, semesterLabel } from "./plan";
+import { itemCredits, semesterCredits, semesterLabel, type Start } from "./plan";
 import type { Course, Plan } from "./types";
 
 // Downloads of a plan. The Excel library is large, so it loads only when someone asks for a file.
 
 const csvCell = (text: string) => (/[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text);
 
-function rows(plan: Plan, courses: Map<string, Course>, completed: Set<string>, firstFall?: number, offset = 0) {
+function rows(plan: Plan, courses: Map<string, Course>, completed: Set<string>, start?: Start, offset = 0) {
   const out: (string | number)[][] = [];
   plan.forEach((items, s) => {
     for (const item of items) {
       const course = item.course ? courses.get(item.course) : undefined;
-      out.push([semesterLabel(s + offset, firstFall), course?.code ?? item.slot ?? item.course ?? "", course?.title ?? "", itemCredits(item, courses), course && completed.has(course.id) ? "Yes" : ""]);
+      out.push([semesterLabel(s + offset, start), course?.code ?? item.slot ?? item.course ?? "", course?.title ?? "", itemCredits(item, courses), course && completed.has(course.id) ? "Yes" : ""]);
     }
   });
   return out;
@@ -27,8 +27,8 @@ function save(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export function downloadCsv(plan: Plan, courses: Map<string, Course>, completed: Set<string>, name: string, firstFall?: number) {
-  const text = [HEADER, ...rows(plan, courses, completed, firstFall)].map((r) => r.map((c) => csvCell(String(c))).join(",")).join("\n");
+export function downloadCsv(plan: Plan, courses: Map<string, Course>, completed: Set<string>, name: string, start?: Start) {
+  const text = [HEADER, ...rows(plan, courses, completed, start)].map((r) => r.map((c) => csvCell(String(c))).join(",")).join("\n");
   save(new Blob([text], { type: "text/csv" }), `${name}.csv`);
 }
 
@@ -38,7 +38,7 @@ export async function downloadExcel(
   completed: Set<string>,
   name: string,
   title: string,
-  firstFall?: number,
+  start?: Start,
 ) {
   const { Workbook } = await import("exceljs");
   const book = new Workbook();
@@ -48,10 +48,10 @@ export async function downloadExcel(
   sheet.addRow(HEADER).font = { bold: true };
   let total = 0;
   plan.forEach((items, s) => {
-    for (const row of rows([items], courses, completed, firstFall, s)) sheet.addRow(row);
+    for (const row of rows([items], courses, completed, start, s)) sheet.addRow(row);
     const credits = semesterCredits(items, courses);
     total += credits;
-    const subtotal = sheet.addRow([semesterLabel(s, firstFall), "", "Semester total", credits, ""]);
+    const subtotal = sheet.addRow([semesterLabel(s, start), "", "Semester total", credits, ""]);
     subtotal.font = { italic: true };
   });
   sheet.addRow([]);

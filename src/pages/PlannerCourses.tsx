@@ -69,7 +69,7 @@ function CourseList({ isAdmin, catalogs }: { isAdmin: boolean; catalogs: Catalog
       >
         {[...catalogs].reverse().map((c) => (
           <option key={c.year} value={c.year}>
-            {yearLabel(c.year)} (students who started in fall {firstFall(c.year)})
+            {yearLabel(c.year)} (students who started in fall {firstFall(c.year)} or spring {firstFall(c.year) + 1})
           </option>
         ))}
       </select>
