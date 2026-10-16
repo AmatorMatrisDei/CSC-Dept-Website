@@ -29,10 +29,7 @@ export function useSignedInSession(): Session {
   return useOutletContext<Session>();
 }
 
-// Only paths on this site, so a crafted ?next= link can't send someone elsewhere after sign-in.
-export function safeNext(next: string | null): string {
-  return next && /^\/(?![/\\])/.test(next) ? next : "/account";
-}
+export { safeNext } from "./safeNext";
 
 // Where links in sign-up and password emails come back to. Supabase must list these under
 // Authentication > URL Configuration > Redirect URLs.

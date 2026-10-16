@@ -6,8 +6,8 @@
 | API | `npm run test:api` | Sign-up, submissions, review and photo uploads, through the real API |
 | Carousel pick | `npm run test:carousel` | The rules every version of the Algorithms team's pick must keep |
 | Student forms | `npm run test:e2e` | Sign-up, permissions, the profile, project and internship forms, photo resizing, the review queue and what the public sees, in Chrome |
-| Frontend | the frontend team's own checks | The site builds and runs |
-| CI | automatic | The three suites above on every pull request and push to `main` |
+| Front end | `npm run lint`, `npm run test:unit`, `npm run build` | Lint; unit tests of the pure helpers (planner rules, formatting, the sign-in redirect guard); type-check and build |
+| CI | automatic | All of the above on every pull request and after merges into `staging` and `main` |
 | People | preview links | Faculty and teammates trying real flows before release |
 
 The database and API tests need the local stack running (`npm run db:start`, see
@@ -111,15 +111,28 @@ browser download) against the local stack and its own dev server on port 5174. I
 - a profile edit shows the reviewer only what changed; asking to be removed hides the student
 - the form fits a phone screen, and the browser logs no errors
 
-It deletes its account, project and photos afterwards. It isn't in CI yet; run it before merging
-changes to the forms.
+It deletes its account, project and photos afterwards. CI runs it on every pull request.
+
+## Unit tests
+
+`src/**/*.test.ts`, run by Node's built-in test runner on the TypeScript files directly, with no
+build and no browser (`npm run test:unit`). They cover the pure helpers: the planner's rules
+(`src/lib/planner/plan.ts`), formatting, placeholders, list parsing and the sign-in redirect
+guard (`safeNext`). Import the file under test with its `.ts` extension, as Node needs it. A file
+that imports the Supabase client or React can't be loaded this way, so keep logic worth testing
+in files without them.
 
 ## CI
 
-`.github/workflows/backend.yml` starts a fresh local Supabase on GitHub's runners and runs
-`db:test`, `test:api` and `test:carousel`, plus a check that `src/lib/database.types.ts` was
-regenerated. It runs on every pull request, so it can be made a required check under
-Settings > Branches.
+Two workflows run on every pull request and after merges into `staging` and `main`:
+
+- `.github/workflows/frontend.yml`, check **Lint, unit tests and build**: `npm run lint`,
+  `npm run test:unit` and `npm run build`.
+- `.github/workflows/backend.yml`, check **Database, API and browser tests**: starts a fresh local
+  Supabase on GitHub's runners and runs `db:test`, `test:api`, `test:e2e` (in the runner's Google
+  Chrome) and `test:carousel`, plus a check that `src/lib/database.types.ts` was regenerated.
+
+Both can be made required checks for `main` and `staging` (Settings > Rules > Rulesets).
 
 ## Testing with people (developer site)
 
@@ -151,6 +164,7 @@ A short script for faculty to follow on a preview:
 
 ## Before merging
 
+- [ ] `npm run lint` and `npm run test:unit` pass
 - [ ] `npm run db:test`, `npm run test:api` and `npm run test:carousel` pass locally
 - [ ] `npm run test:e2e` passes, if the change touches sign-in, the student forms or the review queue
 - [ ] New tables or rules have tests
