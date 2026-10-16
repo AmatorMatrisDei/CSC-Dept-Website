@@ -30,7 +30,7 @@ a transaction that is rolled back, so tests never leave data behind and don't de
 | `08_directory_and_slugs.test.sql` | `listed_students` shows only listed students, even to reviewers; slugs are generated, unique and admin-only; thumbnails need alt text |
 | `09_student_submissions.test.sql` | Project slugs made at approval and numbered when taken; students can't swap or delete a photo that a live page or an open submission uses |
 | `10_cms_and_people.test.sql` | Only admins change page text; everyone reads it; only admins see the People list with sign-up emails; students can't change their own role |
-| `11_planner.test.sql` | The planner catalog and suggested plans are public, plans are private to their owner; course references must exist, can't loop and block deleting a course in use; `planner_catalog_issues()` flags courses before their prerequisites or in the wrong term; spot checks against the catalog |
+| `11_planner.test.sql` | Catalog years, courses and programs are public, plans are private to their owner; a course belongs to one catalog year and its references must be in that year, can't loop and block deleting a course that another course or a program uses; program requirements must be well formed; `planner_catalog_issues()` flags courses before their prerequisites or in the wrong term or year; spot checks against each year's catalog |
 | `12_admin_audit.test.sql` | Direct admin edits are logged with what changed, review-queue changes aren't logged twice, and the last admin can't step down |
 
 `_helpers.psql` creates five test users (admin, reviewer, a listed student, an unlisted student,

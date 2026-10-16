@@ -39,6 +39,9 @@ Names follow the guide (section 3) where SQL allows.
 | `audit_log` | AuditLog | Approvals, rejections, removals, re-shuffles and role changes. Append-only |
 | `monthly_pool`, `daily_carousel`, `carousel_state` | MonthlyPool, DailyCarousel | The carousel's input and output |
 | `posts` | (not in the guide) | Department news, kept by team decision |
+| `planner_catalogs` | (not in the guide) | Degree planner: one row per catalog year (`2025-2026`), the year a student started |
+| `planner_courses`, `planner_degrees` | (not in the guide) | Each catalog year's courses (credits, prerequisites, when offered) and programs (majors, pre-engineering, minors: requirements, notes, suggested semesters). Admin-edited |
+| `planner_plans` | (not in the guide) | A signed-in person's own planner: their catalog year, program, completed courses and plans. Private to them |
 
 Who can do what:
 
@@ -49,7 +52,7 @@ Who can do what:
 | Grant or revoke their own consent | | ✓ | ✓ | ✓ |
 | Submit profile, project and internship changes | | ✓ | ✓ | ✓ |
 | Confirm or decline being listed on a project | | ✓ | ✓ | ✓ |
-| Approve, reject or send back submissions (not their own) | | | ✓ | ✓ |
+| Approve, reject or send back submissions (their own too, logged as self-reviews) | | | ✓ | ✓ |
 | Edit anything directly, set priority and pins, publish | | | | ✓ |
 | Manage faculty, sub-departments, categories, monthly pool | | | | ✓ |
 | Change roles, re-shuffle the carousel | | | | ✓ |
@@ -125,6 +128,28 @@ and resubmit. Each student can have at most 20 submissions open, and each is lim
   priority. Its seed is `"<day>:<re-shuffle count>"`.
 - The home page reads the `carousel_today` view: the day's cards in order, with members and
   advisors.
+
+### The degree planner
+
+- Courses, credits and requirements follow the catalog of the year a student started, so each
+  catalog year (`planner_catalogs`) has its own copy of every course and program. A course is
+  keyed by `(catalog_year, id)`, and its prerequisites name courses of the same year. Editing a
+  course or a suggested plan changes that year only.
+- The 2022-2023 through 2026-2027 undergraduate catalogs were loaded from
+  franciscan.smartcatalogiq.com by migration `20261016000000_planner_catalog_years.sql`: the
+  department's majors, minors and pre-engineering transfer programs (one program per track where
+  the second year differs by discipline), each with the catalog's own semester plan.
+- A program's `requirements` list what it requires: each item is met by all the courses of any
+  one of its `options`, and an item with only a `label` (an elective, a core area) is left to the
+  student. The planner checks a student's plan against them.
+- `planner_catalog_issues()` lists problems in the suggested plans of every year: a course before
+  its prerequisites, a corequisite not alongside, a course in a term or year (odd/even) it isn't
+  offered, a semester over 18 credits. Most of what it reports today is in the catalogs'
+  own plans (the pre-engineering plans list CSC 144 without its lab, CSC 142, for example), which
+  faculty may want to look at.
+- To add a catalog year: insert its `planner_catalogs` row, then its courses, then its programs,
+  in one migration (the course checks run at the end of the transaction, so courses can name each
+  other in any order).
 
 ## 1. Local harness (everyone)
 

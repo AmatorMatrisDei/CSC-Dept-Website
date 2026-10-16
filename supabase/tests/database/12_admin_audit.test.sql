@@ -7,7 +7,7 @@ select plan(7);
 select pg_temp.login_as('a0000000-0000-4000-8000-000000000001');
 update public.projects set title = 'Retitled by an admin' where id = 'b0000000-0000-4000-8000-000000000001';
 insert into public.site_content (key, value) values ('about.title', 'About C&E');
-update public.planner_courses set title = 'Data Structures (edited)' where id = 'CSC145';
+update public.planner_courses set title = 'Data Structures (edited)' where catalog_year = '2025-2026' and id = 'CSC145';
 reset role;
 
 select results_eq(
@@ -23,8 +23,9 @@ select isnt_empty(
 );
 
 select isnt_empty(
-  $$ select 1 from public.audit_log where action = 'admin_edited' and target_type = 'planner_courses' and details ->> 'key' = 'CSC145' $$,
-  'planner catalog edits are logged'
+  $$ select 1 from public.audit_log where action = 'admin_edited' and target_type = 'planner_courses'
+       and details ->> 'key' = 'CSC145' and details ->> 'catalog_year' = '2025-2026' $$,
+  'planner catalog edits are logged with their catalog year'
 );
 
 select is_empty(

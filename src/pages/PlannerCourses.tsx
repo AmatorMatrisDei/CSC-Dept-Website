@@ -1,44 +1,50 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { CheckField, Fieldset, Notice, TextArea, TextField, buttonClass, fieldClass, secondaryButtonClass } from "@/components/Form";
 import { getMyRole } from "@/lib/account";
 import { useSession } from "@/lib/auth";
 import { useAsync, useTitle } from "@/lib/hooks";
-import { deleteCourse, loadPlannerData, saveCourse } from "@/lib/planner/data";
-import type { Course, PrerequisiteGroup, Term } from "@/lib/planner/types";
+import { deleteCourse, firstFall, loadCatalogs, loadPlannerData, saveCourse, yearLabel } from "@/lib/planner/data";
+import type { Catalog, Course, PrerequisiteGroup, Term } from "@/lib/planner/types";
 
-// Admin page: the planner's course catalog. Whatever is saved here is what the planner shows.
+// The planner's course catalog, one catalog year at a time. Anyone can browse it; admins edit
+// it, and whatever is saved here is what the planner shows for that year.
 
 const TERMS = ["fall", "spring", "summer"] as const;
 const blank: Course = {
-  id: "", code: "", title: "", credits: 3, credits_max: null, prerequisite_groups: [], corequisites: [], offered: [],
+  catalog_year: "", id: "", code: "", title: "", credits: 3, credits_max: null, prerequisite_groups: [], corequisites: [], offered: [],
   offered_years: {}, prerequisite_text: null, corequisite_text: null, offered_text: null, catalog_url: null, description: null,
 };
 const idFromCode = (code: string) => code.replace(/\s+/g, "").toUpperCase();
 
 // The version only makes useAsync read the catalog again after a save.
-function loadCatalog(version: number) {
+function loadCatalog(year: string, version: number) {
   void version;
-  return loadPlannerData();
+  return loadPlannerData(year);
 }
 
 export default function PlannerCourses() {
   useTitle("Course catalog");
   const session = useSession();
-  if (session === undefined) return <p className="text-muted">Loading…</p>;
-  return session ? <SignedIn userId={session.user.id} /> : <Catalog isAdmin={false} />;
+  const catalogs = useAsync(loadCatalogs);
+  if (session === undefined || !catalogs) return <p className="text-muted">Loading…</p>;
+  if (!catalogs.length) return <Notice>The planner has no catalogs yet.</Notice>;
+  return session ? <SignedIn userId={session.user.id} catalogs={catalogs} /> : <CourseList isAdmin={false} catalogs={catalogs} />;
 }
 
-function SignedIn({ userId }: { userId: string }) {
+function SignedIn({ userId, catalogs }: { userId: string; catalogs: Catalog[] }) {
   const me = useAsync(getMyRole, userId);
   if (me === undefined) return <p className="text-muted">Loading…</p>;
-  return <Catalog isAdmin={me?.role === "admin"} />;
+  return <CourseList isAdmin={me?.role === "admin"} catalogs={catalogs} />;
 }
 
-// Anyone can browse the catalog; only admins get the add, edit and delete controls.
-function Catalog({ isAdmin }: { isAdmin: boolean }) {
+// Anyone can browse the catalog; only admins get the add, edit and delete controls. The year is
+// in the address (/planner/courses?year=2024-2025), so the planner can link to its own catalog.
+function CourseList({ isAdmin, catalogs }: { isAdmin: boolean; catalogs: Catalog[] }) {
+  const [params, setParams] = useSearchParams();
+  const year = catalogs.find((c) => c.year === params.get("year"))?.year ?? catalogs[catalogs.length - 1].year;
   const [version, setVersion] = useState(0);
-  const data = useAsync(loadCatalog, version);
+  const data = useAsync(loadCatalog, year, version);
   const [editing, setEditing] = useState<{ course: Course; isNew: boolean } | null>(null);
   const [search, setSearch] = useState("");
   const [note, setNote] = useState<{ tone: "success" | "error"; text: string } | null>(null);
@@ -49,24 +55,48 @@ function Catalog({ isAdmin }: { isAdmin: boolean }) {
     if (loaded && window.location.hash) document.getElementById(decodeURIComponent(window.location.hash.slice(1)))?.scrollIntoView();
   }, [loaded]);
 
-  if (!data) return <p className="text-muted">Loading…</p>;
+  const yearPicker = (
+    <label className="flex max-w-md flex-col gap-1 font-medium">
+      Catalog year
+      <select
+        value={year}
+        disabled={!!editing}
+        onChange={(e) => {
+          setNote(null);
+          setParams({ year: e.target.value }, { replace: true });
+        }}
+        className={fieldClass}
+      >
+        {[...catalogs].reverse().map((c) => (
+          <option key={c.year} value={c.year}>
+            {yearLabel(c.year)} (students who started in fall {firstFall(c.year)})
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+  if (!data) return <div className="flex flex-col gap-6">{yearPicker}<p className="text-muted">Loading…</p></div>;
   const query = search.trim().toLowerCase();
   const list = [...data.courses.values()].filter((c) => !query || c.code.toLowerCase().includes(query) || c.title.toLowerCase().includes(query));
 
   async function save(course: Course, isNew: boolean) {
     if (isNew && data!.courses.has(course.id)) return setNote({ tone: "error", text: `${course.code} already exists. Edit it from the list.` });
-    const error = await saveCourse(course);
+    const error = await saveCourse({ ...course, catalog_year: year });
     if (error) return setNote({ tone: "error", text: error });
-    setNote({ tone: "success", text: `Saved ${course.code}.` });
+    setNote({ tone: "success", text: `Saved ${course.code} in the ${yearLabel(year)} catalog.` });
     setEditing(null);
     setVersion((v) => v + 1);
   }
 
   async function remove(course: Course) {
-    const used = [...data!.degrees].filter((d) => d.semesters.some((s) => s.entries.some((e) => "course" in e && e.course === course.id)));
-    const warning = used.length ? ` It is still in the suggested plan for ${used.map((d) => d.name).join(", ")}.` : "";
-    if (!window.confirm(`Delete ${course.code}?${warning}`)) return;
-    const error = await deleteCourse(course.id);
+    const used = data!.degrees.filter(
+      (d) =>
+        d.semesters.some((s) => s.entries.some((e) => "course" in e && e.course === course.id)) ||
+        d.requirements.some((r) => r.options?.some((o) => o.includes(course.id))),
+    );
+    const warning = used.length ? ` ${used.map((d) => d.name).join(", ")} still use${used.length === 1 ? "s" : ""} it.` : "";
+    if (!window.confirm(`Delete ${course.code} from the ${yearLabel(year)} catalog?${warning}`)) return;
+    const error = await deleteCourse(year, course.id);
     if (error) return setNote({ tone: "error", text: error });
     setNote({ tone: "success", text: `Deleted ${course.code}.` });
     setEditing(null);
@@ -79,11 +109,11 @@ function Catalog({ isAdmin }: { isAdmin: boolean }) {
         <h1 className="text-3xl font-semibold">Course catalog</h1>
         <p className="max-w-2xl text-muted">
           The courses the <Link to="/planner" className="underline">degree planner</Link> uses, with what each covers, what it needs
-          first, and when it is offered.
+          first, and when it is offered. Each catalog year has its own list: courses and requirements change from year to year.
         </p>
         {isAdmin && (
           <p className="max-w-2xl text-sm text-muted">
-            Admins: use Add a course or Edit below. Tick Fall or Spring for courses taught in only one of them, and the planner will warn
+            Admins: pick the catalog year, then use Add a course or Edit below. Changes apply to that year only. Tick Fall or Spring for courses taught in only one of them, and the planner will warn
             a student who places the course in the wrong semester. Write prerequisites as groups: “MTH 220; CSC 144 or CSC 171” means
             MTH 220, and one of CSC 144 or CSC 171. Keep the catalog's own wording too, for anything a course can't cover (junior
             standing, instructor permission). Corequisites are course codes separated by commas. Every change is recorded in the
@@ -91,6 +121,7 @@ function Catalog({ isAdmin }: { isAdmin: boolean }) {
           </p>
         )}
       </div>
+      {yearPicker}
       {note && <Notice tone={note.tone}>{note.text}</Notice>}
 
       {editing ? (
@@ -117,7 +148,17 @@ function Catalog({ isAdmin }: { isAdmin: boolean }) {
         </div>
       )}
 
-      <p className="text-sm text-muted">{list.length} courses</p>
+      <p className="text-sm text-muted">
+        {list.length} courses in the {yearLabel(year)} catalog
+        {data.catalog.catalogUrl && (
+          <>
+            {" · "}
+            <a href={data.catalog.catalogUrl} target="_blank" rel="noopener noreferrer" className="underline">
+              {data.catalog.name}
+            </a>
+          </>
+        )}
+      </p>
       <ul className="flex flex-col gap-2">
         {list.map((c) => (
           <li key={c.id} id={c.id} className="flex scroll-mt-4 flex-col gap-1 rounded border border-border p-3">
@@ -222,7 +263,7 @@ function CourseForm({
     setBusy(true);
     const years = Object.fromEntries(offered.map((t) => [t, initial.offered_years[t as Term] ?? "every"]));
     await onSave({
-      id, code: code.trim().toUpperCase(), title: title.trim(), credits: n, credits_max: max,
+      catalog_year: initial.catalog_year, id, code: code.trim().toUpperCase(), title: title.trim(), credits: n, credits_max: max,
       prerequisite_groups: prerequisites.groups, corequisites: corequisites.ids, offered, offered_years: years,
       prerequisite_text: preText.trim() || null, corequisite_text: coText.trim() || null,
       offered_text: offeredText.trim() || null, catalog_url: catalogUrl.trim() || null, description: about.trim() || null,

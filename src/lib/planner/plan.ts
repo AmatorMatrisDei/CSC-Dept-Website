@@ -1,4 +1,4 @@
-import type { Course, Degree, Plan, PlanItem } from "./types";
+import type { Course, Degree, Plan, PlanItem, Requirement } from "./types";
 
 // Pure rules for the planner: building a plan, changing it, and checking it. No React in here.
 
@@ -20,7 +20,9 @@ export const itemCredits = (item: PlanItem, courses: Map<string, Course>) =>
 export const semesterCredits = (items: PlanItem[], courses: Map<string, Course>) =>
   items.reduce((sum, item) => sum + itemCredits(item, courses), 0);
 
-export const semesterLabel = (index: number) => `Year ${Math.floor(index / 2) + 1}, ${index % 2 === 0 ? "Fall" : "Spring"}`;
+// "Year 1, Fall", or "Year 1, Fall 2025" given the fall the student started.
+export const semesterLabel = (index: number, firstFall?: number) =>
+  `Year ${Math.floor(index / 2) + 1}, ${index % 2 === 0 ? "Fall" : "Spring"}${firstFall ? ` ${yearOf(index, firstFall)}` : ""}`;
 
 export function moveItem(plan: Plan, key: string, to: number): Plan {
   const item = plan.flat().find((i) => i.key === key);
@@ -39,7 +41,35 @@ export function addCourse(plan: Plan, courseId: string, to: number): Plan {
 export type Warning = { courseId: string; message: string };
 
 // Calendar year of a semester, counting from the fall a student starts (index 0 is that fall).
-const yearOf = (index: number, firstFall: number) => firstFall + Math.floor(index / 2) + (index % 2);
+function yearOf(index: number, firstFall: number) {
+  return firstFall + Math.floor(index / 2) + (index % 2);
+}
+
+// Where a program requirement stands against a plan: met by courses completed, met by courses in
+// the plan, not met yet, or open (an elective or core area the planner can't check).
+export type RequirementStatus = { requirement: Requirement; status: "completed" | "planned" | "missing" | "open"; courses: string[] };
+
+// Each course counts toward one requirement only, so "two cybersecurity electives" need two
+// different courses. Requirements with a single option (a required course) claim their courses
+// first, so an elective never takes a course the program requires outright.
+export function checkRequirements(requirements: Requirement[], planned: Set<string>, completed: Set<string>): RequirementStatus[] {
+  const used = new Set<string>();
+  const result: RequirementStatus[] = new Array(requirements.length);
+  const order = requirements.map((_, i) => i).sort((a, b) => Number((requirements[a].options?.length ?? 0) > 1) - Number((requirements[b].options?.length ?? 0) > 1));
+  for (const i of order) {
+    const requirement = requirements[i];
+    if (!requirement.options?.length) {
+      result[i] = { requirement, status: "open", courses: [] };
+      continue;
+    }
+    const free = (ids: string[]) => ids.every((id) => !used.has(id));
+    const done = requirement.options.find((o) => free(o) && o.every((id) => completed.has(id)));
+    const inPlan = done ?? requirement.options.find((o) => free(o) && o.every((id) => completed.has(id) || planned.has(id)));
+    if (inPlan) inPlan.forEach((id) => used.add(id));
+    result[i] = inPlan ? { requirement, status: done ? "completed" : "planned", courses: inPlan } : { requirement, status: "missing", courses: [] };
+  }
+  return result;
+}
 
 // Flags prerequisite groups nothing done or planned earlier meets, corequisites not planned in the
 // same or an earlier semester, and courses placed in a term (or, given `firstFall`, a year) they
