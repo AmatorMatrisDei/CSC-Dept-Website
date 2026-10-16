@@ -11,10 +11,10 @@ import { CATEGORY_LABELS, STATUSES } from "@/lib/types";
 
 // Builds the top bar menus (FR-4.2, FR-4.4, FR-4.6) so every page is within 3 clicks of Home.
 export default function SiteHeader() {
-  const projects = useAsync(getProjects);
-  const departments = useAsync(getSubDepartments);
-  const faculty = useAsync(getAllFaculty);
-  const students = useAsync(getStudents);
+  const projects = useAsync(menuProjects);
+  const departments = useAsync(menuDepartments);
+  const faculty = useAsync(menuFaculty);
+  const students = useAsync(menuStudents);
   const session = useSession();
   const me = useAsync(roleOf, session?.user.id ?? "");
 
@@ -102,7 +102,16 @@ export default function SiteHeader() {
   );
 }
 
-const roleOf = async (userId: string) => (userId ? getMyRole(userId) : null);
+// The header sits outside the page's error boundary, so none of its loads may throw. If a list
+// can't load, its menu shows just its main link; if the role can't, the account menu is plain.
+function orEmpty<T>(load: () => Promise<T[]>) {
+  return () => load().catch((): T[] => []);
+}
+const menuProjects = orEmpty(getProjects);
+const menuDepartments = orEmpty(getSubDepartments);
+const menuFaculty = orEmpty(getAllFaculty);
+const menuStudents = orEmpty(getStudents);
+const roleOf = async (userId: string) => (userId ? getMyRole(userId).catch(() => null) : null);
 
 const accountLinkClass = "inline-flex min-h-11 items-center rounded px-3 text-sm hover:bg-current/10";
 
