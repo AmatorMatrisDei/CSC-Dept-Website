@@ -1,6 +1,7 @@
 import { Link, useParams } from "react-router";
 import Editable from "@/components/Editable";
-import Portrait from "@/components/Portrait";
+import QuickView from "@/components/QuickView";
+import { facultyQuickInfo } from "@/lib/quickInfo";
 import ProjectCard from "@/components/ProjectCard";
 import { useEdit } from "@/lib/edit";
 import { getFaculty, saveFaculty } from "@/lib/content";
@@ -28,7 +29,9 @@ export default function FacultyMember() {
         <Link to="/faculty" className="inline-flex min-h-11 w-fit items-center text-sm underline">
           All faculty
         </Link>
-        <Portrait src={person.photo?.url} alt={person.photo?.alt ?? ""} name={person.name} className="size-28 text-3xl" />
+        <div className="w-fit">
+          <QuickView person={facultyQuickInfo(person, false)} className="size-28 text-3xl" />
+        </div>
         <Editable as="h1" label="name" value={person.name} maxLength={120} onSave={(name) => save({ name })} className="text-3xl font-semibold" />
         <Editable as="p" label="title" value={person.title} maxLength={200} onSave={(title) => save({ title })} className="text-muted" />
         {editing ? (

@@ -1,7 +1,8 @@
 import { Link } from "react-router";
 import Reveal from "@/components/Reveal";
 import SiteText from "@/components/SiteText";
-import Portrait from "@/components/Portrait";
+import QuickView from "@/components/QuickView";
+import { facultyQuickInfo } from "@/lib/quickInfo";
 import { getAllFaculty } from "@/lib/content";
 import { useAsync, useTitle } from "@/lib/hooks";
 
@@ -19,7 +20,7 @@ export default function FacultyList() {
           {faculty.map((f, i) => (
             <Reveal as="li" key={f.slug} step={i % 3} className="flex">
               <div className="lift relative flex w-full items-center gap-4 rounded-lg border border-border bg-surface p-4">
-              <Portrait src={f.photo?.url} alt={f.photo?.alt ?? ""} name={f.name} />
+              <QuickView person={facultyQuickInfo(f)} />
               <div>
                 <h2 className="text-lg font-semibold">
                   <Link to={`/faculty/${f.slug}`} className="inline-flex min-h-11 items-center underline after:absolute after:inset-0">

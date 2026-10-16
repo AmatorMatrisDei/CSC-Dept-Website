@@ -33,8 +33,11 @@ export type Student = {
   name: string;
   headline: string;
   email: string | null; // present only if the student consented to showing it
+  phone: string | null; // likewise
   photo: Photo | null;
   linkedin_url: string | null;
+  github_url: string | null;
+  website_url: string | null;
   major: string | null;
   class_year: number | null;
   background: string;
