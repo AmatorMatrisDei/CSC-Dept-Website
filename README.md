@@ -22,7 +22,7 @@ As of October 15, 2026.
 | Student accounts and review | **Built.** Students sign in with their university email, choose what they share, and submit their profile, projects (team, advisors, partners, photos) and internships. Reviewers approve, return with a note, or reject at `/review`, seeing what's on the site beside what's proposed. Works on the developer site; production sign-up waits on email delivery (below) |
 | Admin editing | **Built.** Admins turn on Edit mode in the header to change page wording and project, student and faculty details right on the page, and set people's roles on the People page (under My account) |
 | Backend | **Done.** Students, faculty, projects, members and advisors, consent, a review queue for every student submission, an audit log, the carousel, the student directory and URL slugs. Visitors only see published projects and students who opted in. Hardened after a security review. See [docs/backend-setup.md](docs/backend-setup.md) |
-| Tests and CI | **Backend:** 175 database tests, 7 API tests and 6 carousel tests on every pull request. **Site:** a 16-step browser test of the student forms and review queue (`npm run test:e2e`), run by hand for now; lint and build only run in Cloudflare's build |
+| Tests and CI | **Backend:** 190 database tests, 7 API tests and 6 carousel tests. **Site:** lint, 17 unit tests, the type-check and build, and a 16-step browser test of the student forms and review queue (`npm run test:e2e`). All run on every pull request |
 | Hosted databases | **Both current.** Production ("Franciscan Site") is empty. Dev ("Franciscan Site Dev") has sample content and skips email confirmation so the team can sign up. Both refuse sign-ups from non-university addresses |
 | Carousel | **Runner done; pick pending.** An hourly job picks the day's projects and admins can re-shuffle. The pick is a placeholder until the Algorithms team delivers theirs |
 | Still to build | Adding faculty and partners, news, alumni stories and the monthly carousel pool (FR-6). Email notifications to students when a submission is reviewed (FR-3.6) |
@@ -56,6 +56,7 @@ Never put the secret key (`sb_secret_...`) in `.env.local` or anywhere in the si
 | `npm run lint` | Lint the site's code |
 | `npm run db:start`, `db:test`, `test:api`, … | The backend harness; see [docs/backend-setup.md](docs/backend-setup.md) |
 | `npm run test:e2e` | The student forms and review queue in Chrome, against the local stack; see [docs/testing.md](docs/testing.md) |
+| `npm run test:unit` | Unit tests of the site's pure helpers (planner rules, formatting, sign-in redirects) |
 
 ## Project layout
 
@@ -90,8 +91,8 @@ Every change takes the same path: **feature branch → `staging` → `main`**.
    git switch -c feature/short-description
    ```
    Push the branch to this repository, not a fork, so it gets a preview link.
-2. **Open a pull request into `staging`**, not `main`. CI runs the backend tests and Cloudflare
-   builds a preview. Get a teammate's review.
+2. **Open a pull request into `staging`**, not `main`. CI runs the front-end and backend checks and
+   Cloudflare builds a preview. Get a teammate's review.
 3. **Merge it into `staging`.** Cloudflare updates the developer site, and Supabase applies any
    new migrations to the dev database.
 4. **Check it on the developer site** with teammates and faculty
