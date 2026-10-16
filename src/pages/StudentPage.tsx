@@ -1,6 +1,7 @@
 import { Link, useParams } from "react-router";
 import Editable from "@/components/Editable";
-import Portrait from "@/components/Portrait";
+import QuickView from "@/components/QuickView";
+import { studentLinks, studentQuickInfo } from "@/lib/quickInfo";
 import { StatusBadge } from "@/components/ProjectCard";
 import { useEdit } from "@/lib/edit";
 import { getStudent, saveStudent } from "@/lib/content";
@@ -32,7 +33,9 @@ export default function StudentPage() {
         <Link to="/students" className="inline-flex min-h-11 w-fit items-center text-sm underline">
           All students
         </Link>
-        <Portrait src={student.photo?.url} alt={student.photo?.alt ?? ""} name={student.name} className="size-28 text-3xl" />
+        <div className="w-fit">
+          <QuickView person={studentQuickInfo(student, false)} className="size-28 text-3xl" />
+        </div>
         <Editable as="h1" label="name" value={student.name} maxLength={120} onSave={(name) => save({ name })} className="text-3xl font-semibold" />
         <Editable as="p" label="headline" value={student.headline} maxLength={200} onSave={(headline) => save({ headline })} className="text-muted" />
         {(student.major || editing) && (
@@ -42,7 +45,10 @@ export default function StudentPage() {
           {editing ? (
             <>
               <Editable label="email" value={student.email ?? ""} maxLength={200} onSave={(v) => save({ contact_email: v.trim() || null })} className={link} />
+              <Editable label="phone" value={student.phone ?? ""} maxLength={25} onSave={(v) => save({ contact_phone: v.trim() || null })} className={link} />
               <Editable label="LinkedIn address (https://…)" value={student.linkedin_url ?? ""} maxLength={300} onSave={(v) => save({ linkedin_url: v.trim() || null })} className={link} />
+              <Editable label="GitHub address (https://…)" value={student.github_url ?? ""} maxLength={300} onSave={(v) => save({ github_url: v.trim() || null })} className={link} />
+              <Editable label="website address (https://…)" value={student.website_url ?? ""} maxLength={300} onSave={(v) => save({ website_url: v.trim() || null })} className={link} />
             </>
           ) : (
             <>
@@ -51,11 +57,16 @@ export default function StudentPage() {
                   {student.email}
                 </a>
               )}
-              {student.linkedin_url && (
-                <a href={student.linkedin_url} className={link}>
-                  LinkedIn
+              {student.phone && (
+                <a href={`tel:${student.phone.replace(/[^\d+]/g, "")}`} className={link}>
+                  {student.phone}
                 </a>
               )}
+              {studentLinks(student).map((l) => (
+                <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer" className={link}>
+                  {l.label}
+                </a>
+              ))}
             </>
           )}
         </div>

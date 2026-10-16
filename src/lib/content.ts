@@ -22,8 +22,11 @@ type ProfileRow = {
   name: string;
   headline: string;
   contact_email: string | null;
+  contact_phone: string | null;
   photo_path: string | null;
   linkedin_url: string | null;
+  github_url: string | null;
+  website_url: string | null;
   major: string | null;
   class_year: number | null;
   background: string;
@@ -71,7 +74,7 @@ const PROJECT_SELECT = `
   advising(faculty(slug, name, title, email, photo_path))`;
 
 const PROFILE_SELECT =
-  "slug, name, headline, contact_email, photo_path, linkedin_url, major, class_year, background, skills, clubs_roles";
+  "slug, name, headline, contact_email, contact_phone, photo_path, linkedin_url, github_url, website_url, major, class_year, background, skills, clubs_roles";
 
 function client() {
   if (!supabase) {
@@ -101,8 +104,11 @@ function toStudent(row: ProfileRow): Student {
     name: row.name,
     headline: row.headline,
     email: row.contact_email,
+    phone: row.contact_phone,
     photo: photo(row.photo_path, row.name),
     linkedin_url: row.linkedin_url,
+    github_url: row.github_url,
+    website_url: row.website_url,
     major: row.major,
     class_year: row.class_year,
     background: row.background,
@@ -220,7 +226,10 @@ export function saveStudent(
     background: string;
     major: string | null;
     contact_email: string | null;
+    contact_phone: string | null;
     linkedin_url: string | null;
+    github_url: string | null;
+    website_url: string | null;
     skills: string[];
     clubs_roles: string[];
   }>,

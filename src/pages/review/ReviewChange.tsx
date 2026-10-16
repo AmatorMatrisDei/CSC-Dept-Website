@@ -109,7 +109,10 @@ function Value({ kind, value, names, alt }: { kind: Kind; value: unknown; names:
       );
     case "photo": {
       const url = mediaUrl(String(value));
-      return url ? <img src={url} alt={alt ?? "Proposed photo"} className="max-h-56 rounded border border-border" /> : null;
+      // Keep the photo's own proportions: shrink to fit, never stretch to the card's width.
+      return url ? (
+        <img src={url} alt={alt ?? "Proposed photo"} className="h-auto max-h-56 w-auto max-w-full self-start rounded border border-border object-contain" />
+      ) : null;
     }
     case "members":
       return (

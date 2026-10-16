@@ -1,4 +1,5 @@
-import Portrait from "@/components/Portrait";
+import QuickView from "@/components/QuickView";
+import { studentQuickInfo } from "@/lib/quickInfo";
 import Reveal from "@/components/Reveal";
 import { Link } from "react-router";
 import { useSearchParams } from "react-router";
@@ -85,7 +86,7 @@ function Directory({ students, initial }: { students: Student[]; initial: Record
           {visible.map((s, i) => (
             <Reveal as="li" key={s.slug} step={i % 3} className="flex">
               <div className="lift relative flex w-full gap-4 rounded-lg border border-border bg-surface p-4">
-              <Portrait src={s.photo?.url} alt={s.photo?.alt ?? ""} name={s.name} />
+              <QuickView person={studentQuickInfo(s)} />
               <div>
                 <h2 className="text-lg font-semibold">
                   <Link to={`/students/${s.slug}`} className="inline-flex min-h-11 items-center underline after:absolute after:inset-0">
