@@ -86,6 +86,7 @@ header :focus-visible {
   --motion-rise: 16px;
   --motion-stagger: 80ms;
   --motion-failsafe: 3s;
+  --motion-intro-failsafe: 1s;
 }
 
 a,
@@ -154,8 +155,21 @@ a.underline:hover {
   }
 }
 
+/* Home intro (see lib/homeIntro.ts): each time the home page opens, the parts it animates wait
+   hidden until anime.js plays them in. If the script hasn't taken over
+   (data-intro-armed) after --motion-intro-failsafe, the failsafe shows them, so the headline is
+   never kept from readers for long. */
+[data-intro]:not([data-intro-done]) [data-intro-part] {
+  opacity: 0;
+}
+
+[data-intro]:not([data-intro-armed]):not([data-intro-done]) [data-intro-part] {
+  animation: reveal-failsafe 0.01s var(--motion-intro-failsafe) forwards;
+}
+
 @media print {
-  [data-reveal] > :not([data-revealed]) {
+  [data-reveal] > :not([data-revealed]),
+  [data-intro]:not([data-intro-done]) [data-intro-part] {
     opacity: 1;
     transform: none;
     animation: none;
@@ -163,7 +177,8 @@ a.underline:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-reveal] > :not([data-revealed]) {
+  [data-reveal] > :not([data-revealed]),
+  [data-intro]:not([data-intro-done]) [data-intro-part] {
     opacity: 1;
     transform: none;
   }
