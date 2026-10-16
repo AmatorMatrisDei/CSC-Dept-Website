@@ -1,0 +1,4 @@
+# The live site may be indexed. Previews and the developer site send "X-Robots-Tag: noindex"
+# (Cloudflare adds it), so they stay out of search results.
+User-agent: *
+Allow: /
