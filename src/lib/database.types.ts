@@ -319,33 +319,59 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"planner_courses": {
+                },"planner_catalogs": {
                   Row: {
-                    "catalog_url": string | null,"code": string,"corequisite_text": string | null,"corequisites": (string)[],"credits": number,"credits_max": number | null,"description": string | null,"id": string,"offered": (string)[],"offered_text": string | null,"offered_years": NonNullable<Json>,"prerequisite_groups": NonNullable<Json>,"prerequisite_text": string | null,"title": string,"updated_at": string
+                    "catalog_url": string | null,"name": string,"updated_at": string,"year": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "catalog_url"?: string | null,"code": string,"corequisite_text"?: string | null,"corequisites"?: (string)[],"credits": number,"credits_max"?: number | null,"description"?: string | null,"id": string,"offered"?: (string)[],"offered_text"?: string | null,"offered_years"?: NonNullable<Json>,"prerequisite_groups"?: NonNullable<Json>,"prerequisite_text"?: string | null,"title": string,"updated_at"?: string
+                    "catalog_url"?: string | null,"name": string,"updated_at"?: string,"year": string
                   }
                   Update: {
-                    "catalog_url"?: string | null,"code"?: string,"corequisite_text"?: string | null,"corequisites"?: (string)[],"credits"?: number,"credits_max"?: number | null,"description"?: string | null,"id"?: string,"offered"?: (string)[],"offered_text"?: string | null,"offered_years"?: NonNullable<Json>,"prerequisite_groups"?: NonNullable<Json>,"prerequisite_text"?: string | null,"title"?: string,"updated_at"?: string
+                    "catalog_url"?: string | null,"name"?: string,"updated_at"?: string,"year"?: string
                   }
                   Relationships: [
                     
                   ]
-                },"planner_degrees": {
+                },"planner_courses": {
                   Row: {
-                    "auto_generated": boolean,"catalog_url": string | null,"degree": string,"id": string,"name": string,"semesters": NonNullable<Json>,"sort_order": number,"total_credits": number,"updated_at": string
+                    "catalog_url": string | null,"catalog_year": string,"code": string,"corequisite_text": string | null,"corequisites": (string)[],"credits": number,"credits_max": number | null,"description": string | null,"id": string,"offered": (string)[],"offered_text": string | null,"offered_years": NonNullable<Json>,"prerequisite_groups": NonNullable<Json>,"prerequisite_text": string | null,"title": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "auto_generated"?: boolean,"catalog_url"?: string | null,"degree"?: string,"id": string,"name": string,"semesters": NonNullable<Json>,"sort_order"?: number,"total_credits": number,"updated_at"?: string
+                    "catalog_url"?: string | null,"catalog_year": string,"code": string,"corequisite_text"?: string | null,"corequisites"?: (string)[],"credits": number,"credits_max"?: number | null,"description"?: string | null,"id": string,"offered"?: (string)[],"offered_text"?: string | null,"offered_years"?: NonNullable<Json>,"prerequisite_groups"?: NonNullable<Json>,"prerequisite_text"?: string | null,"title": string,"updated_at"?: string
                   }
                   Update: {
-                    "auto_generated"?: boolean,"catalog_url"?: string | null,"degree"?: string,"id"?: string,"name"?: string,"semesters"?: NonNullable<Json>,"sort_order"?: number,"total_credits"?: number,"updated_at"?: string
+                    "catalog_url"?: string | null,"catalog_year"?: string,"code"?: string,"corequisite_text"?: string | null,"corequisites"?: (string)[],"credits"?: number,"credits_max"?: number | null,"description"?: string | null,"id"?: string,"offered"?: (string)[],"offered_text"?: string | null,"offered_years"?: NonNullable<Json>,"prerequisite_groups"?: NonNullable<Json>,"prerequisite_text"?: string | null,"title"?: string,"updated_at"?: string
                   }
                   Relationships: [
-                    
+                    {
+      foreignKeyName: "planner_courses_catalog_year_fkey"
+      columns: ["catalog_year"]
+isOneToOne: false
+      referencedRelation: "planner_catalogs"
+      referencedColumns: ["year"]
+    }
+                  ]
+                },"planner_degrees": {
+                  Row: {
+                    "auto_generated": boolean,"catalog_url": string | null,"catalog_year": string,"degree": string,"id": string,"kind": string,"name": string,"notes": (string)[],"requirements": NonNullable<Json>,"semesters": NonNullable<Json>,"sort_order": number,"total_credits": number,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "auto_generated"?: boolean,"catalog_url"?: string | null,"catalog_year": string,"degree"?: string,"id": string,"kind"?: string,"name": string,"notes"?: (string)[],"requirements"?: NonNullable<Json>,"semesters": NonNullable<Json>,"sort_order"?: number,"total_credits": number,"updated_at"?: string
+                  }
+                  Update: {
+                    "auto_generated"?: boolean,"catalog_url"?: string | null,"catalog_year"?: string,"degree"?: string,"id"?: string,"kind"?: string,"name"?: string,"notes"?: (string)[],"requirements"?: NonNullable<Json>,"semesters"?: NonNullable<Json>,"sort_order"?: number,"total_credits"?: number,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "planner_degrees_catalog_year_fkey"
+      columns: ["catalog_year"]
+isOneToOne: false
+      referencedRelation: "planner_catalogs"
+      referencedColumns: ["year"]
+    }
                   ]
                 },"planner_plans": {
                   Row: {
@@ -595,7 +621,7 @@ isOneToOne: false
                            },
 "planner_catalog_issues":
 { Args: Record<PropertyKey, never>; Returns: {
-              "course_id": string,"degree_id": string,"issue": string,"semester_index": number
+              "catalog_year": string,"course_id": string,"degree_id": string,"issue": string,"semester_index": number
             }[]
                            },
 "respond_to_listing":
