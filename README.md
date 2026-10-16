@@ -1,6 +1,10 @@
-# CSC-BUS-Dept-Website
-The website for Franciscan University's Department of Computing and Engineering: a place to
+# CSC-Dept-Website
+The website for Franciscan University's Department of Engineering and Computing: a place to
 showcase student, capstone and class projects, and for students and faculty to keep profiles.
+
+The full name is **Department of Engineering and Computing**, as in the university catalog. Use
+**Engineering & Computing** only where space is short: the header, browser tabs, the home page
+heading.
 
 **Live site:** https://csc-dept-website.pages.dev (the `main` branch, on the production database)
 
