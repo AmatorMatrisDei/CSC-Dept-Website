@@ -71,7 +71,7 @@ Never put the secret key (`sb_secret_...`) in `.env.local` or anywhere in the si
 | `supabase/` | The backend: migrations, the carousel function, seed and dev content, tests |
 | `tests/e2e/` | The browser test of the student forms |
 | `src/components/Editable.tsx`, `SiteText.tsx`, `EditProvider.tsx` | Click-to-edit for admins; page wording is stored in the `site_content` table |
-| `docs/` | [backend-setup.md](docs/backend-setup.md) and [testing.md](docs/testing.md) |
+| `docs/` | [backend-setup.md](docs/backend-setup.md), [testing.md](docs/testing.md) and [repository-settings.md](docs/repository-settings.md) (GitHub settings only the owner can change) |
 
 ## How changes go live
 
@@ -83,7 +83,8 @@ Every change takes the same path: **feature branch → `staging` → `main`**.
 | 2. Check it | `staging` | the developer site, https://staging.csc-dept-website.pages.dev | dev |
 | 3. Publish it | `main` | the live site, https://csc-dept-website.pages.dev | production |
 
-1. **Start from `staging`.**
+1. **Pick an issue and start from `staging`.** Comment on the issue first ("Working on this one.")
+   so no one else starts it. Then:
    ```bash
    git switch staging && git pull
    git switch -c feature/short-description
