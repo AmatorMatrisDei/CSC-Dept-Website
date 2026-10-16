@@ -4,9 +4,11 @@ import ProjectBrowser from "@/components/ProjectBrowser";
 import SiteText from "@/components/SiteText";
 import { getAllFaculty, getCarouselProjects, getProjects, getSubDepartments } from "@/lib/content";
 import { useAsync, useTitle } from "@/lib/hooks";
+import { usePreloadMotion } from "@/lib/motion";
 
 export default function Home() {
   useTitle(undefined);
+  usePreloadMotion();
   const featured = useAsync(getCarouselProjects);
   const projects = useAsync(getProjects);
   const departments = useAsync(getSubDepartments);

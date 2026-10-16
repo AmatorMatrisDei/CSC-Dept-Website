@@ -1,7 +1,7 @@
 import { useSearchParams } from "react-router";
 import { useState } from "react";
-import Reveal from "@/components/Reveal";
 import ProjectCard from "@/components/ProjectCard";
+import RevealList from "@/components/RevealList";
 import { projectYears } from "@/lib/format";
 import { CATEGORY_LABELS, STATUSES, type Faculty, type ProjectView, type SubDepartment } from "@/lib/types";
 
@@ -144,13 +144,13 @@ function Browser({
       {visible.length === 0 ? (
         <p className="text-muted">No projects match those filters.</p>
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {visible.map((project, i) => (
-            <Reveal as="li" key={project.slug} step={i % 3} className="flex">
+        <RevealList className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {visible.map((project) => (
+            <li key={project.slug} className="flex">
               <ProjectCard project={project} />
-            </Reveal>
+            </li>
           ))}
-        </ul>
+        </RevealList>
       )}
     </div>
   );

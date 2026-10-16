@@ -1,6 +1,6 @@
 import QuickView from "@/components/QuickView";
 import { studentQuickInfo } from "@/lib/quickInfo";
-import Reveal from "@/components/Reveal";
+import RevealList from "@/components/RevealList";
 import { Link } from "react-router";
 import { useSearchParams } from "react-router";
 import { useState } from "react";
@@ -82,9 +82,9 @@ function Directory({ students, initial }: { students: Student[]; initial: Record
       {visible.length === 0 ? (
         <p className="text-muted">No students match those filters.</p>
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {visible.map((s, i) => (
-            <Reveal as="li" key={s.slug} step={i % 3} className="flex">
+        <RevealList className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {visible.map((s) => (
+            <li key={s.slug} className="flex">
               <div className="lift relative flex w-full gap-4 rounded-lg border border-border bg-surface p-4">
               <QuickView person={studentQuickInfo(s)} />
               <div>
@@ -97,9 +97,9 @@ function Directory({ students, initial }: { students: Student[]; initial: Record
                 {s.skills.length > 0 && <p className="mt-2 text-sm">{s.skills.join(", ")}</p>}
               </div>
               </div>
-            </Reveal>
+            </li>
           ))}
-        </ul>
+        </RevealList>
       )}
     </div>
   );

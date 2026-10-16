@@ -3,9 +3,11 @@ import SiteText from "@/components/SiteText";
 import StudentDirectory from "@/components/StudentDirectory";
 import { getStudents } from "@/lib/content";
 import { useAsync, useTitle } from "@/lib/hooks";
+import { usePreloadMotion } from "@/lib/motion";
 
 export default function Students() {
   useTitle("Students");
+  usePreloadMotion();
   const students = useAsync(getStudents);
 
   return (

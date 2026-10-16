@@ -77,13 +77,15 @@ header :focus-visible {
   outline-color: var(--header-foreground);
 }
 
-/* Motion. Timing lives in these variables. Only fades, slides and color changes; nothing moves
-   the layout. Visitors who ask for reduced motion get none (see the media query below). */
+/* Motion. Timing lives in these variables; lib/motion.ts reads them for the animations it runs
+   with anime.js. Only fades, slides and color changes; nothing moves the layout. Visitors who ask
+   for reduced motion get none (see the media query below). */
 :root {
   --motion-fast: 150ms;
   --motion-duration: 600ms;
   --motion-rise: 16px;
   --motion-stagger: 80ms;
+  --motion-failsafe: 3s;
 }
 
 a,
@@ -127,24 +129,22 @@ a.underline:hover {
   }
 }
 
-/* Scroll reveal (see Reveal.tsx): fades up when it enters the screen, staggered by --step.
-   If the script never runs, the failsafe animation shows everything after 3 seconds. */
-[data-reveal] {
+/* Scroll reveal (see RevealList.tsx): a list's items wait here, hidden, until anime.js fades them
+   up as they scroll into view. Until the script takes over (data-reveal-armed), the failsafe
+   shows them after --motion-failsafe. data-reveal-off (reduced motion, or anime.js didn't load)
+   shows them at once. */
+[data-reveal] > :not([data-revealed]) {
   opacity: 0;
   transform: translateY(var(--motion-rise));
-  transition:
-    opacity var(--motion-duration) ease-out,
-    transform var(--motion-duration) ease-out;
-  transition-delay: calc(var(--step, 0) * var(--motion-stagger));
 }
 
-[data-reveal][data-revealed] {
+[data-reveal]:not([data-reveal-armed]) > :not([data-revealed]) {
+  animation: reveal-failsafe 0.01s var(--motion-failsafe) forwards;
+}
+
+[data-reveal][data-reveal-off] > :not([data-revealed]) {
   opacity: 1;
   transform: none;
-}
-
-[data-reveal]:not([data-revealed]) {
-  animation: reveal-failsafe 0.01s 3s forwards;
 }
 
 @keyframes reveal-failsafe {
@@ -155,7 +155,7 @@ a.underline:hover {
 }
 
 @media print {
-  [data-reveal] {
+  [data-reveal] > :not([data-revealed]) {
     opacity: 1;
     transform: none;
     animation: none;
@@ -163,7 +163,7 @@ a.underline:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-reveal] {
+  [data-reveal] > :not([data-revealed]) {
     opacity: 1;
     transform: none;
   }
