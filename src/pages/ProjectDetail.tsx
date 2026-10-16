@@ -1,3 +1,4 @@
+import { lazy, Suspense, useEffect } from "react";
 import { Link, useParams } from "react-router";
 import Cover from "@/components/Cover";
 import Editable from "@/components/Editable";
@@ -9,11 +10,30 @@ import { useReloadable, useTitle } from "@/lib/hooks";
 import { CATEGORY_LABELS } from "@/lib/types";
 import NotFound from "@/pages/NotFound";
 
+// Descriptions are Markdown. The renderer loads with the first project page a visitor opens;
+// until it arrives, or if it can't load, the description shows as plain paragraphs.
+const loadMarkdown = () => import("@/components/Markdown");
+const Markdown = lazy(() => loadMarkdown().catch(() => ({ default: PlainText })));
+
+function PlainText({ text }: { text: string }) {
+  return (
+    <>
+      {paragraphs(text).map((paragraph, i) => (
+        <p key={i}>{paragraph}</p>
+      ))}
+    </>
+  );
+}
+
 export default function ProjectDetail() {
   const { slug = "" } = useParams();
   const { editing } = useEdit();
   const [project, reload] = useReloadable(getProject, slug);
   useTitle(project?.title ?? "Project");
+  // Start fetching the Markdown renderer while the project loads.
+  useEffect(() => {
+    loadMarkdown().catch(() => {});
+  }, []);
 
   async function save(patch: Parameters<typeof saveProject>[1]) {
     const error = await saveProject(slug, patch);
@@ -55,7 +75,10 @@ export default function ProjectDetail() {
         ) : (
           photos.map((photo) => (
             <li key={photo.url}>
-              <Cover src={photo.url} alt={photo.alt} />
+              <figure className="flex flex-col gap-2">
+                <Cover src={photo.url} alt={photo.alt} />
+                {photo.caption && <figcaption className="text-sm text-muted">{photo.caption}</figcaption>}
+              </figure>
             </li>
           ))
         )}
@@ -65,9 +88,9 @@ export default function ProjectDetail() {
         <div className="flex flex-col gap-4">
           <h2 className="text-xl font-semibold">About this project</h2>
           <Editable as="div" label="description" value={project.description} multiline maxLength={20000} onSave={(description) => save({ description })} className="flex flex-col gap-4">
-            {paragraphs(project.description).map((text, i) => (
-              <p key={i}>{text}</p>
-            ))}
+            <Suspense fallback={<PlainText text={project.description} />}>
+              <Markdown text={project.description} />
+            </Suspense>
           </Editable>
         </div>
 
@@ -124,7 +147,7 @@ export default function ProjectDetail() {
             <section>
               <h2 className="text-lg font-semibold">Contact and links</h2>
               <ul>
-                {(project.contact_email || editing) && (
+                {editing ? (
                   <li>
                     <Editable
                       as="span"
@@ -135,8 +158,22 @@ export default function ProjectDetail() {
                       className="inline-flex min-h-11 items-center underline"
                     />
                   </li>
+                ) : (
+                  project.contact_email && (
+                    <li>
+                      <a href={`mailto:${project.contact_email}`} className="inline-flex min-h-11 items-center underline">
+                        {project.contact_email}
+                      </a>
+                    </li>
+                  )
                 )}
-                {project.contact_phone && <li className="min-h-11 py-2">{project.contact_phone}</li>}
+                {project.contact_phone && (
+                  <li>
+                    <a href={`tel:${project.contact_phone.replace(/[^\d+]/g, "")}`} className="inline-flex min-h-11 items-center underline">
+                      {project.contact_phone}
+                    </a>
+                  </li>
+                )}
                 {project.links.map((link) => (
                   <li key={link.url}>
                     <a href={link.url} className="inline-flex min-h-11 items-center underline">
