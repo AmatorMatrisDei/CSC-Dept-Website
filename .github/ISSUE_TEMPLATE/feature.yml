@@ -1,0 +1,36 @@
+name: Feature or improvement
+description: Something new for the site, or a change to how it works.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: why
+    attributes:
+      label: What it's for
+      description: Who needs it, and what they're trying to do.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: What the site should do. Mockups, links and examples help.
+    validations:
+      required: true
+  - type: dropdown
+    id: who
+    attributes:
+      label: Who it's for
+      multiple: true
+      options:
+        - Visitors
+        - Students
+        - Reviewers
+        - Admins
+        - The site team
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: How we'll know it works, as a checklist.
+      value: |
+        - [ ] 
