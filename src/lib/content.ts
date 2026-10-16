@@ -1,3 +1,4 @@
+import { surname } from "./placeholder";
 import { mediaUrl, supabase } from "./supabase";
 import type {
   Category,
@@ -283,7 +284,8 @@ export async function getAllFaculty(): Promise<Faculty[]> {
     .order("name")
     .returns<FacultyRow[]>();
   if (error) throw error;
-  return data.map(toFaculty);
+  // By surname, so "Dr.", "Prof." and "Rev." don't decide the order.
+  return data.map(toFaculty).sort((a, b) => surname(a.name).localeCompare(surname(b.name)) || a.name.localeCompare(b.name));
 }
 
 export async function getFaculty(slug: string): Promise<FacultyView | null> {
