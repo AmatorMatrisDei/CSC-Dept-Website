@@ -3,9 +3,11 @@ import ProjectBrowser from "@/components/ProjectBrowser";
 import SiteText from "@/components/SiteText";
 import { getAllFaculty, getProjects, getSubDepartments } from "@/lib/content";
 import { useAsync, useTitle } from "@/lib/hooks";
+import { usePreloadMotion } from "@/lib/motion";
 
 export default function Projects() {
   useTitle("Projects");
+  usePreloadMotion();
   const projects = useAsync(getProjects);
   const departments = useAsync(getSubDepartments);
   const advisors = useAsync(getAllFaculty);
