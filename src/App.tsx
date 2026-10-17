@@ -36,16 +36,19 @@ function ScrollToTop() {
   return null;
 }
 
+// If a page's content fails to load, only the page shows the error: the header and footer keep
+// working, and the error clears on moving to another page.
 function Layout() {
+  const { pathname } = useLocation();
   return (
     <>
       <ScrollToTop />
-      <ErrorBoundary>
-        <SiteHeader />
-        <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:py-10">
+      <SiteHeader />
+      <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:py-10">
+        <ErrorBoundary resetKey={pathname}>
           <Outlet />
-        </main>
-      </ErrorBoundary>
+        </ErrorBoundary>
+      </main>
       <SiteFooter />
     </>
   );

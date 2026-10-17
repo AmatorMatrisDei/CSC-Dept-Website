@@ -62,7 +62,7 @@ export default function SiteNav({ menus }: { menus: NavMenu[] }) {
                 >
                   {menu.allLabel ?? `All ${menu.label.toLowerCase()}`}
                 </Link>
-                {menu.groups.map((group, i) => (
+                {menu.groups.filter((group) => group.links.length > 0).map((group, i) => (
                   <div key={i} className="mt-2 border-t border-border pt-2">
                     {group.heading && (
                       <p className="px-2 pb-1 text-xs font-medium uppercase tracking-wide text-muted">
