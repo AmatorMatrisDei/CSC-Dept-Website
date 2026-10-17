@@ -16,7 +16,8 @@ export type Category = keyof typeof CATEGORY_LABELS;
 
 export type SubDepartment = { slug: string; name: string };
 
-export type Photo = { url: string; alt: string };
+// `caption` is shown under project gallery photos when there is one.
+export type Photo = { url: string; alt: string; caption?: string };
 
 // `slug` is the row id for faculty and students until the database has real slugs.
 export type Faculty = {
