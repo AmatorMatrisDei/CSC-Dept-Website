@@ -16,7 +16,8 @@
     "test:carousel": "node --experimental-strip-types --test supabase/functions/_shared/carousel-pick.test.ts",
     "test:e2e": "node --test tests/e2e/student-submissions.test.mjs",
     "test:unit": "node --experimental-strip-types --test \"src/**/*.test.ts\"",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "icons": "node scripts/icons.mjs"
   },
   "dependencies": {
     "@fontsource/montserrat": "^5.3.0",
