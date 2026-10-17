@@ -16,13 +16,15 @@
     "test:carousel": "node --experimental-strip-types --test supabase/functions/_shared/carousel-pick.test.ts",
     "test:e2e": "node --test tests/e2e/student-submissions.test.mjs",
     "test:unit": "node --experimental-strip-types --test \"src/**/*.test.ts\" \"supabase/functions/_shared/review-message.test.ts\"",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "icons": "node scripts/icons.mjs"
   },
   "dependencies": {
     "@fontsource/montserrat": "^5.3.0",
     "@supabase/supabase-js": "^2.117.3",
     "animejs": "^4.5.0",
     "exceljs": "^4.4.0",
+    "markdown-to-jsx": "^9.10.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-router": "^7.18.4"

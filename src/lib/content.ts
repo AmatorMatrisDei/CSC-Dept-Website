@@ -55,7 +55,7 @@ type ProjectRow = {
   primary_contact_phone: string | null;
   sub_departments: SubDepartment;
   categories: { slug: string };
-  project_images: { storage_path: string; alt_text: string; sort_order: number }[];
+  project_images: { storage_path: string; alt_text: string; caption: string; sort_order: number }[];
   contributions: {
     role: string;
     external_name: string | null;
@@ -70,7 +70,7 @@ const PROJECT_SELECT = `
   date_started, date_finished, updated_at, thumbnail_path, thumbnail_alt, poster_url, repo_url, demo_url,
   primary_contact_email, primary_contact_phone,
   sub_departments(slug, name), categories(slug),
-  project_images(storage_path, alt_text, sort_order),
+  project_images(storage_path, alt_text, caption, sort_order),
   contributions(role, external_name, sort_order, listed_students(slug, name)),
   advising(faculty(slug, name, title, email, photo_path))`;
 
@@ -84,9 +84,9 @@ function client() {
   return supabase;
 }
 
-function photo(path: string | null, alt: string): Photo | null {
+function photo(path: string | null, alt: string, caption = ""): Photo | null {
   const url = mediaUrl(path);
-  return url ? { url, alt } : null;
+  return url ? { url, alt, ...(caption.trim() ? { caption: caption.trim() } : {}) } : null;
 }
 
 function toFaculty(row: FacultyRow): Faculty {
@@ -141,7 +141,7 @@ function toProject(row: ProjectRow): ProjectView {
     thumbnail: photo(row.thumbnail_path, row.thumbnail_alt ?? ""),
     images: [...row.project_images]
       .sort((a, b) => a.sort_order - b.sort_order)
-      .flatMap((i) => photo(i.storage_path, i.alt_text) ?? []),
+      .flatMap((i) => photo(i.storage_path, i.alt_text, i.caption) ?? []),
     links,
     contact_email: row.primary_contact_email,
     contact_phone: row.primary_contact_phone,

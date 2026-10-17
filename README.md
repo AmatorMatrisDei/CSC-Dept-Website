@@ -60,6 +60,7 @@ Never put the secret key (`sb_secret_...`) in `.env.local` or anywhere in the si
 | `npm run lint` | Lint the site's code |
 | `npm run db:start`, `db:test`, `test:api`, … | The backend harness; see [docs/backend-setup.md](docs/backend-setup.md) |
 | `npm run test:e2e` | The student forms and review queue in Chrome, against the local stack; see [docs/testing.md](docs/testing.md) |
+| `npm run icons` | Remake `public/favicon.ico` and `apple-touch-icon.png` from `public/favicon.svg`, in Chrome |
 | `npm run test:unit` | Unit tests of the site's pure helpers (planner rules, formatting, sign-in redirects) |
 
 ## Project layout
