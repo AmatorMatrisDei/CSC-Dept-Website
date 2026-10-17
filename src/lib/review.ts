@@ -36,8 +36,6 @@ function client() {
   return supabase;
 }
 
-// Waiting: oldest first, so nobody waits longest. Decided: the latest 50 decisions. `titles`
-// names the live projects and internships the submissions change.
 // How many submissions are waiting for a reviewer, for the banner and the menu count (#54).
 // Reviewers and admins can read every submission; for anyone else the database counts only their
 // own, which is why the header asks only for reviewers and admins.
@@ -48,6 +46,8 @@ export async function countWaiting(): Promise<number> {
   return count ?? 0;
 }
 
+// Waiting: oldest first, so nobody waits longest. Decided: the latest 50 decisions. `titles`
+// names the live projects and internships the submissions change.
 export async function getQueue(
   view: "waiting" | "decided",
   version = 0,
