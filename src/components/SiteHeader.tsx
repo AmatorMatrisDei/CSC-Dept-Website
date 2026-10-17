@@ -1,4 +1,5 @@
-import { Link } from "react-router";
+import { useEffect, useState } from "react";
+import { Link, useLocation } from "react-router";
 import EditToggle from "@/components/EditToggle";
 import SiteNav, { type NavMenu } from "@/components/SiteNav";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -7,6 +8,7 @@ import { useSession } from "@/lib/auth";
 import { getAllFaculty, getProjects, getStudents, getSubDepartments } from "@/lib/content";
 import { projectYears } from "@/lib/format";
 import { useAsync } from "@/lib/hooks";
+import { countWaiting } from "@/lib/review";
 import { CATEGORY_LABELS, STATUSES } from "@/lib/types";
 
 // Builds the top bar menus (FR-4.2, FR-4.4, FR-4.6) so every page is within 3 clicks of Home.
@@ -17,6 +19,7 @@ export default function SiteHeader() {
   const students = useAsync(menuStudents);
   const session = useSession();
   const me = useAsync(roleOf, session?.user.id ?? "");
+  const { pathname } = useLocation();
 
   const menus: NavMenu[] = [
     {
@@ -72,33 +75,90 @@ export default function SiteHeader() {
   ];
 
   // Reviewers and admins get a menu under My account: the review queue, and for admins, people.
+  // It and the banner below the header show how many submissions are waiting (#54).
   const accountMenu = !!session && !!me && me.role !== "student";
+  const waiting = useWaitingCount(accountMenu, pathname);
   if (accountMenu) {
-    const links = [{ label: "Review queue", href: "/review" }];
+    const links = [{ label: waiting ? `Review queue (${waiting})` : "Review queue", href: "/review" }];
     if (me.role === "admin") links.push({ label: "People and roles", href: "/people" });
-    menus.push({ label: "My account", href: "/account", allLabel: "My account", groups: [{ links }] });
+    menus.push({
+      label: "My account",
+      href: "/account",
+      allLabel: "My account",
+      badge: waiting ? { count: waiting, label: waiting === 1 ? "submission waiting for review" : "submissions waiting for review" } : undefined,
+      groups: [{ links }],
+    });
   }
 
   return (
-    <header className="relative border-b-4 border-highlight bg-header text-header-foreground">
-      <a
-        href="#main"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-30 focus:rounded focus:bg-accent focus:px-3 focus:py-2 focus:text-accent-foreground"
-      >
-        Skip to content
-      </a>
-      <div className="mx-auto flex max-w-6xl flex-col gap-1 px-4 py-2 md:flex-row md:items-center md:justify-between">
-        <Link to="/" className="inline-flex min-h-11 items-center text-lg font-semibold">
-          Engineering &amp; Computing
-        </Link>
-        <div className="flex flex-wrap items-center gap-x-2">
-          <SiteNav menus={menus} />
-          <EditToggle />
-          <AccountLinks menu={accountMenu} />
-          <ThemeToggle />
+    <>
+      <header className="relative border-b-4 border-highlight bg-header text-header-foreground">
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-30 focus:rounded focus:bg-accent focus:px-3 focus:py-2 focus:text-accent-foreground"
+        >
+          Skip to content
+        </a>
+        <div className="mx-auto flex max-w-6xl flex-col gap-1 px-4 py-2 md:flex-row md:items-center md:justify-between">
+          <Link to="/" className="inline-flex min-h-11 items-center text-lg font-semibold">
+            Engineering &amp; Computing
+          </Link>
+          <div className="flex flex-wrap items-center gap-x-2">
+            <SiteNav menus={menus} />
+            <EditToggle />
+            <AccountLinks menu={accountMenu} />
+            <ThemeToggle />
+          </div>
         </div>
+      </header>
+      {waiting && !pathname.startsWith("/review") ? <ReviewBanner count={waiting} /> : null}
+    </>
+  );
+}
+
+// How many submissions wait for review, for reviewers and admins: checked on each page change,
+// when the tab comes back into view, and every two minutes. Null until known, or when not active.
+function useWaitingCount(active: boolean, pathname: string): number | null {
+  const [count, setCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (!active) return;
+    let current = true;
+    const check = () =>
+      countWaiting().then(
+        (n) => {
+          if (current) setCount(n);
+        },
+        () => {}, // a failed check leaves the last count; the header never shows an error
+      );
+    void check();
+    const timer = window.setInterval(check, 120_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void check();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      current = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [active, pathname]);
+  return active ? count : null;
+}
+
+// A bar under the header for reviewers and admins while submissions are waiting.
+function ReviewBanner({ count }: { count: number }) {
+  return (
+    <div role="status" className="border-b border-border bg-surface">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2 text-sm">
+        <p>
+          <span aria-hidden="true" className="mr-2 inline-block size-2 rounded-full bg-highlight align-middle" />
+          {count === 1 ? "1 submission is waiting for review." : `${count} submissions are waiting for review.`}
+        </p>
+        <Link to="/review" className="inline-flex min-h-11 items-center font-medium underline">
+          Open the review queue
+        </Link>
       </div>
-    </header>
+    </div>
   );
 }
 

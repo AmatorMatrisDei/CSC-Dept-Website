@@ -129,6 +129,20 @@ and resubmit. Each student can have at most 20 submissions open, and each is lim
 - The home page reads the `carousel_today` view: the day's cards in order, with members and
   advisors.
 
+### Reviewer notifications (#54)
+
+- **On the site:** reviewers and admins see how many submissions are waiting, in a bar under the
+  header and as a count on **My account**. The site reads the queue itself (`countWaiting()` in
+  `src/lib/review.ts`) on every page change, when the tab comes back into view, and every two
+  minutes.
+- **In chat:** a trigger on `pending_changes` calls the `notify-reviewers` Edge Function for each
+  new submission and each resubmission after changes were requested. Decisions and withdrawals
+  send nothing. The function posts through a GroupMe bot, or a Discord webhook if one is set.
+  Messages say what kind of submission it is and its project or internship title, with a link to
+  its review page, and never who sent it (`supabase/functions/_shared/review-message.ts`).
+- pg_net sends the request after the submission commits, so a slow or failing chat never holds
+  up a submission. Until the secrets in 3.3, step 7, are set, nothing is sent.
+
 ### The degree planner
 
 - Courses, credits and requirements follow the catalog of the academic year a student started
@@ -364,7 +378,30 @@ affected.
    ```
 
    Until both Vault secrets exist, the hourly job does nothing.
-7. **Make the first admin.** Sign up on the site (or Authentication > Users > Add user), then in
+7. **Reviewer notifications.** Messages go to a GroupMe group's main chat; bots can't post into
+   a topic. Make a group for the reviewers if there isn't one, then at
+   https://dev.groupme.com/bots choose **Create Bot**, pick that group, name it (for example
+   "Site reviews") and leave the callback URL empty. Keep its **Bot ID** secret: anyone with it
+   can post as the bot. Then, with `SITE_URL` the site this project serves (the developer site
+   on dev, the live site on production):
+
+   ```bash
+   npx supabase functions deploy notify-reviewers
+   npx supabase secrets set NOTIFY_SECRET=<long random value> SITE_URL=https://<site> GROUPME_BOT_ID=<bot id>
+   ```
+
+   For a Discord channel instead of, or as well as, GroupMe, also set `DISCORD_WEBHOOK_URL`
+   (channel settings > Integrations > Webhooks). Then in the SQL editor, with the same secret:
+
+   ```sql
+   select vault.create_secret('https://<project ref>.supabase.co/functions/v1/notify-reviewers', 'notify_function_url');
+   select vault.create_secret('<the same long random value>', 'notify_secret');
+   ```
+
+   Until both Vault secrets exist, nothing is sent. To check it, submit something from a test
+   account and look for the message; the function's logs are under Edge Functions >
+   notify-reviewers > Logs.
+8. **Make the first admin.** Sign up on the site (or Authentication > Users > Add user), then in
    the SQL editor:
 
    ```sql
@@ -373,7 +410,7 @@ affected.
    ```
 
    After that, admins change roles from the site's admin screens.
-8. **Keep-alive** (production). Free projects pause after a week without activity. In GitHub,
+9. **Keep-alive** (production). Free projects pause after a week without activity. In GitHub,
    shared repository > Settings > Secrets and variables > Actions > **Variables**, add
    `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`. The "Keep Supabase awake" workflow then reads
    one row every three days. If a project pauses anyway, restore it from the dashboard; no data

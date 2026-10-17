@@ -32,6 +32,7 @@ a transaction that is rolled back, so tests never leave data behind and don't de
 | `10_cms_and_people.test.sql` | Only admins change page text; everyone reads it; only admins see the People list with sign-up emails; students can't change their own role |
 | `11_planner.test.sql` | Catalog years, courses and programs are public, plans are private to their owner; a course belongs to one catalog year and its references must be in that year, can't loop and block deleting a course that another course or a program uses; program requirements must be well formed; `planner_catalog_issues()` flags courses before their prerequisites or in the wrong term or year; spot checks against each year's catalog |
 | `12_admin_audit.test.sql` | Direct admin edits are logged with what changed, review-queue changes aren't logged twice, and the last admin can't step down |
+| `13_review_notifications.test.sql` | New submissions and resubmissions ask the notify-reviewers function to post, with the submission's kind and title but nothing about who sent it; decisions and withdrawals don't; nothing is sent without the Vault secrets; users can't call the trigger function |
 
 `_helpers.psql` creates five test users (admin, reviewer, a listed student, an unlisted student,
 and a listed student on no project), a faculty member, and two test projects; the comment at the
@@ -118,9 +119,10 @@ It deletes its account, project and photos afterwards. CI runs it on every pull 
 `src/**/*.test.ts`, run by Node's built-in test runner on the TypeScript files directly, with no
 build and no browser (`npm run test:unit`). They cover the pure helpers: the planner's rules
 (`src/lib/planner/plan.ts`), formatting, placeholders, list parsing and the sign-in redirect
-guard (`safeNext`). Import the file under test with its `.ts` extension, as Node needs it. A file
-that imports the Supabase client or React can't be loaded this way, so keep logic worth testing
-in files without them.
+guard (`safeNext`), plus the wording of the reviewers' chat messages
+(`supabase/functions/_shared/review-message.test.ts`). Import the file under test with its `.ts`
+extension, as Node needs it. A file that imports the Supabase client or React can't be loaded
+this way, so keep logic worth testing in files without them.
 
 ## CI
 

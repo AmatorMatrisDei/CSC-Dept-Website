@@ -421,3 +421,7 @@ enabled = true
 # check is off. See supabase/functions/carousel/index.ts.
 [functions.carousel]
 verify_jwt = false
+
+# Called only by the database, with its own secret (see the function's comment).
+[functions.notify-reviewers]
+verify_jwt = false

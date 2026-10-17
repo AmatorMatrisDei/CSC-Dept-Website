@@ -2,7 +2,14 @@ import { Link } from "react-router";
 import { useEffect, useRef, useState } from "react";
 
 export type NavLink = { label: string; href: string };
-export type NavMenu = { label: string; href: string; allLabel?: string; groups: { heading?: string; links: NavLink[] }[] };
+// `badge` is a count shown beside the menu's name, such as submissions waiting for review.
+export type NavMenu = {
+  label: string;
+  href: string;
+  allLabel?: string;
+  badge?: { count: number; label: string };
+  groups: { heading?: string; links: NavLink[] }[];
+};
 
 // Top bar menus. Each is a button that opens a panel of links. Works with the keyboard
 // (Tab to the button, Enter/Space to open, Escape to close) and closes on outside click.
@@ -44,6 +51,12 @@ export default function SiteNav({ menus }: { menus: NavMenu[] }) {
               className="inline-flex min-h-11 items-center gap-1 rounded px-3 hover:bg-current/10"
             >
               {menu.label}
+              {menu.badge && menu.badge.count > 0 && (
+                <span className="rounded-full bg-header-foreground px-1.5 text-xs font-semibold text-header">
+                  {menu.badge.count}
+                  <span className="sr-only"> {menu.badge.label}</span>
+                </span>
+              )}
               <span aria-hidden="true" className="text-xs">
                 {isOpen ? "▴" : "▾"}
               </span>
