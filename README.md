@@ -77,7 +77,7 @@ Never put the secret key (`sb_secret_...`) in `.env.local` or anywhere in the si
 | `supabase/` | The backend: migrations, the carousel function, seed and dev content, tests |
 | `tests/e2e/` | The browser test of the student forms |
 | `src/components/Editable.tsx`, `SiteText.tsx`, `EditProvider.tsx` | Click-to-edit for admins; page wording is stored in the `site_content` table |
-| `docs/` | [backend-setup.md](docs/backend-setup.md), [testing.md](docs/testing.md) and [repository-settings.md](docs/repository-settings.md) (GitHub settings only the owner can change) |
+| `docs/` | [backend-explained.md](docs/backend-explained.md) and [frontend-explained.md](docs/frontend-explained.md) (how the site works, with the code), [backend-setup.md](docs/backend-setup.md), [testing.md](docs/testing.md) and [repository-settings.md](docs/repository-settings.md) (GitHub settings only the owner can change) |
 
 ## How changes go live
 
