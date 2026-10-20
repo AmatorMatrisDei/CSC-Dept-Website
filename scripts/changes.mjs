@@ -14,10 +14,20 @@ import { execFileSync } from "node:child_process";
 const run = (command, args) =>
   execFileSync(command, args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] }).trim();
 
+// origin is a personal fork in some clones, so try upstream too.
+function describeFirst(refs) {
+  for (const ref of refs) {
+    try {
+      return run("git", ["describe", "--tags", "--abbrev=0", ref]);
+    } catch {}
+  }
+  throw new Error("no tag");
+}
+
 // With no start given, use the newest version tag, so the usual question needs no arguments.
 function latestTag() {
   try {
-    return run("git", ["describe", "--tags", "--abbrev=0", "origin/staging"]);
+    return describeFirst(["origin/staging", "upstream/staging"]);
   } catch {
     console.error("No version tag yet. Usage: npm run changes -- <from> [to]   (a tag, a commit or a date such as 2026-10-20)");
     process.exit(1);
@@ -31,7 +41,7 @@ const isDate = (text) => /^\d{4}-\d{2}-\d{2}/.test(text);
 
 // A date is used as it is; anything else is looked up in git as a tag or commit.
 function moment(text) {
-  if (isDate(text)) return new Date(text);
+  if (isDate(text)) return /^\d{4}-\d{2}-\d{2}$/.test(text) ? new Date(`${text}T00:00:00`) : new Date(text);
   try {
     return new Date(run("git", ["log", "-1", "--format=%cI", text]));
   } catch {
@@ -42,7 +52,7 @@ function moment(text) {
 
 const start = moment(from);
 const end = to ? moment(to) : new Date();
-if (Number.isNaN(start) || Number.isNaN(end)) {
+if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
   console.error("Could not read that date. Use a form like 2026-10-20 or 2026-10-20T12:00:00-04:00.");
   process.exit(1);
 }
