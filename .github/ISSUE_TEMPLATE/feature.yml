@@ -27,6 +27,18 @@ body:
         - Reviewers
         - Admins
         - The site team
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      description: How involved it is; see docs/issue-sizes.md. Not sure? Pick your best guess, and a reviewer will adjust it.
+      options:
+        - Tier 1 - Quick (about an hour, one file, no database)
+        - Tier 2 - Small (a few hours, one page or component, no database change)
+        - Tier 3 - Medium (a day or more, several files, may need database changes and tests)
+        - Tier 4 - Large (multiple days, or sign-in, permissions or a new feature; start with a plan)
+    validations:
+      required: true
   - type: textarea
     id: done
     attributes:
