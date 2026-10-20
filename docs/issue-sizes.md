@@ -19,4 +19,4 @@ Every issue has two labels. **Priority** says how soon it matters. **Size** says
 - **Security label.** Anything touching sign-in, permissions or student-only content also gets the `security` label, whatever its size. It gets a closer review.
 - Not sure of the size? Pick your best guess; a reviewer will adjust it.
 
-The issue forms ask for the size when you open an issue. The matching labels are `tier-1` to `tier-4`.
+The issue forms ask for the size when you open an issue. The matching labels read as plain words, so you can pick a task at a glance: `1 Quick` (green), `2 Small`, `3 Medium` and `4 Large` (red).
