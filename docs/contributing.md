@@ -38,7 +38,7 @@ for someone using the site. "Students can now edit project photos after submitti
 mention database changes, new settings, or anything a teammate must do after merging.
 
 There is no shared change-log file, so there are no conflicts. To get the full list for any period
-(for a meeting, or to ask an AI to summarize it), run `npm run changes -- v1`. See
+(for a meeting, or to ask an AI to summarize it), run `npm run changes`. See
 [change-log.md](change-log.md).
 
 ## Do and don't

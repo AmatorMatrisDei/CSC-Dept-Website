@@ -7,18 +7,25 @@
 //   npm run changes -- 2026-10-20          after a date (or 2026-10-20T12:00:00-04:00)
 //   npm run changes -- 2026-10-20 2026-11-03
 //
-// The first argument is where to start and the optional second is where to stop (default: now).
+// The first argument is where to start (default: the latest tag) and the optional second is where to stop (default: now).
 // A start or stop can be a tag, a commit or a date. It needs the GitHub CLI (`gh`), signed in.
 import { execFileSync } from "node:child_process";
 
-const [from, to] = process.argv.slice(2);
-if (!from) {
-  console.error("Usage: npm run changes -- <from> [to]   (a tag, a commit or a date such as 2026-10-20)");
-  process.exit(1);
-}
-
 const run = (command, args) =>
   execFileSync(command, args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] }).trim();
+
+// With no start given, use the newest version tag, so the usual question needs no arguments.
+function latestTag() {
+  try {
+    return run("git", ["describe", "--tags", "--abbrev=0", "origin/staging"]);
+  } catch {
+    console.error("No version tag yet. Usage: npm run changes -- <from> [to]   (a tag, a commit or a date such as 2026-10-20)");
+    process.exit(1);
+  }
+}
+
+const [firstArg, to] = process.argv.slice(2);
+const from = firstArg ?? latestTag();
 
 const isDate = (text) => /^\d{4}-\d{2}-\d{2}/.test(text);
 

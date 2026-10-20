@@ -12,8 +12,9 @@ Mention database changes, new settings or secrets, and anything a teammate must 
 
 ## Getting the total change-log
 ```bash
-npm run changes -- v1              # everything merged after the v1 tag
-npm run changes -- v1 v2           # between two tags
+npm run changes                    # everything merged since the latest version tag
+npm run changes -- v0              # everything merged after the v0 tag
+npm run changes -- v0 v1           # between two tags
 npm run changes -- 2026-10-20      # after a date
 npm run changes -- 2026-10-20 2026-11-03
 ```
@@ -22,11 +23,13 @@ It prints each pull request merged into `staging` in that time, oldest first, wi
 To get a readable summary, paste the output to an AI assistant and ask it to turn it into a short bulleted list, grouped by area (for example "New pages", "Fixes", "Behind the scenes").
 
 ## Versions
-`v1` is the site as it was shown to the professor on 2026-10-20 (the last merge before noon, pull request #56). Mark a new version with a tag on the commit that represents it:
+Versions are just tags, so there is nothing to bump or keep up to date while you work. `v0` is the site as it was shown to the professor on 2026-10-20 (the last merge before noon, pull request #56). Everything merged since then is the work toward `v1`, and `npm run changes` with no arguments lists it.
+
+When a version is done, the person releasing tags the commit that represents it, once:
 
 ```bash
-git tag -a v2 <commit> -m "V2: what this version is"
-git push origin v2
+git tag -a v1 <commit> -m "V1: what this version is"
+git push origin v1
 ```
 
-Then `npm run changes -- v1 v2` is the change-log for that version.
+Then `npm run changes -- v0 v1` is the change-log for that version, and `npm run changes` starts listing the next one. Nobody else has to do anything.

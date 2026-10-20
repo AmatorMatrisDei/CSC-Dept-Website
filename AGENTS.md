@@ -31,7 +31,7 @@ files you edited). A check fails the pull request until it is filled in.
 
 - Mention database changes, new settings or secrets, and anything a teammate must do after merging.
 - If you are an AI assistant opening or updating a pull request, write this section yourself from the actual diff. Never leave the template's placeholder, and never describe work you did not do.
-- `npm run changes -- v1` lists everything merged into `staging` since the `v1` tag; see [docs/change-log.md](docs/change-log.md).
+- `npm run changes` lists everything merged into `staging` since the latest version tag (`v0` is the site as first shown, 2026-10-20); see [docs/change-log.md](docs/change-log.md).
 - Pull request descriptions follow [.github/pull_request_template.md](.github/pull_request_template.md): `Closes #<issue>`, What changed, How to check it on the preview, the checklist.
 
 ## Issues
