@@ -49,3 +49,6 @@ next-env.d.ts
 
 # vite build output
 /dist
+
+# personal AI assistant notes (shared rules are in AGENTS.md)
+CLAUDE.local.md

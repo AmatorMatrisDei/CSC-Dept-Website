@@ -1,0 +1,1 @@
+Follow the rules in AGENTS.md at the repository root. In particular: branch from `staging` and open pull requests into `staging`; every pull request description needs a plain-words "What changed" section (it is the change-log, and a check fails without it); and give every issue a size tier.

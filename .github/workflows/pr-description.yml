@@ -1,0 +1,32 @@
+name: Pull request description
+
+# Every pull request needs a "What changed" section in plain words: it is the change-log entry
+# (docs/change-log.md). This fails the check until it is filled in. Dependabot's are skipped.
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions: {}
+
+jobs:
+  described:
+    name: Change-log entry
+    if: github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Check the "What changed" section
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          # The text under the "What changed" heading, without comments, up to the next heading.
+          section=$(printf '%s' "$BODY" | tr -d '\r' | sed -e 's/<!--.*-->//g' | awk '
+            /^## /{ if (found) exit; found = ($0 ~ /^## What changed/); next }
+            found { print }')
+          words=$(printf '%s' "$section" | wc -w)
+          if [ "$words" -lt 5 ]; then
+            echo "::error::Add a \"What changed\" section to the pull request description, in plain words (see docs/change-log.md)."
+            exit 1
+          fi
+          echo "Found a change-log entry of $words words."
