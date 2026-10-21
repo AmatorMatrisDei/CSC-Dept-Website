@@ -1,26 +1,29 @@
 import { Link, useParams } from "react-router";
 import Editable from "@/components/Editable";
+import EditablePortrait from "@/components/EditablePortrait";
 import QuickView from "@/components/QuickView";
 import { facultyQuickInfo } from "@/lib/quickInfo";
 import ProjectCard from "@/components/ProjectCard";
 import { useEdit } from "@/lib/edit";
-import { getFaculty, saveFaculty } from "@/lib/content";
+import { getFaculty } from "@/lib/content";
 import { useReloadable, useTitle } from "@/lib/hooks";
+import { saveRecordDraft, useRecordDraft, withFacultyDraft } from "@/lib/recordDrafts";
 import NotFound from "@/pages/NotFound";
 
 export default function FacultyMember() {
   const { slug = "" } = useParams();
   const { editing } = useEdit();
-  const [person, reload] = useReloadable(getFaculty, slug);
-  useTitle(person?.name ?? "Faculty");
+  const [live] = useReloadable(getFaculty, slug);
+  const draft = useRecordDraft("faculty", slug);
+  useTitle(live?.name ?? "Faculty");
 
-  if (person === undefined) return <p className="text-muted">Loading…</p>;
-  if (person === null) return <NotFound what="faculty member" />;
+  if (live === undefined) return <p className="text-muted">Loading…</p>;
+  if (live === null) return <NotFound what="faculty member" />;
+  const person = editing ? withFacultyDraft(live, draft) : live;
 
-  async function save(patch: Parameters<typeof saveFaculty>[1]) {
-    const error = await saveFaculty(slug, patch);
-    if (!error) reload();
-    return error;
+  // Edits are saved as a draft and go live when an editor publishes.
+  function save(patch: Record<string, unknown>) {
+    return saveRecordDraft("faculty", slug, patch, undefined, live?.date_updated);
   }
 
   return (
@@ -30,7 +33,11 @@ export default function FacultyMember() {
           All faculty
         </Link>
         <div className="w-fit">
-          <QuickView person={facultyQuickInfo(person, false)} className="size-28 text-3xl" />
+          {editing ? (
+            <EditablePortrait table="faculty" person={person} live={live} />
+          ) : (
+            <QuickView person={facultyQuickInfo(person, false)} className="size-28 text-3xl" />
+          )}
         </div>
         <Editable as="h1" label="name" value={person.name} maxLength={120} onSave={(name) => save({ name })} className="text-3xl font-semibold" />
         <Editable as="p" label="title" value={person.title} maxLength={200} onSave={(title) => save({ title })} className="text-muted" />

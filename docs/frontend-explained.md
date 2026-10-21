@@ -283,12 +283,23 @@ reviewer approves it**.
 
 ## 8. Admin tools
 
-- **Edit mode.** Admins see an Edit mode switch in the header. When it's on, editable text gets an
+- **Edit mode.** Admins see an Edit mode switch in a bar along the bottom of the page (it folds down to a small tab). When it's on, editable text gets an
   outline; click it and type right on the page. Enter (or clicking away) saves and Escape cancels.
   This covers page wording, project, student and faculty details, and the About page.
   - Page wording uses `<SiteText id="about.mission" fallback="…">`. The page ships with its default
     text, and a row in `site_content` replaces it once an admin edits it. If that table can't be
     reached, the defaults show, so the site never breaks over it.
+    Edits are drafts, shown only to editors until the bar's Publish; the bar's History lists earlier
+    versions, each with a Restore that makes it a draft again. Edits to project, student and faculty
+    pages, and a project's photos (`ProjectPhotos`), are drafts too (`lib/recordDrafts.ts`): the page
+    shows the draft in Edit mode and the bar's Publish makes everything live together. The History panel lists
+    replaced record details and the last 3 replaced photos per project; restoring a photo makes a draft (student and faculty portraits work the same way through `EditablePortrait`: click to change, "Remove photo", last 3 kept in the History), and a file in the photo history is never deleted by clean-up. In Edit mode, clicking a
+    picture on a project page replaces it (`ClickToReplace`); that is a draft as well.
+  - On a project page, Edit mode also shows a Photos panel (`ProjectPhotos`): replace the cover photo,
+    and add, describe, caption, reorder and remove gallery photos. Photos go to `projects/<id>/` in
+    storage (admins only) and save right away; replaced photos are deleted.
+  - Lists use `<SiteList id="about.highlights.items">` (the id ends in `.items`). Editors add, remove
+    and reorder entries (title, text, optional link); visitors see nothing while the list is empty.
   - Record details use `<Editable>`, which saves with `saveRow`:
 
     ```ts

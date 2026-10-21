@@ -1,5 +1,6 @@
 import type { ElementType } from "react";
 import Editable from "@/components/Editable";
+import { useEdit } from "@/lib/edit";
 import { paragraphs } from "@/lib/format";
 import { saveSiteText, useSiteText } from "@/lib/siteText";
 
@@ -20,7 +21,8 @@ export default function SiteText({
   label?: string;
   className?: string;
 }) {
-  const value = useSiteText(id, fallback);
+  const { editing } = useEdit();
+  const value = useSiteText(id, fallback, editing);
   return (
     <Editable
       as={multiline ? "div" : as}
