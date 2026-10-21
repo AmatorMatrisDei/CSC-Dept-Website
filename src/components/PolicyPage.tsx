@@ -1,36 +1,27 @@
-import SiteText from "@/components/SiteText";
+import { paragraphs } from "@/lib/format";
 import { useTitle } from "@/lib/hooks";
+import type { Policy } from "@/lib/policies";
 
-// A policy page (privacy, terms): a title, an introduction and sections, each editable in Edit mode
-// so the department can change the wording without a code change. The text in the page files is
-// what the site ships with.
-export type PolicySection = { id: string; title: string; body: string };
-
-export default function PolicyPage({
-  id,
-  title,
-  intro,
-  updated,
-  sections,
-}: {
-  id: string;
-  title: string;
-  intro: string;
-  updated: string;
-  sections: PolicySection[];
-}) {
-  useTitle(title);
+// A policy page (privacy, terms), drawn from src/lib/policies.ts. The build writes the same wording
+// as plain HTML for readers without JavaScript, so the page has no Edit-mode text: one source keeps
+// the two copies identical.
+export default function PolicyPage({ policy }: { policy: Policy }) {
+  useTitle(policy.title);
   return (
     <article className="flex max-w-3xl flex-col gap-8">
       <header className="flex flex-col gap-3">
-        <SiteText id={`${id}.title`} as="h1" fallback={title} className="text-3xl font-semibold" />
-        <SiteText id={`${id}.updated`} fallback={updated} className="text-sm text-muted" />
-        <SiteText id={`${id}.intro`} multiline fallback={intro} />
+        <h1 className="text-3xl font-semibold">{policy.title}</h1>
+        <p className="text-sm text-muted">{policy.updated}</p>
+        {paragraphs(policy.intro).map((text, i) => (
+          <p key={i}>{text}</p>
+        ))}
       </header>
-      {sections.map((s) => (
-        <section key={s.id} className="flex flex-col gap-3">
-          <SiteText id={`${id}.${s.id}.title`} as="h2" fallback={s.title} className="text-2xl font-semibold" />
-          <SiteText id={`${id}.${s.id}`} multiline fallback={s.body} />
+      {policy.sections.map((section) => (
+        <section key={section.id} className="flex flex-col gap-3">
+          <h2 className="text-2xl font-semibold">{section.title}</h2>
+          {paragraphs(section.body).map((text, i) => (
+            <p key={i}>{text}</p>
+          ))}
         </section>
       ))}
     </article>
