@@ -1,6 +1,10 @@
 Closes #
 
-<!-- What changed and why, in a few lines. Pull requests go into `staging`, not `main`. -->
+## What changed
+
+<!-- Required. Plain words, a few bullets, what someone using or running the site would notice. This is the change-log entry. Pull requests go into `staging`, not `main`. -->
+
+- 
 
 ## How to check it on the preview
 
