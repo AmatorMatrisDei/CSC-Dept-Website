@@ -11,3 +11,7 @@ export const splitLines = (text: string) =>
     .split("\n")
     .map((s) => s.trim())
     .filter(Boolean);
+
+// A link in a page list: a web address, or a path on this site. "//host" and "/\host" would leave
+// the site, so they are not links. (The database applies the same rule.)
+export const safeLink = (url: string) => /^(https?:\/\/\S{1,255}|\/([^/\\\s]\S{0,254})?)$/.test(url);

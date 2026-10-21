@@ -121,6 +121,19 @@ export default function SignIn() {
             </Link>
           )}
         </div>
+        {signingUp && (
+          <p className="text-sm text-muted">
+            By creating an account you agree to the{" "}
+            <Link to="/terms" className="underline">
+              terms of use
+            </Link>
+            . The{" "}
+            <Link to="/privacy" className="underline">
+              privacy page
+            </Link>{" "}
+            explains what we keep and how to remove it.
+          </p>
+        )}
       </form>
 
       <p>

@@ -85,7 +85,10 @@ signed-in user's id from that token. Every access rule below is written in terms
 | Submit a profile or project | `client.from("pending_changes").insert(...)` | `POST /rest/v1/pending_changes` |
 | Withdraw a submission | `.update({ status: "withdrawn" }).eq("id", id)` | `PATCH /rest/v1/pending_changes?id=eq.<id>` |
 | Approve or reject (reviewer) | `client.rpc("review_change", {...})` (`src/lib/review.ts`) | `POST /rest/v1/rpc/review_change` |
-| Admin edits page text | `client.from("site_content").upsert({ key, value })` | `POST /rest/v1/site_content` (with "merge duplicates") |
+| Admin edits page text (saved as a draft) | `client.rpc("save_site_draft", { draft_key, draft_value, seen_updated_at })` (`seen_updated_at` lets publishing spot a change made by someone else; a key ending `.items` holds a list) | `POST /rest/v1/rpc/save_site_draft` |
+| Admin saves an edit to a project, student or faculty page, or a project's photo list (as a draft) | `client.rpc("save_record_draft", { draft_table, draft_slug, draft_patch, draft_gallery, seen_updated_at })` | `POST /rest/v1/rpc/save_record_draft` |
+| Admin publishes drafts (page text and record edits together; returns `conflicts` and `removed_paths`) | `client.rpc("publish_site_drafts")` | `POST /rest/v1/rpc/publish_site_drafts` |
+| Admin discards drafts, or puts an earlier version back as a draft | `client.rpc("discard_site_drafts")`, `client.rpc("discard_record_drafts")` (returns uploaded photo files nothing uses; `release_draft_files(paths)` does the same check for files the editor dropped), `client.rpc("restore_site_text", { history_id })`, `client.rpc("restore_record_version", { history_id })` | `POST /rest/v1/rpc/discard_site_drafts`, `POST /rest/v1/rpc/restore_site_text` |
 | Upload a photo | `client.storage.from("media").upload(path, blob)` | `POST /storage/v1/object/media/<path>` |
 | Show a photo | a plain image link | `GET /storage/v1/object/public/media/<path>` |
 | Admin re-shuffles the carousel (the function supports it; the admin button isn't built yet) | Edge Function call | `POST /functions/v1/carousel` |
@@ -217,7 +220,7 @@ locked out.
 
 **Why.** Sign-ups are confirmed at once, because Supabase's own emails only reach our team. So
 until an account is verified, nothing proves the person owns the address they typed. Migration
-`20261020100000_account_verification.sql` adds that proof.
+`20261021100000_account_verification.sql` adds that proof.
 
 **Three ways to verify:**
 
@@ -291,6 +294,7 @@ fails the build if a new table forgets.
 | | `daily_carousel` | Today's picked projects, in display order |
 | | `carousel_state` | One row per day: when it was picked and how many re-shuffles |
 | Site | `site_content` | Page wording admins edit in place |
+| Site | `site_content_draft`, `site_content_history`, `record_draft` | Page wording waiting to be published, every replaced version, and waiting edits to projects, students, faculty and project photos; `record_history` keeps the details a publish replaced; `record_photo_history` keeps the last 3 replaced or removed photos per project (files under `projects/` only; older ones are returned in `removed_paths` and deleted). A student's or faculty member's photo (`photo_path`) is an ordinary draft column; their last 3 replaced photos stay in `record_history`, older files are returned in `removed_paths`. Admins can write into any `avatars/<id>/` folder, and a student photo, email or phone needs the student's consent (a withdrawal also clears it from `record_history` and waiting drafts). Publish and discard lock the drafts first and touch only those, so a draft saved meanwhile is kept. A file is deleted only when `private.unused_files` finds nothing (live rows, any draft, any history, a pending submission) using it; a later save keeps the *older* `seen_updated_at`, so a clash cannot be hidden |
 | | `posts` | Department news |
 | Planner | `planner_catalogs` | Catalog years 2022–2023 to 2026–2027 |
 | | `planner_courses` | Each year's courses: credits, prerequisites, when offered |
@@ -757,8 +761,8 @@ Each step and what it protects against:
 
    | Check | Runs |
    | --- | --- |
-   | Lint, unit tests and build (`frontend.yml`) | ESLint, 41 unit tests, TypeScript type-check and build |
-   | Database, API and browser tests (`backend.yml`) | Starts a **throwaway local Supabase** inside GitHub, then: schema lint and 234 database tests, 9 API tests, a 17-step browser test in Chrome, the carousel tests, and a check that the generated types are up to date |
+   | Lint, unit tests and build (`frontend.yml`) | ESLint, 45 unit tests, TypeScript type-check and build |
+   | Database, API and browser tests (`backend.yml`) | Starts a **throwaway local Supabase** inside GitHub, then: schema lint and 309 database tests, 19 API tests, two browser tests in Chrome (29 steps), the carousel tests, and a check that the generated types are up to date |
 
    The backend tests run against a temporary database built from the migrations, so CI needs
    **no real keys** and never touches the hosted projects.
@@ -798,7 +802,7 @@ connections to our own site and our two Supabase projects.
 
 ## 11. The tests
 
-### 11.1 The 234 database tests (the slide's "202" predates verification)
+### 11.1 The 309 database tests (the slide's "202" predates page-editing drafts and verification)
 
 They are written in SQL with **pgTAP**, a testing library that runs inside Postgres. Each test
 signs in as a test user (visitor, student, reviewer, admin), tries something, and checks the
@@ -820,7 +824,9 @@ Run them with `npm run db:test`.
 | `11_planner` | 37 | Catalog years; prerequisites stay within a year and can't loop; plans are private; data spot checks |
 | `12_admin_audit` | 7 | Admin edits are logged; the last admin can't step down |
 | `13_review_notifications` | 12 | Submissions and resubmissions trigger a notice with no student name; decisions don't; nothing sends without the Vault secret |
-| `14_account_verification` | 31 | What an unverified account can and can't do; unverified reviewers lose their powers; promotion needs verification; the Google and GitHub safeguard; rate limits; finishing a reset |
+| `14_cms_drafts` | 20 | Page text: allowed keys, cleaned values, drafts, publishing with the conflict check, history |
+| `15_record_drafts` | 55 | Project, student and faculty edits (and project photos) wait as drafts and go live on publish |
+| `16_account_verification` | 31 | What an unverified account can and can't do; unverified reviewers lose their powers; promotion needs verification; the Google and GitHub safeguard; rate limits; finishing a reset |
 
 Example, from `05_auth_and_storage`:
 
@@ -832,7 +838,7 @@ select is(
 );
 ```
 
-### 11.2 The 9 API tests
+### 11.2 The 19 API tests
 
 `supabase/tests/api/api.test.mjs` (`npm run test:api`) uses real HTTP against a running Supabase,
 the same way the browser does. It checks that Auth, the Data API and Storage work together.
@@ -851,10 +857,12 @@ the same way the browser does. It checks that Auth, the Data API and Storage wor
 
 Each run signs up throwaway accounts and deletes them, and their files, afterwards.
 
+`supabase/tests/api/cms-concurrency.test.mjs` adds 10 more: several admins saving and publishing page and record drafts at the same moment, with nothing lost or published twice.
+
 ### 11.3 The other suites
 
-- **Browser test, 17 steps:** `npm run test:e2e`. Chrome plays a student and a reviewer through
-  the real site:
+- **Browser tests, 29 steps:** `npm run test:e2e`. The student test (17 steps) has Chrome play a
+  student and a reviewer through the real site:
   - sign up, and other email addresses refused
   - the reminder to verify, and the verify page (the test verifies with the secret key)
   - directory permission
@@ -867,8 +875,11 @@ Each run signs up throwaway accounts and deletes them, and their files, afterwar
   - a removal request hides the student at once
   - a reviewer approves their own submission
   - the forms fit a phone screen
-- **Unit tests, 41:** `npm run test:unit`. Planner rules, formatting, the sign-in redirect guard,
-  the GroupMe message, and the verification and reset emails against a stand-in for Firebase.
+  The editing test (12 steps) checks the Edit bar: drafts only the editor sees, publishing, a
+  clash with someone else's change, and the bar folding away.
+- **Unit tests, 45:** `npm run test:unit`. Planner rules, formatting, the sign-in redirect guard,
+  the GroupMe message, the policy pages' plain copies, and the verification and reset emails
+  against a stand-in for Firebase.
 - **Carousel tests, 6:** `npm run test:carousel`. The rules any pick must follow:
   - 5 to 7 projects from a full pool, without repeats
   - only projects from the pool

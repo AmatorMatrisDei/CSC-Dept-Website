@@ -95,6 +95,7 @@ From `src/App.tsx`. Every page sits inside one `Layout`: header, the page, foote
 | `/students`, `/students/:slug` | Student directory; one student | Anyone (listed students only) |
 | `/students/request` | How to be added to the directory | Anyone |
 | `/about` | About the department | Anyone |
+| `/privacy`, `/terms` | Privacy and terms of use, from `src/lib/policies.ts` (also built as plain HTML) | Anyone |
 | `/planner`, `/planner/courses` | Degree planner; course catalog | Anyone; saving needs sign-in |
 | `/account/sign-in`, `/account/password` | Sign in or up (password, Google or GitHub); reset or set a password | Anyone |
 | `/account` and below | Dashboard, verify your email, profile form, project and internship forms | Signed in |
@@ -309,12 +310,23 @@ reviewer approves it**.
 
 ## 8. Admin tools
 
-- **Edit mode.** Admins see an Edit mode switch in the header. When it's on, editable text gets an
+- **Edit mode.** Admins see an Edit mode switch in a bar along the bottom of the page (it folds down to a small tab). When it's on, editable text gets an
   outline; click it and type right on the page. Enter (or clicking away) saves and Escape cancels.
   This covers page wording, project, student and faculty details, and the About page.
   - Page wording uses `<SiteText id="about.mission" fallback="…">`. The page ships with its default
     text, and a row in `site_content` replaces it once an admin edits it. If that table can't be
     reached, the defaults show, so the site never breaks over it.
+    Edits are drafts, shown only to editors until the bar's Publish; the bar's History lists earlier
+    versions, each with a Restore that makes it a draft again. Edits to project, student and faculty
+    pages, and a project's photos (`ProjectPhotos`), are drafts too (`lib/recordDrafts.ts`): the page
+    shows the draft in Edit mode and the bar's Publish makes everything live together. The History panel lists
+    replaced record details and the last 3 replaced photos per project; restoring a photo makes a draft (student and faculty portraits work the same way through `EditablePortrait`: click to change, "Remove photo", last 3 kept in the History), and a file in the photo history is never deleted by clean-up. In Edit mode, clicking a
+    picture on a project page replaces it (`ClickToReplace`); that is a draft as well.
+  - On a project page, Edit mode also shows a Photos panel (`ProjectPhotos`): replace the cover photo,
+    and add, describe, caption, reorder and remove gallery photos. Photos go to `projects/<id>/` in
+    storage (admins only) and save right away; replaced photos are deleted.
+  - Lists use `<SiteList id="about.highlights.items">` (the id ends in `.items`). Editors add, remove
+    and reorder entries (title, text, optional link); visitors see nothing while the list is empty.
   - Record details use `<Editable>`, which saves with `saveRow`:
 
     ```ts
@@ -323,7 +335,7 @@ reviewer approves it**.
     ```
 
   `EditProvider` turns the switch on only for admins. The database's admin-only rules decide what
-  any save may do, and every admin edit is written to the audit log.
+  any save may do. A publish is written to the audit log with the columns it changed (contact details are named, never their values).
 - **People** (`/people`) lists every account with its role, and lets an admin promote or demote
   someone without running SQL. The database refuses to demote the last admin, and to make an
   unverified account a reviewer or admin; the page marks who isn't verified yet.
@@ -500,8 +512,8 @@ What that means:
 | `npm run build` | Type-checks (`tsc`), then builds into `dist/` |
 | `npm run preview` | Serves the built `dist/` locally |
 | `npm run lint` | ESLint, including the React hooks rules |
-| `npm run test:unit` | The 41 unit tests |
-| `npm run test:e2e` | The 17-step browser test (needs the local Supabase) |
+| `npm run test:unit` | The 45 unit tests |
+| `npm run test:e2e` | The two browser tests, 29 steps (need the local Supabase) |
 
 The site needs two settings, in `.env.local` locally and in Cloudflare's build settings when
 hosted:
@@ -520,7 +532,10 @@ Cloudflare Pages builds every push (build command `npm run build`, output `dist`
 | any other branch | A preview link, posted on its pull request | Dev |
 
 Because the app draws its own pages, Cloudflare serves `index.html` for any address, and React
-Router picks the page. If the site ever needs a new outside address (another image host, say), it
+Router picks the page. The exceptions are `/privacy` and `/terms`: the build also writes them as
+`privacy.html` and `terms.html`, with the text already in the page, because Google's sign-in review
+reads them without running JavaScript. Cloudflare serves those files at `/privacy` and `/terms`,
+and the app takes over once it loads (`plainPolicies()` in `vite.config.ts`). If the site ever needs a new outside address (another image host, say), it
 must be added to the security policy in `public/_headers`, or browsers will block it.
 
 ---
@@ -530,7 +545,7 @@ must be added to the security policy in `public/_headers`, or browsers will bloc
 **Lint and type-check** run on every pull request (`.github/workflows/frontend.yml`). The build
 fails on any type error.
 
-**41 unit tests** (`npm run test:unit`) test the pure logic, without a browser:
+**45 unit tests** (`npm run test:unit`) test the pure logic, without a browser:
 
 | File | Tests | What they check |
 | --- | --- | --- |
@@ -540,7 +555,8 @@ fails on any type error.
 | `supabase/functions/_shared/review-message.test.ts` | 5 | The GroupMe message wording, and that it never names the student |
 | `src/lib/placeholder.test.ts` | 4 | Names lose titles and suffixes; initials; sorting by surname; steady tints |
 | `src/lib/format.test.ts` | 3 | Paragraphs; project years newest first; dates the same in every time zone |
-| `src/lib/list.test.ts` | 2 | Comma and line lists |
+| `src/lib/policies.test.ts` | 3 | The privacy and terms plain copies have every heading and paragraph, show text as text, and say what Google sends us |
+| `src/lib/list.test.ts` | 3 | Comma and line lists |
 | `src/lib/safeNext.test.ts` | 2 | Paths on this site kept; anything else goes to the account page |
 
 **The 17-step browser test** (`npm run test:e2e`, `tests/e2e/student-submissions.test.mjs`) drives

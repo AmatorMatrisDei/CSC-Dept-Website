@@ -357,8 +357,13 @@ async function preparePhoto(file: File): Promise<Blob> {
 // Uploads into the student's own folder: avatars/ for their profile photo, submissions/ for
 // project photos. Returns the path to put in the submission.
 export async function uploadPhoto(userId: string, folder: "avatars" | "submissions", file: File): Promise<string> {
+  return uploadPhotoTo(`${folder}/${userId}`, file);
+}
+
+// Same, into any folder the signed-in person is allowed to write to (admins: projects/<id>).
+export async function uploadPhotoTo(folder: string, file: File): Promise<string> {
   const blob = await preparePhoto(file);
-  const path = `${folder}/${userId}/${crypto.randomUUID()}.jpg`;
+  const path = `${folder}/${crypto.randomUUID()}.jpg`;
   const { error } = await client().storage.from("media").upload(path, blob, { contentType: "image/jpeg", upsert: false });
   if (error) throw error;
   return path;

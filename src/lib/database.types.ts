@@ -547,6 +547,96 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"record_draft": {
+                  Row: {
+                    "base_updated_at": string,"edited_by": string | null,"gallery": Json | null,"patch": NonNullable<Json>,"row_slug": string,"table_name": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "base_updated_at": string,"edited_by"?: string | null,"gallery"?: Json | null,"patch"?: NonNullable<Json>,"row_slug": string,"table_name": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "base_updated_at"?: string,"edited_by"?: string | null,"gallery"?: Json | null,"patch"?: NonNullable<Json>,"row_slug"?: string,"table_name"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "record_draft_edited_by_fkey"
+      columns: ["edited_by"]
+isOneToOne: false
+      referencedRelation: "listed_students"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "record_draft_edited_by_fkey"
+      columns: ["edited_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"record_history": {
+                  Row: {
+                    "before": NonNullable<Json>,"id": number,"replaced_at": string,"replaced_by": string | null,"row_slug": string,"table_name": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "before": NonNullable<Json>,"id"?: never,"replaced_at"?: string,"replaced_by"?: string | null,"row_slug": string,"table_name": string
+                  }
+                  Update: {
+                    "before"?: NonNullable<Json>,"id"?: never,"replaced_at"?: string,"replaced_by"?: string | null,"row_slug"?: string,"table_name"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "record_history_replaced_by_fkey"
+      columns: ["replaced_by"]
+isOneToOne: false
+      referencedRelation: "listed_students"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "record_history_replaced_by_fkey"
+      columns: ["replaced_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"record_photo_history": {
+                  Row: {
+                    "alt_text": string,"caption": string,"id": number,"kind": string,"project_id": string,"project_slug": string,"replaced_at": string,"replaced_by": string | null,"storage_path": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "alt_text"?: string,"caption"?: string,"id"?: never,"kind": string,"project_id": string,"project_slug": string,"replaced_at"?: string,"replaced_by"?: string | null,"storage_path": string
+                  }
+                  Update: {
+                    "alt_text"?: string,"caption"?: string,"id"?: never,"kind"?: string,"project_id"?: string,"project_slug"?: string,"replaced_at"?: string,"replaced_by"?: string | null,"storage_path"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "record_photo_history_project_id_fkey"
+      columns: ["project_id"]
+isOneToOne: false
+      referencedRelation: "carousel_today"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "record_photo_history_project_id_fkey"
+      columns: ["project_id"]
+isOneToOne: false
+      referencedRelation: "projects"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "record_photo_history_replaced_by_fkey"
+      columns: ["replaced_by"]
+isOneToOne: false
+      referencedRelation: "listed_students"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "record_photo_history_replaced_by_fkey"
+      columns: ["replaced_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"site_content": {
                   Row: {
                     "key": string,"updated_at": string,"value": string
@@ -560,6 +650,58 @@ isOneToOne: false
                   }
                   Relationships: [
                     
+                  ]
+                },"site_content_draft": {
+                  Row: {
+                    "base_updated_at": string | null,"edited_by": string | null,"key": string,"updated_at": string,"value": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "base_updated_at"?: string | null,"edited_by"?: string | null,"key": string,"updated_at"?: string,"value": string
+                  }
+                  Update: {
+                    "base_updated_at"?: string | null,"edited_by"?: string | null,"key"?: string,"updated_at"?: string,"value"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "site_content_draft_edited_by_fkey"
+      columns: ["edited_by"]
+isOneToOne: false
+      referencedRelation: "listed_students"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "site_content_draft_edited_by_fkey"
+      columns: ["edited_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"site_content_history": {
+                  Row: {
+                    "id": number,"key": string,"replaced_at": string,"replaced_by": string | null,"value": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "id"?: never,"key": string,"replaced_at"?: string,"replaced_by"?: string | null,"value": string
+                  }
+                  Update: {
+                    "id"?: never,"key"?: string,"replaced_at"?: string,"replaced_by"?: string | null,"value"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "site_content_history_replaced_by_fkey"
+      columns: ["replaced_by"]
+isOneToOne: false
+      referencedRelation: "listed_students"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "site_content_history_replaced_by_fkey"
+      columns: ["replaced_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
                   ]
                 },"sub_departments": {
                   Row: {
@@ -588,14 +730,14 @@ isOneToOne: false
                   ]
                 },"listed_students": {
                   Row: {
-                    "background": string | null,"class_year": number | null,"clubs_roles": (string)[] | null,"contact_email": string | null,"contact_phone": string | null,"github_url": string | null,"headline": string | null,"id": string | null,"linkedin_url": string | null,"major": string | null,"name": string | null,"photo_path": string | null,"skills": (string)[] | null,"slug": string | null,"website_url": string | null
+                    "background": string | null,"class_year": number | null,"clubs_roles": (string)[] | null,"contact_email": string | null,"contact_phone": string | null,"github_url": string | null,"headline": string | null,"id": string | null,"linkedin_url": string | null,"major": string | null,"name": string | null,"photo_path": string | null,"skills": (string)[] | null,"slug": string | null,"updated_at": string | null,"website_url": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                           "background"?: string | null,"class_year"?: number | null,"clubs_roles"?: (string)[] | null,"contact_email"?: string | null,"contact_phone"?: string | null,"github_url"?: string | null,"headline"?: string | null,"id"?: string | null,"linkedin_url"?: string | null,"major"?: string | null,"name"?: string | null,"photo_path"?: string | null,"skills"?: (string)[] | null,"slug"?: string | null,"website_url"?: string | null
+                           "background"?: string | null,"class_year"?: number | null,"clubs_roles"?: (string)[] | null,"contact_email"?: string | null,"contact_phone"?: string | null,"github_url"?: string | null,"headline"?: string | null,"id"?: string | null,"linkedin_url"?: string | null,"major"?: string | null,"name"?: string | null,"photo_path"?: string | null,"skills"?: (string)[] | null,"slug"?: string | null,"updated_at"?: string | null,"website_url"?: string | null
                          }
                         Update: {
-                           "background"?: string | null,"class_year"?: number | null,"clubs_roles"?: (string)[] | null,"contact_email"?: string | null,"contact_phone"?: string | null,"github_url"?: string | null,"headline"?: string | null,"id"?: string | null,"linkedin_url"?: string | null,"major"?: string | null,"name"?: string | null,"photo_path"?: string | null,"skills"?: (string)[] | null,"slug"?: string | null,"website_url"?: string | null
+                           "background"?: string | null,"class_year"?: number | null,"clubs_roles"?: (string)[] | null,"contact_email"?: string | null,"contact_phone"?: string | null,"github_url"?: string | null,"headline"?: string | null,"id"?: string | null,"linkedin_url"?: string | null,"major"?: string | null,"name"?: string | null,"photo_path"?: string | null,"skills"?: (string)[] | null,"slug"?: string | null,"updated_at"?: string | null,"website_url"?: string | null
                          }
                         Relationships: [
                     
@@ -622,6 +764,12 @@ isOneToOne: false
                            },
 "complete_password_reset":
 { Args: { "account": string }; Returns: undefined
+                           },
+"discard_record_drafts":
+{ Args: Record<PropertyKey, never>; Returns: (string)[]
+                           },
+"discard_site_drafts":
+{ Args: { "only_keys"?: (string)[] }; Returns: number
                            },
 "dismiss_password_notice":
 { Args: Record<PropertyKey, never>; Returns: undefined
@@ -653,11 +801,23 @@ isOneToOne: false
               "catalog_year": string,"course_id": string,"degree_id": string,"issue": string,"semester_index": number
             }[]
                            },
+"publish_site_drafts":
+{ Args: { "only_keys"?: (string)[] }; Returns: Json
+                           },
+"release_draft_files":
+{ Args: { "paths": (string)[] }; Returns: (string)[]
+                           },
 "remember_firebase_account":
 { Args: { "account": string,"uid": string }; Returns: undefined
                            },
 "respond_to_listing":
 { Args: { "accept": boolean,"listing_id": string }; Returns: undefined
+                           },
+"restore_record_version":
+{ Args: { "history_id": number }; Returns: undefined
+                           },
+"restore_site_text":
+{ Args: { "history_id": number }; Returns: undefined
                            },
 "review_change":
 { Args: { "change_id": string,"decision": Database["public"]['Enums']["change_status"],"note"?: string }; Returns: {
@@ -682,6 +842,12 @@ isOneToOne: false
       } },
 "save_carousel":
 { Args: { "for_day": string,"project_ids": (string)[],"reshuffled_by"?: string }; Returns: undefined
+                           },
+"save_record_draft":
+{ Args: { "draft_gallery"?: Json,"draft_patch"?: Json,"draft_slug": string,"draft_table": string,"seen_updated_at"?: string }; Returns: undefined
+                           },
+"save_site_draft":
+{ Args: { "draft_key": string,"draft_value": string,"seen_updated_at"?: string }; Returns: undefined
                            }
           }
           Enums: {

@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import EditBar from "@/components/EditBar";
 import { getMyRole } from "@/lib/account";
 import { useSession } from "@/lib/auth";
 import { EditContext } from "@/lib/edit";
@@ -12,7 +13,12 @@ function AdminEdit({ userId, children }: { userId: string; children: ReactNode }
   const me = useAsync(roleOrNone, userId);
   const [on, setOn] = useState(false);
   const canEdit = me?.role === "admin";
-  return <EditContext value={{ canEdit, editing: canEdit && on, setEditing: setOn }}>{children}</EditContext>;
+  return (
+    <EditContext value={{ canEdit, editing: canEdit && on, setEditing: setOn }}>
+      {children}
+      {canEdit && <EditBar />}
+    </EditContext>
+  );
 }
 
 export default function EditProvider({ children }: { children: ReactNode }) {
