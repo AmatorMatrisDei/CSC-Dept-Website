@@ -7,7 +7,7 @@ const sections = [
   {
     id: "collect",
     title: "What we collect",
-    body: `When you create an account, we keep your name, your university email address and a password. Passwords are handled by our sign-in service and stored only in scrambled (hashed) form, so nobody on the team can see yours. If you sign in with Google or GitHub instead, we receive your name and email address from that service and nothing else from your account there.
+    body: `When you create an account, we keep your name, your university email address and a password. Passwords are handled by our sign-in service and stored only in scrambled (hashed) form, so nobody on the team can see yours. If you sign in with Google or GitHub instead, see "Signing in with Google or GitHub" below for what that service sends us.
 
 If you fill in your profile, we keep what you enter: your major, class year, headline, background, skills, clubs and roles, links (such as LinkedIn, GitHub or a personal website), a photo, and a contact email address and phone number.
 
@@ -25,9 +25,20 @@ Your degree plan is never shown to anyone else.`,
   {
     id: "access",
     title: "Who can see what",
-    body: `Visitors see approved projects and the profiles of students who agreed to be listed. Reviewers (teaching assistants and faculty) and site admins can also see submissions waiting for review, so they can approve them.
+    body: `Visitors see approved projects and the profiles of students who agreed to be listed. Reviewers (teaching assistants and faculty) and site admins can also see submissions waiting for review, so they can approve them. Site admins can see the email address each account signs in with, so they can manage who reviews.
 
 When something is submitted, the reviewers' group chat on GroupMe gets a short notice saying what kind of submission it is and, for a project or internship, its title. It never includes your name or contact details.`,
+  },
+  {
+    id: "google",
+    title: "Signing in with Google or GitHub",
+    body: `When you choose "Continue with Google" or "Continue with GitHub", we ask that service only for your basic profile, and it sends us your name, email address, account ID and the link to your profile picture. We don't ask for, and can't see, anything else in that account, such as your email, files, contacts or code.
+
+We use your email address to sign you in and to confirm that it is a Franciscan University address, and your name to start your profile, which you can change. We don't use the account ID or the picture link. All four are stored with your account in Supabase.
+
+We don't sell this information, share it with anyone, or use it for advertising. Your name appears on the site only if you are listed in the directory or confirmed on a project, and your sign-in email address is seen only by site admins. It is deleted when your account is deleted (see "Removing your information" below).
+
+Our use of information received from Google APIs follows the Google API Services User Data Policy, including its Limited Use requirements.`,
   },
   {
     id: "services",
@@ -60,7 +71,7 @@ export default function Privacy() {
     <PolicyPage
       id="privacy"
       title="Privacy"
-      updated="Last updated October 20, 2026"
+      updated="Last updated October 21, 2026"
       intro="This website is run for Franciscan University's Department of Engineering and Computing by the department's student web team. This page explains what the site collects, why, who can see it, and how to have it removed."
       sections={sections}
     />
