@@ -96,8 +96,8 @@ From `src/App.tsx`. Every page sits inside one `Layout`: header, the page, foote
 | `/students/request` | How to be added to the directory | Anyone |
 | `/about` | About the department | Anyone |
 | `/planner`, `/planner/courses` | Degree planner; course catalog | Anyone; saving needs sign-in |
-| `/account/sign-in`, `/account/password` | Sign in or up; set a new password | Anyone |
-| `/account` and below | Dashboard, profile form, project and internship forms | Signed in |
+| `/account/sign-in`, `/account/password` | Sign in or up (password, Google or GitHub); reset or set a password | Anyone |
+| `/account` and below | Dashboard, verify your email, profile form, project and internship forms | Signed in |
 | `/review`, `/review/:id` | Review queue; one submission | Reviewers and admins |
 | `/people` | Everyone's role | Admins (the page itself shows only what the database returns) |
 | anything else | Not found | Anyone |
@@ -189,7 +189,11 @@ export function useSession() { return useSyncExternalStore(subscribe, () => sess
 
 supabase-js stores the tokens in the browser, renews the 1-hour access token automatically, and
 adds it to every request. The site's own code never handles a password beyond passing it to
-`signInWithPassword` or `signUp`.
+`signInWithPassword`, `signUp` or the password-reset function.
+
+"Continue with Google" and "Continue with GitHub" call `signInWithProvider`, which leaves the site
+for Google or GitHub and comes back to `/account/sign-in?next=…`. That page shows any error they
+send back (such as an address that isn't Franciscan's) and otherwise moves on to `next`.
 
 ### 5.2 Guarding the signed-in pages
 
@@ -204,13 +208,35 @@ return reviewer ? <ReviewersOnly session={session} /> : <Outlet context={session
 ```
 
 With `reviewer`, it also checks the role (`getMyRole`) and shows "Reviewers only" to students.
+Until the account's email address is verified, it also shows a reminder above every page,
+linking to `/account/verify`.
 
 **This is a convenience, not the protection.** A student who forced their way onto `/review`
 would see an empty queue, and any decision they tried would get a 403. That's because the database
 checks the role again on every read and every action. The frontend only hides screens people
 can't use.
 
-### 5.3 The `?next=` guard
+### 5.3 Verifying the email address, and resetting a password
+
+Both use our Edge Functions, which have Google Firebase send the email (how and why:
+[backend-explained.md](backend-explained.md), section 3.4). `src/lib/auth.ts` has the calls:
+
+| On screen | Call | Answers |
+| --- | --- | --- |
+| `/account/verify`: Send the email | `sendVerificationEmail()` | `sent`, `wait`, `address_in_use`, `unavailable` |
+| `/account/verify`: I've clicked the link | `checkVerificationEmail()` | `verified`, `not_yet`, `send_first`, … |
+| `/account/password` (signed out): Email me a reset link | `sendResetEmail(email)` | `sent`, `wait`, … |
+| `/account/password`: Finish | `finishReset(email, password)` | `done`, `wrong_password`, `weak_password`, … |
+
+The functions answer `{"status": "..."}` and the pages turn each status into words; the problems
+both pages share are in `EMAIL_PROBLEMS`. The emails almost always land in Junk at franciscan.edu,
+so both pages lead with step-by-step "It's not junk" instructions.
+
+`useVerification(userId)` loads the account's status (`my_verification`). It reloads after a
+successful check, so the reminder disappears at once. If a Google or GitHub sign-in turned off an
+old password, the dashboard explains it, with a link to choose a new one.
+
+### 5.4 The `?next=` guard
 
 After sign-in, the site goes to the `next` address. A crafted link like
 `/account/sign-in?next=https://evil.example` could send someone to another site, so `safeNext`
@@ -299,7 +325,8 @@ reviewer approves it**.
   `EditProvider` turns the switch on only for admins. The database's admin-only rules decide what
   any save may do, and every admin edit is written to the audit log.
 - **People** (`/people`) lists every account with its role, and lets an admin promote or demote
-  someone without running SQL. The database refuses to demote the last admin.
+  someone without running SQL. The database refuses to demote the last admin, and to make an
+  unverified account a reviewer or admin; the page marks who isn't verified yet.
 
 ---
 
@@ -438,7 +465,7 @@ What that means:
 
 ### 11.4 Other details
 
-- **Open redirects** are blocked by `safeNext` (section 5.3).
+- **Open redirects** are blocked by `safeNext` (section 5.4).
 - **Previews and the developer site stay out of search results.** Cloudflare marks them
   `noindex`; `robots.txt` lets search engines index only the live site.
 - **The frontend is never trusted.** Every role check on screen is repeated by the database, so
@@ -473,8 +500,8 @@ What that means:
 | `npm run build` | Type-checks (`tsc`), then builds into `dist/` |
 | `npm run preview` | Serves the built `dist/` locally |
 | `npm run lint` | ESLint, including the React hooks rules |
-| `npm run test:unit` | The 28 unit tests |
-| `npm run test:e2e` | The 16-step browser test (needs the local Supabase) |
+| `npm run test:unit` | The 41 unit tests |
+| `npm run test:e2e` | The 17-step browser test (needs the local Supabase) |
 
 The site needs two settings, in `.env.local` locally and in Cloudflare's build settings when
 hosted:
@@ -503,21 +530,22 @@ must be added to the security policy in `public/_headers`, or browsers will bloc
 **Lint and type-check** run on every pull request (`.github/workflows/frontend.yml`). The build
 fails on any type error.
 
-**28 unit tests** (`npm run test:unit`) test the pure logic, without a browser:
+**41 unit tests** (`npm run test:unit`) test the pure logic, without a browser:
 
 | File | Tests | What they check |
 | --- | --- | --- |
 | `src/lib/planner/plan.test.ts` | 6 | Suggested plans and spring starts; calendar labels; moving and adding courses; requirement checking; warnings for prerequisites, terms, odd and even years, corequisites |
 | `src/lib/markdown.test.ts` | 6 | Formatting; HTML shown as text, never run; unsafe link addresses dropped; outside links in a new tab; headings below the page's; images become links |
+| `supabase/functions/_shared/account-email.test.ts` | 13 | Verification and reset emails against a stand-in for Firebase: old links and other people's Firebase accounts never count; rate limits |
 | `supabase/functions/_shared/review-message.test.ts` | 5 | The GroupMe message wording, and that it never names the student |
 | `src/lib/placeholder.test.ts` | 4 | Names lose titles and suffixes; initials; sorting by surname; steady tints |
 | `src/lib/format.test.ts` | 3 | Paragraphs; project years newest first; dates the same in every time zone |
 | `src/lib/list.test.ts` | 2 | Comma and line lists |
 | `src/lib/safeNext.test.ts` | 2 | Paths on this site kept; anything else goes to the account page |
 
-**The 16-step browser test** (`npm run test:e2e`, `tests/e2e/student-submissions.test.mjs`) drives
+**The 17-step browser test** (`npm run test:e2e`, `tests/e2e/student-submissions.test.mjs`) drives
 Chrome through the real site against a local Supabase. It plays a student and a reviewer from
-sign-up to approval. It covers photos, returns with a note, resubmitting, teammates confirming,
+sign-up, through the reminder to verify, to approval. It covers photos, returns with a note, resubmitting, teammates confirming,
 removal requests, self-approval, and that the forms fit a phone screen. It runs on every pull
 request in the Backend workflow.
 

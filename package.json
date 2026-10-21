@@ -15,7 +15,7 @@
     "functions:serve": "supabase functions serve --env-file supabase/functions/.env",
     "test:carousel": "node --experimental-strip-types --test supabase/functions/_shared/carousel-pick.test.ts",
     "test:e2e": "node --test tests/e2e/student-submissions.test.mjs",
-    "test:unit": "node --experimental-strip-types --test \"src/**/*.test.ts\" \"supabase/functions/_shared/review-message.test.ts\"",
+    "test:unit": "node --experimental-strip-types --test \"src/**/*.test.ts\" \"supabase/functions/_shared/review-message.test.ts\" \"supabase/functions/_shared/account-email.test.ts\"",
     "preview": "vite preview",
     "icons": "node scripts/icons.mjs",
     "changes": "node scripts/changes.mjs"

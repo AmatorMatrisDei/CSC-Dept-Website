@@ -11,6 +11,7 @@ import Password from "@/pages/account/Password";
 import ProfileForm from "@/pages/account/ProfileForm";
 import ProjectForm from "@/pages/account/ProjectForm";
 import SignIn from "@/pages/account/SignIn";
+import VerifyEmail from "@/pages/account/VerifyEmail";
 import FacultyList from "@/pages/FacultyList";
 import FacultyMember from "@/pages/FacultyMember";
 import Home from "@/pages/Home";
@@ -72,6 +73,7 @@ export default function App() {
         <Route path="account" element={<AccountLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="profile" element={<ProfileForm />} />
+          <Route path="verify" element={<VerifyEmail />} />
           <Route path="projects/new" element={<ProjectForm />} />
           <Route path="projects/:id" element={<ProjectForm />} />
           <Route path="internships/new" element={<InternshipForm />} />

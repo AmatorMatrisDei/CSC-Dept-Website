@@ -1,11 +1,13 @@
 import { Link, Navigate, Outlet, useLocation } from "react-router";
 import type { Session } from "@supabase/supabase-js";
+import { Notice } from "@/components/Form";
 import { getMyRole } from "@/lib/account";
-import { useSession } from "@/lib/auth";
+import { useSession, useVerification } from "@/lib/auth";
 import { useAsync, useTitle } from "@/lib/hooks";
 
 // Wraps the signed-in pages. Visitors go to the sign-in page and come back here afterwards.
 // With `reviewer`, only reviewers and admins get in (the database checks again on every action).
+// Until the account's email address is verified, every page says so at the top.
 export default function AccountLayout({ reviewer = false }: { reviewer?: boolean }) {
   const session = useSession();
   const location = useLocation();
@@ -15,7 +17,27 @@ export default function AccountLayout({ reviewer = false }: { reviewer?: boolean
     const next = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/account/sign-in?next=${next}`} replace />;
   }
-  return reviewer ? <ReviewersOnly session={session} /> : <Outlet context={session} />;
+  return (
+    <div className="flex flex-col gap-6">
+      <VerifyReminder session={session} />
+      {reviewer ? <ReviewersOnly session={session} /> : <Outlet context={session} />}
+    </div>
+  );
+}
+
+function VerifyReminder({ session }: { session: Session }) {
+  const verification = useVerification(session.user.id);
+  const { pathname } = useLocation();
+  if (!verification || verification.verified || pathname === "/account/verify") return null;
+  return (
+    <Notice tone="info">
+      <strong>Verify your email address</strong> before you add your profile, projects or internships, or review
+      submissions.{" "}
+      <Link to="/account/verify" className="underline">
+        Verify it now
+      </Link>
+    </Notice>
+  );
 }
 
 function ReviewersOnly({ session }: { session: Session }) {

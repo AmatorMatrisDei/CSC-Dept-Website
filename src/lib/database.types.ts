@@ -603,7 +603,16 @@ isOneToOne: false
                 }
           }
           Functions: {
-            "carousel_candidates":
+            "account_for_email":
+{ Args: { "address": string }; Returns: string
+                           },
+"account_is_verified":
+{ Args: { "account": string }; Returns: boolean
+                           },
+"allow_verification_request":
+{ Args: { "account": string,"request_kind": string }; Returns: boolean
+                           },
+"carousel_candidates":
 { Args: { "for_day": string }; Returns: {
               "is_pinned": boolean,"priority": number,"project_id": string,"sub_department_id": string,"updated_at": string
             }[]
@@ -611,18 +620,41 @@ isOneToOne: false
 "carousel_day":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
+"complete_password_reset":
+{ Args: { "account": string }; Returns: undefined
+                           },
+"dismiss_password_notice":
+{ Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"firebase_account_for":
+{ Args: { "account": string }; Returns: string
+                           },
 "hook_before_user_created":
 { Args: { "event": Json }; Returns: Json
                            },
+"latest_verification_request":
+{ Args: { "account": string,"request_kind": string }; Returns: string
+                           },
 "list_people":
 { Args: Record<PropertyKey, never>; Returns: {
-              "email": string,"id": string,"name": string,"role": Database["public"]['Enums']["app_role"]
+              "email": string,"id": string,"name": string,"role": Database["public"]['Enums']["app_role"],"verified": boolean
+            }[]
+                           },
+"mark_account_verified":
+{ Args: { "account": string,"how": string }; Returns: undefined
+                           },
+"my_verification":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "method": string,"password_removed": boolean,"verified": boolean,"verified_at": string
             }[]
                            },
 "planner_catalog_issues":
 { Args: Record<PropertyKey, never>; Returns: {
               "catalog_year": string,"course_id": string,"degree_id": string,"issue": string,"semester_index": number
             }[]
+                           },
+"remember_firebase_account":
+{ Args: { "account": string,"uid": string }; Returns: undefined
                            },
 "respond_to_listing":
 { Args: { "accept": boolean,"listing_id": string }; Returns: undefined
