@@ -19,12 +19,14 @@ import ProjectDetail from "@/pages/ProjectDetail";
 import Planner from "@/pages/Planner";
 import PlannerCourses from "@/pages/PlannerCourses";
 import People from "@/pages/People";
+import Privacy from "@/pages/Privacy";
 import Projects from "@/pages/Projects";
 import ReviewChange from "@/pages/review/ReviewChange";
 import ReviewQueue from "@/pages/review/ReviewQueue";
 import StudentPage from "@/pages/StudentPage";
 import StudentRequest from "@/pages/StudentRequest";
 import Students from "@/pages/Students";
+import Terms from "@/pages/Terms";
 
 // Scrolls to the #hash target, or to the top on a new page, as a browser does for real pages.
 function ScrollToTop() {
@@ -67,6 +69,8 @@ export default function App() {
         <Route path="students/request" element={<StudentRequest />} />
         <Route path="students/:slug" element={<StudentPage />} />
         <Route path="about" element={<About />} />
+        <Route path="privacy" element={<Privacy />} />
+        <Route path="terms" element={<Terms />} />
         <Route path="account/sign-in" element={<SignIn />} />
         <Route path="account/password" element={<Password />} />
         <Route path="account" element={<AccountLayout />}>

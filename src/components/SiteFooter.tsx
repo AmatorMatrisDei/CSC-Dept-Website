@@ -6,9 +6,17 @@ export default function SiteFooter() {
     <footer className="mt-auto border-t-4 border-highlight bg-header text-header-foreground">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-6 text-sm">
         <SiteText id="footer.text" as="span" fallback="Department of Engineering and Computing" />
-        <Link to="/about" className="inline-flex min-h-11 items-center hover:underline">
-          About the department
-        </Link>
+        <nav aria-label="Site information" className="flex flex-wrap gap-x-6">
+          <Link to="/about" className="inline-flex min-h-11 items-center hover:underline">
+            About the department
+          </Link>
+          <Link to="/privacy" className="inline-flex min-h-11 items-center hover:underline">
+            Privacy
+          </Link>
+          <Link to="/terms" className="inline-flex min-h-11 items-center hover:underline">
+            Terms of use
+          </Link>
+        </nav>
       </div>
     </footer>
   );
