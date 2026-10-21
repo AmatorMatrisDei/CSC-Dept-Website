@@ -95,6 +95,7 @@ From `src/App.tsx`. Every page sits inside one `Layout`: header, the page, foote
 | `/students`, `/students/:slug` | Student directory; one student | Anyone (listed students only) |
 | `/students/request` | How to be added to the directory | Anyone |
 | `/about` | About the department | Anyone |
+| `/privacy`, `/terms` | Privacy and terms of use, from `src/lib/policies.ts` (also built as plain HTML) | Anyone |
 | `/planner`, `/planner/courses` | Degree planner; course catalog | Anyone; saving needs sign-in |
 | `/account/sign-in`, `/account/password` | Sign in or up; set a new password | Anyone |
 | `/account` and below | Dashboard, profile form, project and internship forms | Signed in |
@@ -504,7 +505,10 @@ Cloudflare Pages builds every push (build command `npm run build`, output `dist`
 | any other branch | A preview link, posted on its pull request | Dev |
 
 Because the app draws its own pages, Cloudflare serves `index.html` for any address, and React
-Router picks the page. If the site ever needs a new outside address (another image host, say), it
+Router picks the page. The exceptions are `/privacy` and `/terms`: the build also writes them as
+`privacy.html` and `terms.html`, with the text already in the page, because Google's sign-in review
+reads them without running JavaScript. Cloudflare serves those files at `/privacy` and `/terms`,
+and the app takes over once it loads (`plainPolicies()` in `vite.config.ts`). If the site ever needs a new outside address (another image host, say), it
 must be added to the security policy in `public/_headers`, or browsers will block it.
 
 ---
