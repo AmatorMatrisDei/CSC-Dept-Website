@@ -1,12 +1,16 @@
 import { lazy, Suspense, useEffect } from "react";
 import { Link, useParams } from "react-router";
+import ClickToReplace from "@/components/ClickToReplace";
 import Cover from "@/components/Cover";
 import Editable from "@/components/Editable";
+import ProjectPhotos from "@/components/ProjectPhotos";
 import { StatusBadge } from "@/components/ProjectCard";
 import { useEdit } from "@/lib/edit";
-import { getProject, saveProject } from "@/lib/content";
+import { getProject } from "@/lib/content";
 import { formatDate, paragraphs } from "@/lib/format";
+import { replaceGalleryPhoto, setCoverPhoto } from "@/lib/projectPhotos";
 import { useReloadable, useTitle } from "@/lib/hooks";
+import { saveRecordDraft, useRecordDraft, useReloadOnPublish, withProjectDraft } from "@/lib/recordDrafts";
 import { CATEGORY_LABELS } from "@/lib/types";
 import NotFound from "@/pages/NotFound";
 
@@ -28,21 +32,23 @@ function PlainText({ text }: { text: string }) {
 export default function ProjectDetail() {
   const { slug = "" } = useParams();
   const { editing } = useEdit();
-  const [project, reload] = useReloadable(getProject, slug);
-  useTitle(project?.title ?? "Project");
+  const [live, reload] = useReloadable(getProject, slug);
+  useReloadOnPublish(reload);
+  const draft = useRecordDraft("projects", slug);
+  useTitle(live?.title ?? "Project");
   // Start fetching the Markdown renderer while the project loads.
   useEffect(() => {
     loadMarkdown().catch(() => {});
   }, []);
 
-  async function save(patch: Parameters<typeof saveProject>[1]) {
-    const error = await saveProject(slug, patch);
-    if (!error) reload();
-    return error;
+  // Edits are saved as a draft and go live when an editor publishes.
+  function save(patch: Record<string, unknown>) {
+    return saveRecordDraft("projects", slug, patch, undefined, live?.date_updated);
   }
 
-  if (project === undefined) return <p className="text-muted">Loading…</p>;
-  if (project === null) return <NotFound what="project" />;
+  if (live === undefined) return <p className="text-muted">Loading…</p>;
+  if (live === null) return <NotFound what="project" />;
+  const project = editing ? withProjectDraft(live, draft) : live;
 
   const photos = project.images.length ? project.images : project.thumbnail ? [project.thumbnail] : [];
 
@@ -70,19 +76,40 @@ export default function ProjectDetail() {
       <ul className="grid gap-4 sm:grid-cols-2">
         {photos.length === 0 ? (
           <li>
-            <Cover src={null} alt="" label={project.title} />
+            {editing ? (
+              <ClickToReplace label="Add a photo" onPick={(file) => setCoverPhoto(project, live, file, project.title)}>
+                <Cover src={null} alt="" label={project.title} />
+              </ClickToReplace>
+            ) : (
+              <Cover src={null} alt="" label={project.title} />
+            )}
           </li>
         ) : (
-          photos.map((photo) => (
+          photos.map((photo, i) => (
             <li key={photo.url}>
               <figure className="flex flex-col gap-2">
-                <Cover src={photo.url} alt={photo.alt} />
+                {editing ? (
+                  <ClickToReplace
+                    label="Replace photo"
+                    onPick={(file) =>
+                      project.images.length
+                        ? replaceGalleryPhoto(project, live, project.image_paths[i], file)
+                        : setCoverPhoto(project, live, file, photo.alt || project.title)
+                    }
+                  >
+                    <Cover src={photo.url} alt={photo.alt} />
+                  </ClickToReplace>
+                ) : (
+                  <Cover src={photo.url} alt={photo.alt} />
+                )}
                 {photo.caption && <figcaption className="text-sm text-muted">{photo.caption}</figcaption>}
               </figure>
             </li>
           ))
         )}
       </ul>
+
+      {editing && <ProjectPhotos project={project} live={live} />}
 
       <div className="grid gap-8 md:grid-cols-[2fr_1fr]">
         <div className="flex flex-col gap-4">

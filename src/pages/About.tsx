@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import SiteList from "@/components/SiteList";
 import SiteText from "@/components/SiteText";
 import { getAllFaculty } from "@/lib/content";
 import { useAsync, useTitle } from "@/lib/hooks";
@@ -33,6 +34,8 @@ export default function About() {
         <SiteText id="about.programs.title" as="h2" fallback="Degree programs" className="text-2xl font-semibold" />
         <SiteText id="about.programs" multiline fallback="The department's degree programs will appear here." />
       </section>
+
+      <SiteList id="about.highlights.items" addLabel="Add a highlight" />
 
       <section aria-labelledby="about-faculty" className="flex flex-col gap-3">
         <h2 id="about-faculty" className="text-2xl font-semibold">
