@@ -1,7 +1,7 @@
 -- Page text: allowed keys, cleaned values, drafts, publishing with the conflict check, history.
 begin;
 \ir _helpers.psql
-select plan(18);
+select plan(20);
 
 insert into public.site_content (key, value) values ('about.title', 'About C&E');
 
@@ -30,6 +30,13 @@ insert into public.site_content (key, value) values ('about.facts.items',
 select is((select value::jsonb from public.site_content where key = 'about.facts.items'),
   '[{"title":"A","text":"t","url":""},{"title":"B","text":"","url":"/projects"},{"title":"","text":"","url":""}]'::jsonb,
   'list items keep only title, text and a safe url');
+
+insert into public.site_content (key, value) values ('about.links.items',
+  '[{"title":"A","url":"//evil.example"},{"title":"B","url":"/\\evil.example"},{"title":"C","url":"https://example.org/x"}]');
+select is((select (value::jsonb -> 0 ->> 'url') || (value::jsonb -> 1 ->> 'url') from public.site_content where key = 'about.links.items'), '',
+  'links that leave the site by "//" or a backslash are blanked');
+select is((select value::jsonb -> 2 ->> 'url' from public.site_content where key = 'about.links.items'), 'https://example.org/x',
+  'a web address stays');
 
 select throws_ok(
   $$ insert into public.site_content (key, value) values ('about.more.items', 'not json') $$,

@@ -775,6 +775,9 @@ isOneToOne: false
 "publish_site_drafts":
 { Args: { "only_keys"?: (string)[] }; Returns: Json
                            },
+"release_draft_files":
+{ Args: { "paths": (string)[] }; Returns: (string)[]
+                           },
 "respond_to_listing":
 { Args: { "accept": boolean,"listing_id": string }; Returns: undefined
                            },

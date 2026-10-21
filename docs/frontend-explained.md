@@ -308,7 +308,7 @@ reviewer approves it**.
     ```
 
   `EditProvider` turns the switch on only for admins. The database's admin-only rules decide what
-  any save may do, and every admin edit is written to the audit log.
+  any save may do. A publish is written to the audit log with the columns it changed (contact details are named, never their values).
 - **People** (`/people`) lists every account with its role, and lets an admin promote or demote
   someone without running SQL. The database refuses to demote the last admin.
 

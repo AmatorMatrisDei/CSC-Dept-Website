@@ -24,7 +24,7 @@ create their own admin and remove it, and put the page text back, when they fini
 - [x] Publishing reports a clash and publishes nothing; a current draft publishes and is cleared
 - [x] The replaced text is kept in the history; restoring makes a draft; visitors cannot publish
 - [x] Browser: no bar for students, bar for admins, draft hidden from visitors until published, clash message, bar folds and remembers
-- [x] Database (`15_record_drafts`): project, student and faculty edits and project and person photos stay drafts until publish; photo checks; conflicts; discard returns unused uploads
+- [x] Database (`15_record_drafts`): project, student and faculty edits and project and person photos stay drafts until publish; photo checks; conflicts; discard returns unused uploads; empty names and titles refused; contact details need consent and leave the history and drafts when it is withdrawn; the older seen time is kept; files in use are not released; the audit entry lists changed columns without contact values
 - [x] Browser: a project's title, cover photo and gallery wait as a draft, are invisible to visitors, then go live on Publish
 - [x] Database: replaced record details are kept; the newest 3 replaced photos per project are kept, older ones returned for deleting, a photo that is live again leaves the history; restoring makes a draft; students cannot restore
 - [x] Browser: clicking a photo replaces it as a draft; a replaced title and a replaced photo are restored from the history

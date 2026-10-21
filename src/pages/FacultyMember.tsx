@@ -7,13 +7,14 @@ import ProjectCard from "@/components/ProjectCard";
 import { useEdit } from "@/lib/edit";
 import { getFaculty } from "@/lib/content";
 import { useReloadable, useTitle } from "@/lib/hooks";
-import { saveRecordDraft, useRecordDraft, withFacultyDraft } from "@/lib/recordDrafts";
+import { saveRecordDraft, useRecordDraft, useReloadOnPublish, withFacultyDraft } from "@/lib/recordDrafts";
 import NotFound from "@/pages/NotFound";
 
 export default function FacultyMember() {
   const { slug = "" } = useParams();
   const { editing } = useEdit();
-  const [live] = useReloadable(getFaculty, slug);
+  const [live, reload] = useReloadable(getFaculty, slug);
+  useReloadOnPublish(reload);
   const draft = useRecordDraft("faculty", slug);
   useTitle(live?.name ?? "Faculty");
 

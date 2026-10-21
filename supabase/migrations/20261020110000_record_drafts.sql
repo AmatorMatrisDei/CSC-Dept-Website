@@ -71,9 +71,24 @@ begin
 end;
 $$;
 
+-- The columns a draft may change, per table. Saving checks against it and publishing writes only these.
+create function private.draft_fields(kind text)
+returns text[]
+language sql immutable set search_path = ''
+as $$
+  select case kind
+    when 'projects' then array['title', 'summary', 'description', 'primary_contact_email', 'primary_contact_phone',
+      'repo_url', 'demo_url', 'poster_url', 'thumbnail_alt', 'thumbnail_path']
+    when 'profiles' then array['name', 'headline', 'background', 'major', 'contact_email', 'contact_phone',
+      'linkedin_url', 'github_url', 'website_url', 'skills', 'clubs_roles', 'photo_path']
+    when 'faculty' then array['name', 'title', 'email', 'photo_path']
+  end
+$$;
+
 -- Saves (or adds to) the draft for one record. `draft_patch` has only the columns being changed;
 -- later saves are merged into earlier ones. `draft_gallery` replaces the photo list when given.
--- seen_updated_at is the record's updated_at as the editor saw it, kept from the first save.
+-- seen_updated_at is the record's updated_at as the editor saw it. The oldest one seen is kept,
+-- so a second editor working from a stale copy still gets a clash when publishing.
 create function public.save_record_draft(
   draft_table text,
   draft_slug text,
@@ -91,6 +106,7 @@ declare
   entry record;
   cleaned jsonb := '{}'::jsonb;
   cleaned_gallery jsonb;
+  tidy text;
   photo_folder text := case when draft_table = 'profiles' then 'avatars/' else 'faculty/' end;
 begin
   if not private.can_edit_site() then
@@ -100,19 +116,15 @@ begin
     raise exception 'The changes must be an object' using errcode = '23514';
   end if;
 
-  if draft_table = 'projects' then
-    allowed := array['title', 'summary', 'description', 'primary_contact_email', 'primary_contact_phone',
-      'repo_url', 'demo_url', 'poster_url', 'thumbnail_alt', 'thumbnail_path'];
+  allowed := private.draft_fields(draft_table);
+  if allowed is null then
+    raise exception 'Unknown table "%"', draft_table using errcode = '23514';
+  elsif draft_table = 'projects' then
     select p.id, p.updated_at into target_id, target_stamp from public.projects p where p.slug = draft_slug;
   elsif draft_table = 'profiles' then
-    allowed := array['name', 'headline', 'background', 'major', 'contact_email', 'contact_phone',
-      'linkedin_url', 'github_url', 'website_url', 'skills', 'clubs_roles', 'photo_path'];
     select p.id, p.updated_at into target_id, target_stamp from public.profiles p where p.slug = draft_slug;
-  elsif draft_table = 'faculty' then
-    allowed := array['name', 'title', 'email', 'photo_path'];
-    select f.id, f.updated_at into target_id, target_stamp from public.faculty f where f.slug = draft_slug;
   else
-    raise exception 'Unknown table "%"', draft_table using errcode = '23514';
+    select f.id, f.updated_at into target_id, target_stamp from public.faculty f where f.slug = draft_slug;
   end if;
   if target_id is null then
     raise exception 'No such record' using errcode = 'P0002';
@@ -142,10 +154,20 @@ begin
       else
         cleaned := cleaned || jsonb_build_object(entry.key, entry.value);
       end if;
-    elsif jsonb_typeof(entry.value) = 'string' then
-      cleaned := cleaned || jsonb_build_object(entry.key, private.tidy_text(entry.value #>> '{}'));
-    elsif jsonb_typeof(entry.value) = 'null' then
-      cleaned := cleaned || jsonb_build_object(entry.key, null);
+    elsif jsonb_typeof(entry.value) in ('string', 'null') then
+      tidy := case when jsonb_typeof(entry.value) = 'string' then private.tidy_text(entry.value #>> '{}') end;
+      if (entry.key = 'title' and draft_table = 'projects') or entry.key = 'name' then
+        if tidy is null or tidy = '' then
+          raise exception 'A % cannot be empty', case when entry.key = 'title' then 'title' else 'name' end
+            using errcode = '23514';
+        end if;
+      end if;
+      -- Contact details are shown only while the student agrees to it (as the database insists).
+      if draft_table = 'profiles' and entry.key in ('contact_email', 'contact_phone') and tidy is not null and tidy <> ''
+         and not private.has_consent(target_id, (case entry.key when 'contact_email' then 'email' else 'phone' end)::public.consent_scope) then
+        raise exception 'The student has not consented to showing that contact detail' using errcode = '23514';
+      end if;
+      cleaned := cleaned || jsonb_build_object(entry.key, tidy);
     else
       raise exception '"%" must be text', entry.key using errcode = '23514';
     end if;
@@ -158,6 +180,7 @@ begin
   on conflict (table_name, row_slug) do update
     set patch = public.record_draft.patch || excluded.patch,
         gallery = coalesce(excluded.gallery, public.record_draft.gallery),
+        base_updated_at = least(public.record_draft.base_updated_at, excluded.base_updated_at),
         edited_by = excluded.edited_by,
         updated_at = now();
 end;
@@ -225,12 +248,16 @@ as $$
   from jsonb_object_keys(patch) as k (key)
   where k.key not in ('thumbnail_path', 'thumbnail_alt')
     and old_row -> k.key is distinct from patch -> k.key
+    -- A student's photo and contact details are not kept once they have not agreed to show them.
+    and not (kind = 'profiles' and k.key in ('photo_path', 'contact_email', 'contact_phone')
+      and not private.has_consent((old_row ->> 'id')::uuid,
+        (case k.key when 'photo_path' then 'photo' when 'contact_email' then 'email' else 'phone' end)::public.consent_scope))
   having count(*) > 0;
 $$;
 
 -- After a student's or faculty member's page was published: a photo that is live again leaves
 -- their history, and only the newest three replaced photos are kept. Returns the files of the
--- older ones, unless something still uses them, for the site to delete.
+-- older ones, for the site to delete once nothing uses them (private.unused_files).
 create function private.trim_person_photos(kind text, slug text)
 returns text[]
 language plpgsql security definer set search_path = ''
@@ -263,20 +290,54 @@ begin
 
   delete from public.record_history h where h.table_name = kind and h.row_slug = slug and h.before = '{}'::jsonb;
 
-  return array(
-    select d.path from unnest(dropped) as d (path)
-    where not private.is_media_in_use(d.path)
-      and not exists (select 1 from public.faculty f where f.photo_path = d.path)
-      and not exists (select 1 from public.record_history h where h.before ->> 'photo_path' = d.path)
-  );
+  return dropped;
 end;
+$$;
+
+-- Which of these files nothing uses any more, so they can be deleted: not live, not in a draft,
+-- not in the history, not in a pending submission. Only files this site's editors manage count.
+create function private.unused_files(paths text[])
+returns text[]
+language sql stable security definer set search_path = ''
+as $$
+  select coalesce(array_agg(distinct p.path), '{}')
+  from unnest(paths) as p (path)
+  where p.path is not null
+    and (p.path like 'projects/%' or p.path like 'faculty/%' or p.path like 'avatars/%')
+    and not private.is_media_in_use(p.path)
+    and not exists (select 1 from public.faculty f where f.photo_path = p.path)
+    and not exists (select 1 from public.record_photo_history h where h.storage_path = p.path)
+    and not exists (select 1 from public.record_history h where h.before ->> 'photo_path' = p.path)
+    and not exists (
+      select 1 from public.record_draft d
+      where d.patch ->> 'photo_path' = p.path or d.patch ->> 'thumbnail_path' = p.path
+        or exists (select 1 from jsonb_array_elements(coalesce(d.gallery, '[]'::jsonb)) g where g ->> 'path' = p.path))
+$$;
+
+-- What a publish changed on one record, for the audit log: the columns, and their old and new
+-- values cut short. Contact details are named but their values are not written down.
+create function private.audit_change(kind text, slug text, old_row jsonb, patch jsonb)
+returns jsonb
+language sql immutable set search_path = ''
+as $$
+  select jsonb_build_object(
+    'table', kind,
+    'slug', slug,
+    'columns', coalesce(jsonb_agg(k.key order by k.key), '[]'::jsonb),
+    'before', coalesce(jsonb_object_agg(k.key, left(old_row ->> k.key, 200))
+      filter (where k.key not in ('contact_email', 'contact_phone', 'primary_contact_email', 'primary_contact_phone', 'email')), '{}'::jsonb),
+    'after', coalesce(jsonb_object_agg(k.key, left(patch ->> k.key, 200))
+      filter (where k.key not in ('contact_email', 'contact_phone', 'primary_contact_email', 'primary_contact_phone', 'email')), '{}'::jsonb))
+  from jsonb_object_keys(patch) as k (key)
+  where old_row -> k.key is distinct from patch -> k.key
 $$;
 
 -- Publishes every draft: page text and record drafts together, or nothing. If anything was changed
 -- by someone else after its draft was started, nothing is published and the clashes are returned
 -- (text keys as they are, records as "projects/<slug>"). `only_keys` limits the page text; record
--- drafts are published only when it is null. Also returns the photo files that are no longer used,
--- for the site to delete.
+-- drafts are published only when it is null. Only the drafts locked at the start are published and
+-- removed, so a draft saved while this runs stays for next time. Also returns the photo files that
+-- are no longer used, for the site to delete.
 create or replace function public.publish_site_drafts(only_keys text[] default null)
 returns jsonb
 language plpgsql security definer set search_path = ''
@@ -286,7 +347,11 @@ declare
   done int;
   records int := 0;
   removed text[] := '{}'::text[];
+  locked_keys text[] := '{}'::text[];
+  locked public.record_draft[] := '{}';
+  changes jsonb := '[]'::jsonb;
   r public.record_draft;
+  k text;
   target_id uuid;
   old_thumbnail text;
   new_thumbnail text;
@@ -298,24 +363,25 @@ begin
     raise exception 'Not allowed' using errcode = '42501';
   end if;
 
-  perform 1 from public.site_content_draft d
-  where only_keys is null or d.key = any (only_keys)
-  order by d.key for update;
+  for k in select d.key from public.site_content_draft d
+    where only_keys is null or d.key = any (only_keys)
+    order by d.key for update loop
+    locked_keys := locked_keys || k;
+  end loop;
 
-  perform 1 from public.site_content c
-  where c.key in (select d.key from public.site_content_draft d where only_keys is null or d.key = any (only_keys))
-  order by c.key for update;
+  perform 1 from public.site_content c where c.key = any (locked_keys) order by c.key for update;
 
   -- Live text that changed (or appeared) since the draft was started.
   select coalesce(array_agg(d.key order by d.key), '{}') into conflicts
   from public.site_content_draft d
   join public.site_content c on c.key = d.key
-  where (only_keys is null or d.key = any (only_keys))
+  where d.key = any (locked_keys)
     and c.updated_at is distinct from d.base_updated_at;
 
   if only_keys is null then
     -- Lock each record draft and the record it changes, then look for records changed meanwhile.
     for r in select * from public.record_draft order by table_name, row_slug for update loop
+      locked := locked || r;
       if r.table_name = 'projects' then
         perform 1 from public.projects t where t.slug = r.row_slug and t.updated_at is not distinct from r.base_updated_at for update;
       elsif r.table_name = 'profiles' then
@@ -335,7 +401,7 @@ begin
 
   with taken as (
     delete from public.site_content_draft d
-    where only_keys is null or d.key = any (only_keys)
+    where d.key = any (locked_keys)
     returning d.key, d.value
   )
   insert into public.site_content (key, value)
@@ -343,139 +409,114 @@ begin
   on conflict (key) do update set value = excluded.value;
   get diagnostics done = row_count;
 
-  if only_keys is null then
-    for r in select * from public.record_draft order by table_name, row_slug loop
-      if r.table_name = 'projects' then
-        select p.id, p.thumbnail_path, to_jsonb(p) into target_id, old_thumbnail, old_row from public.projects p where p.slug = r.row_slug;
-        perform private.remember_record('projects', r.row_slug, old_row, r.patch);
-        update public.projects p set
-          title = case when r.patch ? 'title' then r.patch ->> 'title' else p.title end,
-          summary = case when r.patch ? 'summary' then r.patch ->> 'summary' else p.summary end,
-          description = case when r.patch ? 'description' then r.patch ->> 'description' else p.description end,
-          primary_contact_email = case when r.patch ? 'primary_contact_email' then r.patch ->> 'primary_contact_email' else p.primary_contact_email end,
-          primary_contact_phone = case when r.patch ? 'primary_contact_phone' then r.patch ->> 'primary_contact_phone' else p.primary_contact_phone end,
-          repo_url = case when r.patch ? 'repo_url' then r.patch ->> 'repo_url' else p.repo_url end,
-          demo_url = case when r.patch ? 'demo_url' then r.patch ->> 'demo_url' else p.demo_url end,
-          poster_url = case when r.patch ? 'poster_url' then r.patch ->> 'poster_url' else p.poster_url end,
-          thumbnail_alt = case when r.patch ? 'thumbnail_alt' then r.patch ->> 'thumbnail_alt' else p.thumbnail_alt end,
-          thumbnail_path = case when r.patch ? 'thumbnail_path' then r.patch ->> 'thumbnail_path' else p.thumbnail_path end
-        where p.id = target_id
-        returning p.thumbnail_path into new_thumbnail;
+  foreach r in array locked loop
+    if r.table_name = 'projects' then
+      select p.id, p.thumbnail_path, to_jsonb(p) into target_id, old_thumbnail, old_row from public.projects p where p.slug = r.row_slug;
+      perform private.remember_record('projects', r.row_slug, old_row, r.patch);
+      changes := changes || private.audit_change('projects', r.row_slug, old_row, r.patch);
+      perform private.write_fields('public.projects'::regclass, private.draft_fields('projects'), r.patch, target_id);
+      select p.thumbnail_path into new_thumbnail from public.projects p where p.id = target_id;
 
-        if r.gallery is not null then
-          select coalesce(array_agg(g ->> 'path'), '{}') into kept from jsonb_array_elements(r.gallery) g;
-          perform private.keep_photo(target_id, r.row_slug, 'gallery', i.storage_path, i.alt_text, i.caption)
-          from public.project_images i
-          where i.project_id = target_id and i.storage_path <> all (kept);
-          delete from public.project_images i where i.project_id = target_id and i.storage_path <> all (kept);
-          insert into public.project_images (project_id, storage_path, alt_text, caption, sort_order)
-          select target_id, g.item ->> 'path', g.item ->> 'alt_text', g.item ->> 'caption', (g.n - 1)::int
-          from jsonb_array_elements(r.gallery) with ordinality as g (item, n)
-          on conflict (storage_path) do update
-            set alt_text = excluded.alt_text, caption = excluded.caption, sort_order = excluded.sort_order;
-        else
-          select coalesce(array_agg(i.storage_path), '{}') into kept from public.project_images i where i.project_id = target_id;
-        end if;
+      if r.gallery is not null then
+        select coalesce(array_agg(g ->> 'path'), '{}') into kept from jsonb_array_elements(r.gallery) g;
+        perform private.keep_photo(target_id, r.row_slug, 'gallery', i.storage_path, i.alt_text, i.caption)
+        from public.project_images i
+        where i.project_id = target_id and i.storage_path <> all (kept);
+        delete from public.project_images i where i.project_id = target_id and i.storage_path <> all (kept);
+        insert into public.project_images (project_id, storage_path, alt_text, caption, sort_order)
+        select target_id, g.item ->> 'path', g.item ->> 'alt_text', g.item ->> 'caption', (g.n - 1)::int
+        from jsonb_array_elements(r.gallery) with ordinality as g (item, n)
+        on conflict (storage_path) do update
+          set alt_text = excluded.alt_text, caption = excluded.caption, sort_order = excluded.sort_order;
+        changes := changes || jsonb_build_object('table', 'projects', 'slug', r.row_slug, 'gallery_photos', cardinality(kept));
+      else
+        select coalesce(array_agg(i.storage_path), '{}') into kept from public.project_images i where i.project_id = target_id;
+      end if;
 
-        if old_thumbnail is distinct from new_thumbnail and old_thumbnail <> all (kept) then
-          perform private.keep_photo(target_id, r.row_slug, 'cover', old_thumbnail, old_row ->> 'thumbnail_alt', '');
-        end if;
+      if old_thumbnail is distinct from new_thumbnail and old_thumbnail <> all (kept) then
+        perform private.keep_photo(target_id, r.row_slug, 'cover', old_thumbnail, old_row ->> 'thumbnail_alt', '');
+      end if;
 
-        -- A photo that is live again needs no history entry; only the newest few are kept.
+      -- A photo that is live again needs no history entry; only the newest few are kept.
+      delete from public.record_photo_history h
+      where h.project_id = target_id
+        and (h.storage_path = new_thumbnail
+          or exists (select 1 from public.project_images i where i.storage_path = h.storage_path));
+      with extra as (
         delete from public.record_photo_history h
         where h.project_id = target_id
-          and (h.storage_path = new_thumbnail
-            or exists (select 1 from public.project_images i where i.storage_path = h.storage_path));
-        with extra as (
-          delete from public.record_photo_history h
-          where h.project_id = target_id
-            and h.id not in (
-              select k.id from public.record_photo_history k where k.project_id = target_id
-              order by k.replaced_at desc, k.id desc limit 3)
-          returning h.storage_path
-        )
-        select coalesce(array_agg(e.storage_path), '{}') into trimmed from extra e;
-        removed := removed || trimmed;
-      elsif r.table_name = 'profiles' then
-        select to_jsonb(p) into old_row from public.profiles p where p.slug = r.row_slug;
-        perform private.remember_record('profiles', r.row_slug, old_row, r.patch);
-        update public.profiles p set
-          name = case when r.patch ? 'name' then r.patch ->> 'name' else p.name end,
-          headline = case when r.patch ? 'headline' then r.patch ->> 'headline' else p.headline end,
-          background = case when r.patch ? 'background' then r.patch ->> 'background' else p.background end,
-          major = case when r.patch ? 'major' then r.patch ->> 'major' else p.major end,
-          contact_email = case when r.patch ? 'contact_email' then r.patch ->> 'contact_email' else p.contact_email end,
-          contact_phone = case when r.patch ? 'contact_phone' then r.patch ->> 'contact_phone' else p.contact_phone end,
-          linkedin_url = case when r.patch ? 'linkedin_url' then r.patch ->> 'linkedin_url' else p.linkedin_url end,
-          github_url = case when r.patch ? 'github_url' then r.patch ->> 'github_url' else p.github_url end,
-          website_url = case when r.patch ? 'website_url' then r.patch ->> 'website_url' else p.website_url end,
-          skills = case when r.patch ? 'skills' then array(select jsonb_array_elements_text(r.patch -> 'skills')) else p.skills end,
-          clubs_roles = case when r.patch ? 'clubs_roles' then array(select jsonb_array_elements_text(r.patch -> 'clubs_roles')) else p.clubs_roles end,
-          photo_path = case when r.patch ? 'photo_path' then r.patch ->> 'photo_path' else p.photo_path end
-        where p.slug = r.row_slug;
-        removed := removed || private.trim_person_photos('profiles', r.row_slug);
-      else
-        select to_jsonb(f) into old_row from public.faculty f where f.slug = r.row_slug;
-        perform private.remember_record('faculty', r.row_slug, old_row, r.patch);
-        update public.faculty f set
-          name = case when r.patch ? 'name' then r.patch ->> 'name' else f.name end,
-          title = case when r.patch ? 'title' then r.patch ->> 'title' else f.title end,
-          email = case when r.patch ? 'email' then r.patch ->> 'email' else f.email end,
-          photo_path = case when r.patch ? 'photo_path' then r.patch ->> 'photo_path' else f.photo_path end
-        where f.slug = r.row_slug;
-        removed := removed || private.trim_person_photos('faculty', r.row_slug);
-      end if;
-      records := records + 1;
-    end loop;
-    delete from public.record_draft where true;
-    removed := array(select u.path from unnest(removed) as u (path)
-      where u.path like 'projects/%' or u.path like 'faculty/%' or u.path like 'avatars/%');
-  end if;
+          and h.id not in (
+            select x.id from public.record_photo_history x where x.project_id = target_id
+            order by x.replaced_at desc, x.id desc limit 3)
+        returning h.storage_path
+      )
+      select coalesce(array_agg(e.storage_path), '{}') into trimmed from extra e;
+      removed := removed || trimmed;
+    elsif r.table_name = 'profiles' then
+      select to_jsonb(p) into old_row from public.profiles p where p.slug = r.row_slug;
+      perform private.remember_record('profiles', r.row_slug, old_row, r.patch);
+      changes := changes || private.audit_change('profiles', r.row_slug, old_row, r.patch);
+      perform private.write_fields('public.profiles'::regclass, private.draft_fields('profiles'), r.patch, (old_row ->> 'id')::uuid);
+      removed := removed || private.trim_person_photos('profiles', r.row_slug);
+    else
+      select to_jsonb(f) into old_row from public.faculty f where f.slug = r.row_slug;
+      perform private.remember_record('faculty', r.row_slug, old_row, r.patch);
+      changes := changes || private.audit_change('faculty', r.row_slug, old_row, r.patch);
+      perform private.write_fields('public.faculty'::regclass, private.draft_fields('faculty'), r.patch, (old_row ->> 'id')::uuid);
+      removed := removed || private.trim_person_photos('faculty', r.row_slug);
+    end if;
+    records := records + 1;
+  end loop;
+
+  delete from public.record_draft d using unnest(locked) as l
+  where d.table_name = l.table_name and d.row_slug = l.row_slug;
+  -- With the drafts gone, keep only the files nothing at all uses.
+  removed := private.unused_files(removed);
 
   perform private.audit('site_text_published', 'site_content', null,
-    jsonb_build_object('count', done, 'records', records, 'keys', only_keys));
+    jsonb_build_object('count', done, 'records', records, 'keys', locked_keys, 'changes', changes));
   return jsonb_build_object('published', done, 'records', records, 'conflicts', '[]'::jsonb, 'removed_paths', to_jsonb(removed));
 end;
 $$;
 
 -- Throws away every record draft. Returns the photo files the drafts added, which nothing uses,
--- for the site to delete.
+-- for the site to delete. Only the drafts locked here are removed.
 create function public.discard_record_drafts()
 returns text[]
 language plpgsql security definer set search_path = ''
 as $$
 declare
-  unused text[];
+  locked public.record_draft[] := '{}';
+  candidates text[] := '{}'::text[];
+  r public.record_draft;
 begin
   if not private.can_edit_site() then
     raise exception 'Not allowed' using errcode = '42501';
   end if;
-  select coalesce(array_agg(distinct x.path), '{}') into unused
-  from (
-    select p.id, g ->> 'path' as path
-    from public.record_draft d
-    join public.projects p on d.table_name = 'projects' and p.slug = d.row_slug
-    cross join lateral jsonb_array_elements(coalesce(d.gallery, '[]'::jsonb)) g
-    union all
-    select p.id, d.patch ->> 'thumbnail_path'
-    from public.record_draft d
-    join public.projects p on d.table_name = 'projects' and p.slug = d.row_slug
-  ) x
-  where x.path like 'projects/' || x.id::text || '/%'
-    and not exists (select 1 from public.project_images i where i.storage_path = x.path)
-    and not exists (select 1 from public.projects q where q.thumbnail_path = x.path)
-    and not exists (select 1 from public.record_photo_history h where h.storage_path = x.path);
-  -- Photos picked for a student or faculty member that nothing uses and the history does not keep.
-  unused := unused || array(
-    select distinct d.patch ->> 'photo_path'
-    from public.record_draft d
-    where d.table_name in ('profiles', 'faculty') and d.patch ->> 'photo_path' is not null
-      and not private.is_media_in_use(d.patch ->> 'photo_path')
-      and not exists (select 1 from public.faculty f where f.photo_path = d.patch ->> 'photo_path')
-      and not exists (select 1 from public.record_history h where h.before ->> 'photo_path' = d.patch ->> 'photo_path')
-  );
-  delete from public.record_draft where true;
-  return unused;
+  for r in select * from public.record_draft order by table_name, row_slug for update loop
+    locked := locked || r;
+    candidates := candidates
+      || array(select g ->> 'path' from jsonb_array_elements(coalesce(r.gallery, '[]'::jsonb)) g)
+      || array[r.patch ->> 'thumbnail_path', r.patch ->> 'photo_path'];
+  end loop;
+  delete from public.record_draft d using unnest(locked) as l
+  where d.table_name = l.table_name and d.row_slug = l.row_slug;
+  return private.unused_files(candidates);
+end;
+$$;
+
+-- Of these files, the ones nothing uses (not live, not in any draft or history, not in a pending
+-- submission). The site deletes only what this returns, so one editor's file is never deleted
+-- while another editor's draft still points at it.
+create function public.release_draft_files(paths text[])
+returns text[]
+language plpgsql stable security definer set search_path = ''
+as $$
+begin
+  if not private.can_edit_site() then
+    raise exception 'Not allowed' using errcode = '42501';
+  end if;
+  return private.unused_files(paths);
 end;
 $$;
 
@@ -507,11 +548,12 @@ end;
 $$;
 
 revoke execute on function public.save_record_draft(text, text, jsonb, jsonb, timestamptz), public.discard_record_drafts(),
-  public.restore_record_version(bigint) from public, anon;
+  public.restore_record_version(bigint), public.release_draft_files(text[]) from public, anon;
 grant execute on function public.save_record_draft(text, text, jsonb, jsonb, timestamptz), public.discard_record_drafts(),
-  public.restore_record_version(bigint) to authenticated;
+  public.restore_record_version(bigint), public.release_draft_files(text[]) to authenticated;
 revoke execute on function private.clean_gallery(uuid, jsonb), private.remember_record(text, text, jsonb, jsonb),
-  private.trim_person_photos(text, text),
+  private.trim_person_photos(text, text), private.draft_fields(text), private.unused_files(text[]),
+  private.audit_change(text, text, jsonb, jsonb),
   private.keep_photo(uuid, text, text, text, text, text)
   from public, anon, authenticated;
 
@@ -547,5 +589,34 @@ begin
     else
       return false;
   end case;
+end;
+$$;
+
+-- When a student withdraws consent, their photo or contact detail also leaves the history of
+-- earlier versions and any waiting draft, not just their live page.
+create or replace function private.apply_consent_revocation()
+returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  column_name text := case new.scope when 'photo' then 'photo_path' when 'email' then 'contact_email' when 'phone' then 'contact_phone' end;
+  student_slug text;
+begin
+  update public.profiles set
+    photo_path = case when new.scope = 'photo' then null else photo_path end,
+    contact_email = case when new.scope = 'email' then null else contact_email end,
+    contact_phone = case when new.scope = 'phone' then null else contact_phone end
+  where id = new.student_id
+  returning slug into student_slug;
+
+  if column_name is not null and student_slug is not null then
+    update public.record_history h set before = h.before - column_name
+    where h.table_name = 'profiles' and h.row_slug = student_slug and h.before ? column_name;
+    delete from public.record_history h
+    where h.table_name = 'profiles' and h.row_slug = student_slug and h.before = '{}'::jsonb;
+    update public.record_draft d set patch = d.patch - column_name
+    where d.table_name = 'profiles' and d.row_slug = student_slug and d.patch ? column_name;
+  end if;
+  return new;
 end;
 $$;

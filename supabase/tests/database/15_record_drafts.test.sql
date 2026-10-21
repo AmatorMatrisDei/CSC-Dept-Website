@@ -1,7 +1,7 @@
 -- Project, student and faculty edits (and project photos) wait as drafts and go live on publish.
 begin;
 \ir _helpers.psql
-select plan(39);
+select plan(55);
 
 -- A project with one photo and a cover photo already live.
 insert into public.project_images (project_id, storage_path, alt_text, sort_order)
@@ -187,6 +187,73 @@ select is((select count(*)::int from public.record_history where before ->> 'pho
 
 select public.save_record_draft('faculty', 'dr-pat-faculty', '{"photo_path": "faculty/20000000-0000-4000-8000-000000000001/unused.jpg"}');
 select is((select public.discard_record_drafts()), array['faculty/20000000-0000-4000-8000-000000000001/unused.jpg'], 'discarding returns a picked photo nothing uses');
+
+-- Rules added after review -------------------------------------------------------------------------
+
+select throws_ok($$ select public.save_record_draft('projects', 'campus-robot', '{"title": "  "}') $$, '23514', null,
+  'a project title cannot be emptied');
+select throws_ok($$ select public.save_record_draft('profiles', 'riley-reviewer', '{"name": null}') $$, '23514', null,
+  'a student name cannot be emptied');
+select throws_ok($$ select public.save_record_draft('faculty', 'dr-pat-faculty', '{"name": ""}') $$, '23514', null,
+  'a faculty name cannot be emptied');
+select throws_ok($$ select public.save_record_draft('profiles', 'riley-reviewer', '{"contact_email": "riley@franciscan.edu"}') $$, '23514', null,
+  'a student''s email needs the student''s consent');
+
+-- The older "seen" time wins, so a later save cannot hide a clash.
+select public.save_record_draft('projects', 'campus-robot', '{"summary": "One"}', null, '2020-01-01T00:00:00Z');
+select public.save_record_draft('projects', 'campus-robot', '{"summary": "Two"}', null, now()::text::timestamptz);
+select is((select base_updated_at from public.record_draft where row_slug = 'campus-robot'), '2020-01-01T00:00:00Z'::timestamptz,
+  'a later save keeps the older seen time of a record draft');
+select public.save_site_draft('home.title', 'One', '2020-01-01T00:00:00Z');
+select public.save_site_draft('home.title', 'Two', now());
+select is((select base_updated_at from public.site_content_draft where key = 'home.title'), '2020-01-01T00:00:00Z'::timestamptz,
+  'a later save keeps the older seen time of a text draft');
+select public.discard_site_drafts();
+
+-- Files in use are not released.
+select is(public.release_draft_files(array['projects/10000000-0000-4000-8000-000000000002/new.jpg', 'projects/10000000-0000-4000-8000-000000000002/free.jpg']),
+  array['projects/10000000-0000-4000-8000-000000000002/free.jpg'],
+  'a live photo is not released, a free one is');
+select public.save_record_draft('projects', 'campus-robot', '{}',
+  '[{"path": "projects/10000000-0000-4000-8000-000000000002/free.jpg", "alt_text": "Free"}]');
+select is(public.release_draft_files(array['projects/10000000-0000-4000-8000-000000000002/free.jpg']), '{}'::text[],
+  'a photo in a draft is not released');
+select public.discard_record_drafts();
+reset role;
+select pg_temp.login_as('a0000000-0000-4000-8000-000000000003');
+select throws_ok($$ select public.release_draft_files(array['x']) $$, '42501', null, 'students cannot release files');
+reset role;
+select pg_temp.login_as('a0000000-0000-4000-8000-000000000001');
+
+-- Contact details and the history: only with consent.
+reset role;
+insert into public.consents (student_id, scope) values ('00000000-0000-4000-8000-000000000002', 'email');
+update public.profiles set contact_email = 'old.riley@franciscan.edu' where slug = 'riley-reviewer';
+select pg_temp.login_as('a0000000-0000-4000-8000-000000000001');
+select public.save_record_draft('profiles', 'riley-reviewer', '{"contact_email": "new.riley@franciscan.edu"}');
+select public.publish_site_drafts();
+select is((select count(*)::int from public.record_history where row_slug = 'riley-reviewer' and before ? 'contact_email'), 1,
+  'with consent the replaced email is kept in the history');
+select is((select count(*)::int from public.record_history where row_slug = 'riley-reviewer' and before ->> 'contact_email' = 'old.riley@franciscan.edu'), 1,
+  'it is the value that was replaced');
+reset role;
+select is((select count(*)::int from public.audit_log where action = 'site_text_published' and details::text like '%riley@franciscan.edu%'), 0,
+  'the audit log names changed columns but never contact values');
+select ok((select details::text like '%contact_email%' from public.audit_log where action = 'site_text_published' order by id desc limit 1),
+  'the audit log names the changed columns');
+
+select pg_temp.login_as('a0000000-0000-4000-8000-000000000001');
+select public.save_record_draft('profiles', 'riley-reviewer', '{"contact_email": "later.riley@franciscan.edu"}');
+reset role;
+update public.consents set revoked_at = now() where student_id = '00000000-0000-4000-8000-000000000002' and scope = 'email';
+select is((select count(*)::int from public.record_history where row_slug = 'riley-reviewer' and before ? 'contact_email'), 0,
+  'withdrawing consent removes the email from the history');
+select is((select count(*)::int from public.record_draft where row_slug = 'riley-reviewer' and patch ? 'contact_email'), 0,
+  'withdrawing consent removes the email from waiting drafts');
+select is((select contact_email from public.profiles where slug = 'riley-reviewer'), null, 'and from the live page');
+select pg_temp.login_as('a0000000-0000-4000-8000-000000000001');
+select public.discard_record_drafts();
+
 
 select * from finish();
 rollback;

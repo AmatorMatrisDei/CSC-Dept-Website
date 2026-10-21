@@ -67,6 +67,7 @@ before(async () => {
   vite = spawn("npx", ["vite", "--port", "5174", "--strictPort"], {
     env: { ...process.env, VITE_SUPABASE_URL: API_URL, VITE_SUPABASE_PUBLISHABLE_KEY: PUBLISHABLE_KEY },
     stdio: "ignore",
+    shell: process.platform === "win32", // npx is a .cmd file on Windows
   });
   for (let i = 0; i < 60; i++) {
     try {

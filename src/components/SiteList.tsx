@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useEdit } from "@/lib/edit";
-import { saveSiteList, useSiteList, type ListItem } from "@/lib/siteText";
+import { safeLink } from "@/lib/list";
+import { changeSiteList, useSiteList, type ListItem } from "@/lib/siteText";
 
 // A list of short entries (title, text, optional link) that staff can add to, remove from and
 // reorder in Edit mode. `id` must end in ".items". Visitors see nothing at all while it is empty.
@@ -17,6 +18,12 @@ function ItemFields({
   onCommit: (next: ListItem) => void;
 }) {
   const [draft, setDraft] = useState(item);
+  // When the saved item changes (moved, or saved from elsewhere), show it.
+  const [shownItem, setShownItem] = useState(item);
+  if (item.title !== shownItem.title || item.text !== shownItem.text || item.url !== shownItem.url) {
+    setShownItem(item);
+    setDraft(item);
+  }
   const field = "w-full rounded border border-border bg-surface p-2 text-inherit";
   const commit = () => {
     if (draft.title !== item.title || draft.text !== item.text || draft.url !== item.url)
@@ -69,9 +76,8 @@ export default function SiteList({
   const items = useSiteList(id, editing);
   const [message, setMessage] = useState<string | null>(null);
 
-  async function save(next: ListItem[]) {
-    const error = await saveSiteList(id, next);
-    setMessage(error);
+  async function save(change: (items: ListItem[]) => ListItem[]) {
+    setMessage(await changeSiteList(id, change));
   }
 
   if (!editing) {
@@ -83,7 +89,7 @@ export default function SiteList({
           <li key={i} className="flex flex-col gap-1">
             {item.title && (
               <p className="text-lg font-semibold">
-                {item.url ? (
+                {safeLink(item.url) ? (
                   <a
                     href={item.url}
                     className="underline"
@@ -105,11 +111,12 @@ export default function SiteList({
 
   const button =
     "min-h-11 rounded border border-border px-3 text-sm hover:bg-current/10 disabled:opacity-50";
-  const move = (from: number, to: number) => {
-    const next = [...items];
-    next.splice(to, 0, next.splice(from, 1)[0]);
-    void save(next);
-  };
+  const move = (from: number, to: number) =>
+    void save((list) => {
+      const next = [...list];
+      next.splice(to, 0, next.splice(from, 1)[0]);
+      return next;
+    });
   return (
     <div className={`flex flex-col gap-3 ${className ?? ""}`}>
       <ol className="flex flex-col gap-4">
@@ -117,13 +124,13 @@ export default function SiteList({
           const label = `Item ${i + 1}`;
           return (
             <li
-              key={`${i}-${item.title}-${item.text}-${item.url}`}
+              key={i}
               className="flex flex-col gap-2 rounded border border-dashed border-accent/60 p-3"
             >
               <ItemFields
                 item={item}
                 label={label}
-                onCommit={(next) => void save(items.map((x, j) => (j === i ? next : x)))}
+                onCommit={(next) => void save((list) => list.map((x, j) => (j === i ? next : x)))}
               />
               <div className="flex flex-wrap gap-2">
                 <button
@@ -148,7 +155,7 @@ export default function SiteList({
                   type="button"
                   className={button}
                   aria-label={`Remove ${label}`}
-                  onClick={() => void save(items.filter((_, j) => j !== i))}
+                  onClick={() => void save((list) => list.filter((_, j) => j !== i))}
                 >
                   Remove
                 </button>
@@ -162,7 +169,7 @@ export default function SiteList({
           type="button"
           className={button}
           disabled={items.length >= MAX_ITEMS}
-          onClick={() => void save([...items, blank])}
+          onClick={() => void save((list) => (list.length >= MAX_ITEMS ? list : [...list, blank]))}
         >
           {addLabel}
         </button>

@@ -95,6 +95,21 @@ export async function saveSiteText(key: string, value: string): Promise<string |
 export const saveSiteList = (key: string, items: ListItem[]) =>
   saveSiteText(key, JSON.stringify(items));
 
+// Changes a list one step at a time. Each change is built from the list as the draft is in the
+// database right now, so quick edits (or a second editor's) are never written over by a stale copy.
+let listQueue: Promise<unknown> = Promise.resolve();
+
+export function changeSiteList(key: string, change: (items: ListItem[]) => ListItem[]): Promise<string | null> {
+  const run = listQueue
+    .then(async () => {
+      await Promise.all([loadSiteDrafts(), load()]);
+      return saveSiteList(key, change(parseList(drafts[key] ?? texts[key])));
+    })
+    .catch((e) => (e instanceof Error ? e.message : "Something went wrong."));
+  listQueue = run;
+  return run;
+}
+
 // Publishes every draft, or says which texts were changed by someone else in the meantime.
 export async function publishSiteDrafts(): Promise<string | null> {
   if (!supabase) return "Publishing is not available.";

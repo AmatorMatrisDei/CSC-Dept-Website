@@ -10,7 +10,7 @@ import { getProject } from "@/lib/content";
 import { formatDate, paragraphs } from "@/lib/format";
 import { replaceGalleryPhoto, setCoverPhoto } from "@/lib/projectPhotos";
 import { useReloadable, useTitle } from "@/lib/hooks";
-import { saveRecordDraft, useRecordDraft, withProjectDraft } from "@/lib/recordDrafts";
+import { saveRecordDraft, useRecordDraft, useReloadOnPublish, withProjectDraft } from "@/lib/recordDrafts";
 import { CATEGORY_LABELS } from "@/lib/types";
 import NotFound from "@/pages/NotFound";
 
@@ -32,7 +32,8 @@ function PlainText({ text }: { text: string }) {
 export default function ProjectDetail() {
   const { slug = "" } = useParams();
   const { editing } = useEdit();
-  const [live] = useReloadable(getProject, slug);
+  const [live, reload] = useReloadable(getProject, slug);
+  useReloadOnPublish(reload);
   const draft = useRecordDraft("projects", slug);
   useTitle(live?.title ?? "Project");
   // Start fetching the Markdown renderer while the project loads.

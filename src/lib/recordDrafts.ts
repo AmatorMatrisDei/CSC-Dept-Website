@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { removeUploads } from "./account";
 import { forgetCachedContent } from "./content";
 import type { Json } from "./database.types";
@@ -21,17 +21,35 @@ export type RecordDraft = {
   base_updated_at: string;
 };
 
+// Drafts are loaded when an editor opens Edit mode (the edit bar), never for ordinary visitors.
 let drafts: RecordDraft[] = [];
-let started = false;
+let publishes = 0; // counts publishes and discards, so open pages know to reload
 const listeners = new Set<() => void>();
 
 function subscribe(listener: () => void) {
   listeners.add(listener);
-  if (!started) {
-    started = true;
-    void loadRecordDrafts();
-  }
   return () => listeners.delete(listener);
+}
+
+function announce() {
+  listeners.forEach((l) => l());
+}
+
+// Reloads a page's data after the editor publishes or discards, so its next save starts from the
+// new live copy and not a stale one.
+export function useReloadOnPublish(reload: () => void) {
+  const count = useSyncExternalStore(subscribe, () => publishes);
+  const seen = useRef(count);
+  const latest = useRef(reload);
+  useEffect(() => {
+    latest.current = reload;
+  });
+  useEffect(() => {
+    if (count !== seen.current) {
+      seen.current = count;
+      latest.current();
+    }
+  }, [count]);
 }
 
 export async function loadRecordDrafts() {
@@ -42,7 +60,7 @@ export async function loadRecordDrafts() {
     .returns<RecordDraft[]>();
   if (error || !data) return;
   drafts = data;
-  listeners.forEach((l) => l());
+  announce();
 }
 
 // The draft as it is right now (not as of the last render).
@@ -117,8 +135,20 @@ export async function discardRecordDrafts(): Promise<string | null> {
   const { data, error } = await supabase.rpc("discard_record_drafts");
   if (error) return "Could not discard: " + error.message;
   await removeUploads(data ?? []).catch(() => undefined);
+  forgetCachedContent();
   await loadRecordDrafts();
+  publishes++;
+  announce();
   return null;
+}
+
+// Deletes the given photo files, but only those the database says nothing uses any more (not
+// live, not in any editor's draft, not in the history, not in a pending submission).
+export async function releaseFiles(paths: Array<string | null | undefined>) {
+  const wanted = paths.filter((p): p is string => typeof p === "string" && p !== "");
+  if (!supabase || wanted.length === 0) return;
+  const { data } = await supabase.rpc("release_draft_files", { paths: wanted });
+  await removeUploads(data ?? []).catch(() => undefined);
 }
 
 // After publishing: delete the photo files that are no longer used, and show the new data.
@@ -126,6 +156,8 @@ export async function finishRecordPublish(removedPaths: string[]) {
   await removeUploads(removedPaths).catch(() => undefined);
   forgetCachedContent();
   await loadRecordDrafts();
+  publishes++;
+  announce();
 }
 
 // Showing a draft ---------------------------------------------------------------------------------

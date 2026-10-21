@@ -9,13 +9,14 @@ import { getStudent } from "@/lib/content";
 import { paragraphs } from "@/lib/format";
 import { useReloadable, useTitle } from "@/lib/hooks";
 import { splitLines, splitList } from "@/lib/list";
-import { saveRecordDraft, useRecordDraft, withStudentDraft } from "@/lib/recordDrafts";
+import { saveRecordDraft, useRecordDraft, useReloadOnPublish, withStudentDraft } from "@/lib/recordDrafts";
 import NotFound from "@/pages/NotFound";
 
 export default function StudentPage() {
   const { slug = "" } = useParams();
   const { editing } = useEdit();
-  const [live] = useReloadable(getStudent, slug);
+  const [live, reload] = useReloadable(getStudent, slug);
+  useReloadOnPublish(reload);
   const draft = useRecordDraft("profiles", slug);
   useTitle(live?.name ?? "Student");
 

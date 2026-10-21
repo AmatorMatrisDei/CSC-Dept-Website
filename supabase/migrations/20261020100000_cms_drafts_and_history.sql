@@ -50,7 +50,8 @@ begin
     item_title := left(private.tidy_text(coalesce(item ->> 'title', '')), 120);
     item_text := left(private.tidy_text(coalesce(item ->> 'text', '')), 2000);
     item_url := private.tidy_text(coalesce(item ->> 'url', ''));
-    if item_url !~ '^(https?://|/)[^[:space:]]{1,255}$' then
+    -- A site address, or a path on this site. "//host" and "/\host" would leave the site.
+    if item_url !~ '^(https?://[^[:space:]]{1,255}|/([^/\\[:space:]][^[:space:]]{0,254})?)$' then
       item_url := '';
     end if;
     cleaned := cleaned || jsonb_build_array(jsonb_build_object('title', item_title, 'text', item_text, 'url', item_url));
@@ -139,8 +140,9 @@ create policy "Editors read drafts"
   on public.site_content_draft for select to authenticated using ((select private.can_edit_site()));
 
 -- seen_updated_at is the updated_at of the live text as the editor saw it (null if they saw
--- the default wording). It is kept from the first save of a draft, and publishing compares it with
--- the live text, so a change someone else made in between is never silently overwritten.
+-- the default wording). The oldest one seen is kept, and publishing compares it with the live
+-- text, so a change someone else made in between is never silently overwritten, even when a
+-- second editor started from a stale copy.
 create function public.save_site_draft(draft_key text, draft_value text, seen_updated_at timestamptz default null)
 returns void
 language plpgsql security definer set search_path = ''
@@ -152,7 +154,9 @@ begin
   insert into public.site_content_draft (key, value, base_updated_at, edited_by)
   values (draft_key, draft_value, seen_updated_at, (select auth.uid()))
   on conflict (key) do update
-    set value = excluded.value, edited_by = excluded.edited_by, updated_at = now();
+    set value = excluded.value, edited_by = excluded.edited_by, updated_at = now(),
+        base_updated_at = case when public.site_content_draft.base_updated_at is null then null
+          else least(public.site_content_draft.base_updated_at, excluded.base_updated_at) end;
 end;
 $$;
 
@@ -167,24 +171,27 @@ as $$
 declare
   conflicts text[];
   done int;
+  locked_keys text[] := '{}'::text[];
+  k text;
 begin
   if not private.can_edit_site() then
     raise exception 'Not allowed' using errcode = '42501';
   end if;
 
-  perform 1 from public.site_content_draft d
-  where only_keys is null or d.key = any (only_keys)
-  order by d.key for update;
+  -- Lock the drafts first, and only ever publish or delete the ones locked here.
+  for k in select d.key from public.site_content_draft d
+    where only_keys is null or d.key = any (only_keys)
+    order by d.key for update loop
+    locked_keys := locked_keys || k;
+  end loop;
 
-  perform 1 from public.site_content c
-  where c.key in (select d.key from public.site_content_draft d where only_keys is null or d.key = any (only_keys))
-  order by c.key for update;
+  perform 1 from public.site_content c where c.key = any (locked_keys) order by c.key for update;
 
   -- Live text that changed (or appeared) since the draft was started.
   select coalesce(array_agg(d.key order by d.key), '{}') into conflicts
   from public.site_content_draft d
   join public.site_content c on c.key = d.key
-  where (only_keys is null or d.key = any (only_keys))
+  where d.key = any (locked_keys)
     and c.updated_at is distinct from d.base_updated_at;
 
   if cardinality(conflicts) > 0 then
@@ -193,7 +200,7 @@ begin
 
   with taken as (
     delete from public.site_content_draft d
-    where only_keys is null or d.key = any (only_keys)
+    where d.key = any (locked_keys)
     returning d.key, d.value
   )
   insert into public.site_content (key, value)

@@ -164,7 +164,7 @@ export default function EditBar() {
           className="inline-flex min-h-11 items-center gap-2 rounded px-3 text-sm hover:bg-current/10"
         >
           <span aria-hidden="true" className={`inline-block h-5 w-9 rounded-full p-0.5 ${editing ? "bg-accent" : "bg-border"}`}>
-            <span className={`block size-4 rounded-full bg-white transition-transform motion-reduce:transition-none ${editing ? "translate-x-4" : ""}`} />
+            <span className={`block size-4 rounded-full bg-accent-foreground transition-transform motion-reduce:transition-none ${editing ? "translate-x-4" : ""}`} />
           </span>
           Edit mode
         </button>
@@ -175,7 +175,7 @@ export default function EditBar() {
         )}
         {keys.length > 0 && (
           <>
-            <button type="button" disabled={busy} onClick={() => run(publishSiteDrafts)} className={`${button} bg-accent text-white`}>
+            <button type="button" disabled={busy} onClick={() => run(publishSiteDrafts)} className={`${button} bg-accent text-accent-foreground`}>
               Publish
             </button>
             <button type="button" disabled={busy} onClick={() => run(discardSiteDrafts)} className={button}>

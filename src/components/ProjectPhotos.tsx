@@ -6,6 +6,7 @@ import {
   removeCoverPhoto,
   removeGalleryPhoto,
   reorderGallery,
+  setCoverAlt as saveCoverAlt,
   setCoverPhoto,
 } from "@/lib/projectPhotos";
 import type { ProjectView } from "@/lib/types";
@@ -111,7 +112,12 @@ export default function ProjectPhotos({ project, live }: { project: ProjectView;
         )}
         <label className="flex flex-col gap-1">
           <span className="text-sm">Description for screen readers</span>
-          <input className={fieldClass} value={coverAlt} maxLength={300} onChange={(e) => setCoverAlt(e.target.value)} />
+          <input className={fieldClass} value={coverAlt} maxLength={300} onChange={(e) => setCoverAlt(e.target.value)}
+            onBlur={() => {
+              // Changing the text of an existing cover saves its description too.
+              if (project.thumbnail && coverAlt.trim() !== project.thumbnail.alt) void run(() => saveCoverAlt(live, coverAlt.trim()));
+            }}
+          />
         </label>
         <div className="flex flex-wrap gap-2">
           <PickPhoto
