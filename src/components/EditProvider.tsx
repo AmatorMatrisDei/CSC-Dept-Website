@@ -12,7 +12,7 @@ const roleOrNone = (userId: string) => getMyRole(userId).catch(() => null);
 function AdminEdit({ userId, children }: { userId: string; children: ReactNode }) {
   const me = useAsync(roleOrNone, userId);
   const [on, setOn] = useState(false);
-  const canEdit = me?.role === "admin";
+  const canEdit = me?.role === "admin" || me?.role === "faculty";
   return (
     <EditContext value={{ canEdit, editing: canEdit && on, setEditing: setOn }}>
       {children}

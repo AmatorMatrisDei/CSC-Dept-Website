@@ -101,7 +101,7 @@ From `src/App.tsx`. Every page sits inside one `Layout`: header, the page, foote
 | `/account/sign-in`, `/account/password` | Sign in or up (password, Google or GitHub); reset or set a password | Anyone |
 | `/account` and below | Dashboard, verify your email, profile form, project and internship forms | Signed in |
 | `/review`, `/review/:id` | Review queue; one submission | Reviewers and admins |
-| `/people` | Everyone's role | Admins (the page itself shows only what the database returns) |
+| `/people` | Everyone's role | Admins only (faculty can edit content but not roles) (the page itself shows only what the database returns) |
 | anything else | Not found | Anyone |
 
 ---

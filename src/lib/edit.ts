@@ -3,7 +3,7 @@ import { createContext, useContext } from "react";
 // Whether the signed-in person is an admin who has switched Edit mode on. Sign-in itself lives in
 // auth.ts; the database's own rules still decide what any save may do.
 export type EditState = {
-  canEdit: boolean; // signed in as an admin
+  canEdit: boolean; // signed in as faculty or an admin
   editing: boolean; // canEdit and the Edit mode switch is on
   setEditing: (value: boolean) => void;
 };

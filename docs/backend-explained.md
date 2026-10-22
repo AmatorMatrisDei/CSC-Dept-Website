@@ -193,15 +193,17 @@ create trigger on_auth_user_created
   for each row execute function private.handle_new_user();   -- inserts the profiles row
 ```
 
-Roles are an enum on `profiles.role`: `student`, `reviewer` (TAs and faculty), `admin`. Two
-helper functions read it, and every rule uses them. Both also require a verified account
+Roles are an enum on `profiles.role`: `student`, `reviewer` (TAs), `faculty`, `admin`. Faculty
+can do everything a reviewer can and edit nearly all content; admins also change roles and the
+settings that shape the site (planner catalogs, courses and plans, advising, the monthly pool).
+Helper functions read the role, and every rule uses them. All also require a verified account
 (section 3.4):
 
 ```sql
 create function private.is_reviewer() returns boolean
 language sql stable security definer set search_path = ''
 as $$
-  select coalesce(private.current_app_role() in ('reviewer', 'admin'), false)
+  select coalesce(private.current_app_role() in ('reviewer', 'faculty', 'admin'), false)
     and private.is_verified((select auth.uid()))
 $$;
 
@@ -212,9 +214,11 @@ as $$
     and private.is_verified((select auth.uid()))
 $$;
 -- current_app_role(): select role from public.profiles where id = auth.uid()
+-- can_edit_content(): the same check for 'faculty' or 'admin'. Edit mode, the content tables'
+-- "Faculty and admins manage ..." rules, photos and the edit audit all ask it.
 ```
 
-Only admins can change a role (the profiles `UPDATE` rule is admin-only), and only to reviewer or
+Only admins can change a role (the profiles `UPDATE` rule is admin-only), and only to reviewer, faculty or
 admin for a verified account (trigger `require_verified_staff`). Every role change is written to
 the audit log. A trigger, `keep_an_admin`, refuses to demote the last admin, so the site can't be
 locked out.
@@ -365,7 +369,7 @@ create policy "Admins manage projects" on public.projects
 
 | Function | True when |
 | --- | --- |
-| `is_admin()` / `is_reviewer()` | The caller's role is admin, or reviewer or admin, and the account is verified (section 3.3) |
+| `is_admin()` / `is_reviewer()` / `can_edit_content()` | The caller's role is admin; reviewer, faculty or admin; faculty or admin. The account must be verified (section 3.3) |
 | `is_verified(account)` | That account's email address is verified (section 3.4) |
 | `has_consent(student, scope)` | That student has an unrevoked consent for that scope |
 | `is_listed_student(student)` | The profile is `visible` **and** has `directory` consent |
@@ -784,8 +788,8 @@ Each step and what it protects against:
 
    | Check | Runs |
    | --- | --- |
-   | Lint, unit tests and build (`frontend.yml`) | ESLint, 65 unit tests, TypeScript type-check and build |
-   | Database, API and browser tests (`backend.yml`) | Starts a **throwaway local Supabase** inside GitHub, then: schema lint and 343 database tests, 19 API tests, two browser tests in Chrome (34 steps), the carousel tests, and a check that the generated types are up to date |
+   | Lint, unit tests and build (`frontend.yml`) | ESLint, 64 unit tests, TypeScript type-check and build |
+   | Database, API and browser tests (`backend.yml`) | Starts a **throwaway local Supabase** inside GitHub, then: schema lint and 360 database tests, 19 API tests, two browser tests in Chrome (34 steps), the carousel tests, and a check that the generated types are up to date |
 
    The backend tests run against a temporary database built from the migrations, so CI needs
    **no real keys** and never touches the hosted projects.
@@ -825,7 +829,7 @@ connections to our own site and our two Supabase projects.
 
 ## 11. The tests
 
-### 11.1 The 343 database tests (the slide's "202" predates page-editing drafts, verification, events and publish batches)
+### 11.1 The 360 database tests (the slide's "202" predates page-editing drafts, verification, events and publish batches)
 
 They are written in SQL with **pgTAP**, a testing library that runs inside Postgres. Each test
 signs in as a test user (visitor, student, reviewer, admin), tries something, and checks the

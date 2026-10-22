@@ -871,7 +871,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "app_role": "student"|"reviewer"|"admin","change_action": "create"|"update"|"delete","change_status": "pending"|"approved"|"rejected"|"changes_requested"|"withdrawn","change_target": "profile"|"project"|"internship","consent_scope": "directory"|"photo"|"email"|"phone","organization_type": "grant"|"organization","project_status": "planned"|"active"|"completed","publish_state": "draft"|"in_review"|"published"
+            "app_role": "student"|"reviewer"|"faculty"|"admin","change_action": "create"|"update"|"delete","change_status": "pending"|"approved"|"rejected"|"changes_requested"|"withdrawn","change_target": "profile"|"project"|"internship","consent_scope": "directory"|"photo"|"email"|"phone","organization_type": "grant"|"organization","project_status": "planned"|"active"|"completed","publish_state": "draft"|"in_review"|"published"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -987,7 +987,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            "app_role": ["student", "reviewer", "admin"],"change_action": ["create", "update", "delete"],"change_status": ["pending", "approved", "rejected", "changes_requested", "withdrawn"],"change_target": ["profile", "project", "internship"],"consent_scope": ["directory", "photo", "email", "phone"],"organization_type": ["grant", "organization"],"project_status": ["planned", "active", "completed"],"publish_state": ["draft", "in_review", "published"]
+            "app_role": ["student", "reviewer", "faculty", "admin"],"change_action": ["create", "update", "delete"],"change_status": ["pending", "approved", "rejected", "changes_requested", "withdrawn"],"change_target": ["profile", "project", "internship"],"consent_scope": ["directory", "photo", "email", "phone"],"organization_type": ["grant", "organization"],"project_status": ["planned", "active", "completed"],"publish_state": ["draft", "in_review", "published"]
           }
         }
 } as const
