@@ -177,6 +177,26 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"events": {
+                  Row: {
+                    "created_at": string,"description": string,"end_date": string | null,"end_time": string | null,"event_date": string,"id": string,"link_url": string | null,"place": string,"start_time": string | null,"sub_department_id": string | null,"title": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"description"?: string,"end_date"?: string | null,"end_time"?: string | null,"event_date": string,"id"?: string,"link_url"?: string | null,"place"?: string,"start_time"?: string | null,"sub_department_id"?: string | null,"title": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"description"?: string,"end_date"?: string | null,"end_time"?: string | null,"event_date"?: string,"id"?: string,"link_url"?: string | null,"place"?: string,"start_time"?: string | null,"sub_department_id"?: string | null,"title"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "events_sub_department_id_fkey"
+      columns: ["sub_department_id"]
+isOneToOne: false
+      referencedRelation: "sub_departments"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"faculty": {
                   Row: {
                     "created_at": string,"email": string | null,"id": string,"name": string,"photo_path": string | null,"profile_id": string | null,"slug": string,"title": string,"updated_at": string

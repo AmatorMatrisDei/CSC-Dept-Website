@@ -80,3 +80,31 @@ export function useAnime<T extends HTMLElement>(setup: Setup<T>, fallback?: (roo
 
   return ref;
 }
+
+// Keeps the --turn variable on the element at the page's scroll position in pixels, so gears inside
+// it can turn with the scroll (rotate: calc(var(--turn) * 0.4deg)). Nothing is set for visitors who
+// ask for reduced motion, so the gears stay still.
+export function useScrollTurn<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element || window.matchMedia(REDUCED_MOTION).matches) return;
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      element.style.setProperty("--turn", String(Math.round(window.scrollY)));
+    };
+    const onScroll = () => {
+      frame ||= requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  return ref;
+}

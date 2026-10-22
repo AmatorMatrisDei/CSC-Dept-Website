@@ -67,6 +67,18 @@ export default function SiteHeader() {
       ],
     },
     {
+      label: "Events",
+      href: "/events",
+      groups: [
+        {
+          links: [
+            { label: "Upcoming events", href: "/events#upcoming" },
+            { label: "Past events", href: "/events#past" },
+          ],
+        },
+      ],
+    },
+    {
       label: "Planner",
       href: "/planner",
       groups: [{ links: [{ label: "Course catalog", href: "/planner/courses" }] }],

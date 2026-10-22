@@ -1,12 +1,19 @@
 import { Link } from "react-router";
 import Carousel from "@/components/Carousel";
 import DepartmentMark from "@/components/DepartmentMark";
+import EventCard from "@/components/EventCard";
 import ProjectBrowser from "@/components/ProjectBrowser";
 import SiteText from "@/components/SiteText";
 import { getAllFaculty, getCarouselProjects, getProjects, getSubDepartments } from "@/lib/content";
+import { splitEvents, universityToday } from "@/lib/eventDates";
+import { getEvents } from "@/lib/events";
+import { useEdit } from "@/lib/edit";
 import { useAsync, useTitle } from "@/lib/hooks";
 import { playHomeIntro } from "@/lib/homeIntro";
 import { useAnime, usePreloadMotion } from "@/lib/motion";
+
+// How many upcoming events the home page lists; the events page has all of them.
+const HOME_EVENTS = 3;
 
 export default function Home() {
   useTitle(undefined);
@@ -19,6 +26,10 @@ export default function Home() {
   const projects = useAsync(getProjects);
   const departments = useAsync(getSubDepartments);
   const advisors = useAsync(getAllFaculty);
+  const events = useAsync(getEvents, 0);
+  const { editing } = useEdit();
+  const today = universityToday();
+  const soon = events ? splitEvents(events, today).upcoming.slice(0, HOME_EVENTS) : [];
 
   return (
     <div ref={page} data-intro="" className="flex flex-col gap-12">
@@ -52,6 +63,28 @@ export default function Home() {
         <SiteText id="home.featured" as="h2" fallback="Featured projects" className="text-2xl font-semibold" />
         {featured ? <Carousel projects={featured} /> : <p className="text-muted">Loading…</p>}
       </section>
+
+      {events && (soon.length > 0 || editing) && (
+        <section aria-labelledby="home-events" className="flex flex-col gap-4">
+          <h2 id="home-events" className="text-2xl font-semibold">
+            Upcoming events
+          </h2>
+          {soon.length ? (
+            <ul className="grid gap-4 md:grid-cols-3">
+              {soon.map((e) => (
+                <EventCard key={e.id} event={e} today={today} />
+              ))}
+            </ul>
+          ) : (
+            <p className="text-muted">No upcoming events. Add one on the events page.</p>
+          )}
+          <div>
+            <Link to="/events" className="inline-flex min-h-11 items-center underline">
+              All events
+            </Link>
+          </div>
+        </section>
+      )}
 
       <section aria-label="Find a project" className="flex flex-col gap-4">
         <SiteText id="home.find" as="h2" fallback="Find a project" className="text-2xl font-semibold" />

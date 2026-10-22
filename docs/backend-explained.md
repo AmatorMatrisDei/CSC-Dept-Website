@@ -32,7 +32,7 @@ Contents:
   Supabase project ─────────────────────────────────────────────────────────────
      Auth      sign-up, sign-in (password, Google, GitHub), access tokens
      Data API  turns HTTP requests into SQL (PostgREST)
-     Postgres  24 tables, 50 access rules, triggers, functions
+     Postgres  30 tables, 57 access rules, triggers, functions
      Storage   the "media" photo bucket
      Edge Functions   carousel, notify-reviewers, verify-email, password-reset
      pg_cron + pg_net the hourly timer, and calls from the database to the functions
@@ -283,7 +283,7 @@ Turnstile check on the reset form stops that once its keys are set (see Known ga
 
 ---
 
-## 4. The 24 tables
+## 4. The 30 tables
 
 All are in the `public` schema, and every one has row-level security turned on. A database test
 fails the build if a new table forgets.
@@ -311,6 +311,7 @@ fails the build if a new table forgets.
 | Site | `site_content` | Page wording admins edit in place |
 | Site | `site_content_draft`, `site_content_history`, `record_draft` | Page wording waiting to be published, every replaced version, and waiting edits to projects, students, faculty and project photos; `record_history` keeps the details a publish replaced; `record_photo_history` keeps the last 3 replaced or removed photos per project (files under `projects/` only; older ones are returned in `removed_paths` and deleted). A student's or faculty member's photo (`photo_path`) is an ordinary draft column; their last 3 replaced photos stay in `record_history`, older files are returned in `removed_paths`. Admins can write into any `avatars/<id>/` folder, and a student photo, email or phone needs the student's consent (a withdrawal also clears it from `record_history` and waiting drafts). Publish and discard lock the drafts first and touch only those, so a draft saved meanwhile is kept. A file is deleted only when `private.unused_files` finds nothing (live rows, any draft, any history, a pending submission) using it; a later save keeps the *older* `seen_updated_at`, so a clash cannot be hidden |
 | | `posts` | Department news |
+| | `events` | Department events: a date (or a few days), optional times, place, link and sub-department. Times are university clock time, not an instant. Editors add, change and delete them directly (no draft step), every change by an admin is logged, and the home and events pages show upcoming ones and, separately, past ones |
 | Planner | `planner_catalogs` | Catalog years 2022–2023 to 2026–2027 |
 | | `planner_courses` | Each year's courses: credits, prerequisites, when offered |
 | | `planner_degrees` | Each year's majors, minors and pre-engineering programs, with suggested plans |
@@ -324,10 +325,10 @@ the `private` schema at all.
 
 ---
 
-## 5. The 50 access rules
+## 5. The 57 access rules
 
 > **Correction:** the slide said 70. That counted `create policy` lines across all the migration
-> files, but later migrations replaced many of them. The database actually has **50 rules: 46 on
+> files, but later migrations replaced many of them. The database actually has **57 rules: 53 on
 > the tables and 4 on photo storage** (from `pg_policies`). The slide is updated.
 
 ### 5.1 How a rule is set up
@@ -376,7 +377,7 @@ They are `security definer` (they run with the owner's rights so they can look t
 caller can't) and `set search_path = ''` (so nobody can trick them with a same-named table).
 Users can't call them directly. A database test checks that only an allowlist of them is callable.
 
-### 5.3 All 50 rules
+### 5.3 All 57 rules
 
 "Anyone" means visitors and signed-in users. A rule named "Admins manage …" covers reading,
 adding, editing and deleting.
@@ -397,6 +398,8 @@ adding, editing and deleting.
 | `contributions` | Confirmed listings of listed students are public | read | Anyone, for confirmed members who are listed students on published projects; your own rows; the team and reviewers |
 | | Admins manage contributions | all | Admins only |
 | `daily_carousel` | The daily carousel is public | read | Anyone |
+| `events` | Events are public | read | Anyone |
+| | Editors manage events | all | Admins only for now (`can_edit_site()`; faculty once that role exists) |
 | `faculty` | Faculty are public | read | Anyone |
 | | Admins manage faculty | all | Admins only |
 | `internships` | Internships of listed students are public | read | Anyone, for listed students; your own; reviewers |
@@ -426,7 +429,12 @@ adding, editing and deleting.
 | `projects` | Projects are public once published | read | Anyone, if published; the team and reviewers |
 | | Admins manage projects | all | Admins only |
 | `site_content` | Site text is public | read | Anyone |
-| | Admins manage site text | all | Admins only |
+| | Editors manage site text | all | Admins only for now (`can_edit_site()`) |
+| `site_content_draft` | Editors read drafts | read | Admins only for now. Writes go through `save_site_draft` and the publish functions |
+| `site_content_history` | Editors read the history | read | Admins only for now |
+| `record_draft` | Editors read record drafts | read | Admins only for now |
+| `record_history` | Editors read record history | read | Admins only for now |
+| `record_photo_history` | Editors read photo history | read | Admins only for now |
 | `sub_departments` | Sub-departments are public | read | Anyone |
 | | Admins manage sub-departments | all | Admins only |
 | `storage.objects` | Media: upload where you can edit | add | Only into a folder you manage (section 7) |
@@ -842,6 +850,7 @@ Run them with `npm run db:test`.
 | `14_cms_drafts` | 20 | Page text: allowed keys, cleaned values, drafts, publishing with the conflict check, history |
 | `15_record_drafts` | 55 | Project, student and faculty edits (and project photos) wait as drafts and go live on publish |
 | `16_account_verification` | 36 | What an unverified account can and can't do; unverified reviewers lose their powers; promotion needs verification; the Google and GitHub safeguard, only for the account's own address; changing address; rate limits; finishing a reset |
+| `16_events` | 19 | Everyone reads events; only admins write; dates, times, titles and links are checked; admin changes are logged |
 
 Example, from `05_auth_and_storage`:
 

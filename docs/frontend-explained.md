@@ -78,6 +78,7 @@ The data files in `src/lib/` are the only place that talks to Supabase:
 | `account.ts` | A signed-in student's pages | Their consents, submissions, photos, role |
 | `review.ts` | Reviewer pages | The queue, one submission, decisions, the waiting count |
 | `people.ts` | The admin People page | Everyone's role |
+| `events.ts` | The Events page and the home page | `events`: reads, and an editor's add, change and delete (saved at once, no draft). `eventDates.ts` holds the date logic, `eventPaste.ts` turns an AI's pasted answer into form values and `eventIcs.ts` makes the calendar file for "Add to calendar"; none of them makes Supabase calls. The Events page opens on a month calendar (`EventCalendar`) with a List view (`EventBrowser`: search, when, area and year filters) beside it, and an editor's form opens under the event it is for |
 | `siteText.ts` | Any page with editable wording | `site_content` |
 | `planner/` | The planner | Catalog years, courses, programs, the saved plan |
 

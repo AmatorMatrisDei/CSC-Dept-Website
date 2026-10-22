@@ -7,6 +7,7 @@ import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { execSync, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { chromium } from "playwright-core";
 
 const { API_URL, PUBLISHABLE_KEY, SECRET_KEY } = JSON.parse(
@@ -128,6 +129,7 @@ after(async () => {
     const leftover = (Array.isArray(files) ? files : []).map((f) => `faculty/${faculty.id}/${f.name}`);
     if (leftover.length) await api("/storage/v1/object/media", { method: "DELETE", body: JSON.stringify({ prefixes: leftover }) });
   }
+  await api(`/rest/v1/events?title=like.*${tag}`, { method: "DELETE" });
   await api(`/rest/v1/audit_log?actor_id=in.(${userIds.join(",")})`, { method: "DELETE" });
   for (const id of userIds) await api(`/auth/v1/admin/users/${id}`, { method: "DELETE" });
 });
@@ -449,6 +451,198 @@ test("a faculty photo is a draft until Publish, and the replaced one can be rest
     const [back] = await rows("faculty", `id=eq.${faculty.id}&select=photo_path`);
     assert.equal(back.photo_path, faculty.photo_path, "the old photo is live again");
   }
+});
+
+const eventTitle = `E2E showcase ${tag}`;
+const dayOf = (offset) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
+const longDay = (iso) =>
+  new Intl.DateTimeFormat("en-US", { timeZone: "UTC", weekday: "long", month: "long", day: "numeric" }).format(new Date(`${iso}T00:00:00Z`));
+
+async function startEditing(p) {
+  await p.goto(`${BASE}/events`);
+  const editSwitch = p.getByRole("switch", { name: "Edit mode" });
+  await editSwitch.waitFor();
+  if ((await editSwitch.getAttribute("aria-checked")) !== "true") await editSwitch.click();
+}
+
+// The list view, narrowed to this run's events.
+async function openList(p) {
+  await p.getByRole("button", { name: "List", exact: true }).click();
+  await p.getByLabel("Search events").fill(tag);
+}
+
+test("an admin adds an upcoming event with a pasted AI answer and a past event by hand", async () => {
+  await startEditing(page);
+
+  // The answer is wrapped in chat text and a code fence, as chatbots do; nothing is saved by pasting.
+  await page.getByRole("button", { name: "Add an event" }).click();
+  await page.getByText("Fill in from an AI's answer (optional)").click();
+  const answer = { title: eventTitle, date: dayOf(10), last_day: "", starts: "18:00", ends: "", place: "Science Hall", link: "", description: `Pasted ${tag}`, area: "" };
+  await page.getByLabel("The AI's answer").fill(`Sure! Here you go:\n\`\`\`json\n${JSON.stringify(answer, null, 2)}\n\`\`\``);
+  await page.getByRole("button", { name: "Fill in the form" }).click();
+  await page.getByText("Form filled in.").waitFor();
+  assert.equal(await page.getByLabel(/^Title/).inputValue(), eventTitle);
+  assert.equal(await page.getByLabel(/^Date/).inputValue(), dayOf(10));
+  assert.equal(await page.getByLabel(/^Starts/).inputValue(), "18:00");
+  assert.equal(await page.getByLabel(/^Place/).inputValue(), "Science Hall");
+  const before = await (await api(`/rest/v1/events?title=eq.${encodeURIComponent(eventTitle)}&select=id`)).json();
+  assert.equal(before.length, 0, "pasting alone saves nothing");
+  await page.getByRole("button", { name: "Add event", exact: true }).click();
+  await page.getByRole("button", { name: "Add an event" }).waitFor();
+  const [saved] = await (await api(`/rest/v1/events?title=eq.${encodeURIComponent(eventTitle)}&select=place,start_time,description`)).json();
+  assert.equal(saved.place, "Science Hall");
+  assert.equal(saved.description, `Pasted ${tag}`);
+
+  // Something that is not event details is explained, and the form stays as it was.
+  await page.getByRole("button", { name: "Add an event" }).click();
+  await page.getByText("Fill in from an AI's answer (optional)").click();
+  await page.getByLabel("The AI's answer").fill("I could not find an event in that.");
+  await page.getByRole("button", { name: "Fill in the form" }).click();
+  await page.getByText("No event details found.").waitFor();
+  assert.equal(await page.getByLabel(/^Title/).inputValue(), "");
+
+  await page.getByLabel(/^Title/).fill(`Old ${eventTitle}`);
+  await page.getByLabel(/^Date/).fill(dayOf(-10));
+  await page.getByRole("button", { name: "Add event", exact: true }).click();
+  await page.getByRole("button", { name: "Add an event" }).waitFor();
+  const old = await (await api(`/rest/v1/events?title=eq.${encodeURIComponent(`Old ${eventTitle}`)}&select=id`)).json();
+  assert.equal(old.length, 1);
+});
+
+test("visitors get a calendar to move around in, with the day's events listed under it", async () => {
+  await visitor.goto(`${BASE}/events`);
+  const calendarButton = visitor.getByRole("button", { name: "Calendar", exact: true });
+  await calendarButton.waitFor();
+  assert.equal(await calendarButton.getAttribute("aria-pressed"), "true", "the page opens on the calendar");
+  const month = visitor.locator("h2", { hasText: /^[A-Z][a-z]+ \d{4}$/ });
+  await month.waitFor();
+  const thisMonth = await month.innerText();
+  assert.equal(await visitor.locator('[aria-current="date"]').count(), 1, "today is marked");
+
+  await visitor.getByRole("button", { name: /^Next month/ }).click();
+  assert.notEqual(await month.innerText(), thisMonth);
+  await visitor.getByRole("button", { name: /^Previous month/ }).click();
+  assert.equal(await month.innerText(), thisMonth);
+  await visitor.getByRole("button", { name: /^Next month/ }).click();
+  await visitor.getByRole("button", { name: "Today", exact: true }).click();
+  assert.equal(await month.innerText(), thisMonth, "Today comes back to this month");
+
+  // The event is ten days away, which may be in next month's grid.
+  const eventDay = dayOf(10);
+  const dayButton = visitor.getByRole("button", { name: new RegExp(`^${longDay(eventDay)}, \\d+ events?$`) });
+  if (!(await dayButton.count())) await visitor.getByRole("button", { name: /^Next month/ }).click();
+  await dayButton.hover();
+  const preview = visitor.locator("td", { has: dayButton }).locator(".day-in");
+  await preview.waitFor({ state: "visible" });
+  assert.match(await preview.innerText(), new RegExp(eventTitle), "pointing at a day previews its events");
+  await dayButton.click();
+  assert.equal(await dayButton.getAttribute("aria-pressed"), "true");
+  const panel = visitor.getByRole("region", { name: longDay(eventDay) });
+  await panel.getByRole("heading", { level: 3, name: eventTitle }).waitFor();
+
+  // "Next event" jumps to the first upcoming day.
+  await visitor.getByRole("button", { name: "Today", exact: true }).click();
+  await visitor.getByRole("button", { name: "Next event", exact: true }).click();
+  const chosen = visitor.locator('td button[aria-pressed="true"]');
+  assert.match(await chosen.getAttribute("aria-label"), /, \d+ events?$/, "it lands on a day that has an event");
+  assert.equal(await visitor.getByRole("button", { name: /^Edit/ }).count(), 0, "visitors get no edit buttons");
+
+  await visitor.goto(BASE);
+  await visitor.getByRole("region", { name: "Upcoming events" }).getByRole("heading", { level: 3, name: eventTitle }).waitFor();
+});
+
+test("visitors can search and filter the list, and save an upcoming event to their calendar", async () => {
+  await visitor.goto(`${BASE}/events`);
+  await openList(visitor);
+  const upcoming = visitor.getByRole("region", { name: "Upcoming events" });
+  const past = visitor.getByRole("region", { name: "Past events" });
+  const status = visitor.getByRole("status");
+  await upcoming.getByRole("heading", { level: 3, name: eventTitle }).waitFor();
+  assert.equal(await past.count(), 0, "past events are hidden until asked for");
+  assert.match(await status.innerText(), /^Showing 1 of \d+ events$/);
+
+  const when = visitor.getByLabel("When");
+  await when.selectOption({ label: "Upcoming and past" });
+  await past.getByRole("heading", { level: 3, name: `Old ${eventTitle}` }).waitFor();
+  assert.equal(await upcoming.getByText(`Old ${eventTitle}`).count(), 0, "a past event is not listed as upcoming");
+  assert.match(await status.innerText(), /^Showing 2 of \d+ events$/);
+  assert.equal(await past.getByRole("button", { name: /Add to calendar/ }).count(), 0, "a past event cannot be added to a calendar");
+
+  await when.selectOption({ label: "Past events" });
+  await past.getByRole("heading", { level: 3, name: `Old ${eventTitle}` }).waitFor();
+  assert.equal(await upcoming.count(), 0);
+  await when.selectOption({ label: "Upcoming" });
+
+  // Searching by words in the place or the description, not only the title.
+  await visitor.getByLabel("Search events").fill(`Pasted ${tag}`);
+  await upcoming.getByRole("heading", { level: 3, name: eventTitle }).waitFor();
+  await visitor.getByLabel("Search events").fill(`nothing matches ${tag}`);
+  await visitor.getByText("No events match those filters.").waitFor();
+  await visitor.getByLabel("Search events").fill(tag);
+  await upcoming.getByRole("heading", { level: 3, name: eventTitle }).waitFor();
+
+  const year = visitor.getByLabel("Year");
+  await year.selectOption(dayOf(10).slice(0, 4));
+  await upcoming.getByRole("heading", { level: 3, name: eventTitle }).waitFor();
+  await year.selectOption({ label: "All" });
+
+  // These events are for the whole department, so picking one department leaves none.
+  const area = visitor.getByLabel("Related to");
+  if ((await area.locator("option").count()) > 1) {
+    await area.selectOption({ index: 1 });
+    await visitor.getByText("No events match those filters.").waitFor();
+    await area.selectOption({ label: "All" });
+    await upcoming.getByRole("heading", { level: 3, name: eventTitle }).waitFor();
+  }
+
+  const [download] = await Promise.all([
+    visitor.waitForEvent("download"),
+    upcoming.getByRole("button", { name: `Add to calendar ${eventTitle}`, exact: true }).click(),
+  ]);
+  assert.equal(download.suggestedFilename(), `e2e-showcase-${tag}.ics`);
+  const file = await readFile(await download.path(), "utf8");
+  assert.match(file, /^BEGIN:VCALENDAR\r\n/);
+  assert.ok(file.includes(`SUMMARY:${eventTitle}`));
+  assert.ok(file.includes(`DTSTART;TZID=America/New_York:${dayOf(10).replaceAll("-", "")}T180000`));
+  assert.ok(file.includes("LOCATION:Science Hall"));
+});
+
+test("an editor's form opens right under the event it is for, and an editor can delete an event", async () => {
+  await startEditing(page);
+  await openList(page);
+  const upcoming = page.getByRole("region", { name: "Upcoming events" });
+  const card = upcoming.getByRole("heading", { level: 3, name: eventTitle, exact: true });
+  await card.waitFor();
+
+  // Editing swaps the card for its form, in the same place.
+  await upcoming.getByRole("button", { name: `Edit ${eventTitle}`, exact: true }).click();
+  const form = upcoming.locator("#event-form");
+  await form.waitFor();
+  assert.equal(await form.getByLabel(/^Title/).inputValue(), eventTitle);
+  assert.equal(await card.count(), 0, "the card is replaced by its form");
+  await form.getByRole("button", { name: "Cancel" }).click();
+  await card.waitFor();
+  assert.equal(await form.count(), 0);
+
+  // Copying keeps the card and opens a form beneath it, without the dates.
+  await upcoming.getByRole("button", { name: `Copy ${eventTitle} as a new event`, exact: true }).click();
+  await form.waitFor();
+  assert.equal(await card.count(), 1, "the original stays");
+  assert.equal(await form.getByLabel(/^Title/).inputValue(), eventTitle);
+  assert.equal(await form.getByLabel(/^Date/).inputValue(), "", "a copy needs its own date");
+  assert.equal(await form.getByLabel(/^Place/).inputValue(), "Science Hall");
+  const cardBox = await card.boundingBox();
+  const formBox = await form.boundingBox();
+  assert.ok(formBox.y > cardBox.y, "the form is below the event it was copied from");
+  await form.getByRole("button", { name: "Cancel" }).click();
+
+  await upcoming.getByRole("button", { name: `Edit ${eventTitle}`, exact: true }).click();
+  await page.getByRole("button", { name: "Delete…" }).click();
+  await page.getByRole("button", { name: "Yes, delete it" }).click();
+  await form.waitFor({ state: "detached" });
+  assert.equal(await card.count(), 0, "the deleted event's card does not come back");
+  const left = await (await api(`/rest/v1/events?title=eq.${encodeURIComponent(eventTitle)}&select=id`)).json();
+  assert.equal(left.length, 0, "the event is gone from the database");
 });
 
 test("nothing threw in the browser", () => {
