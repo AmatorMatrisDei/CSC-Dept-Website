@@ -522,7 +522,7 @@ What that means:
 | `npm run build` | Type-checks (`tsc`), then builds into `dist/` |
 | `npm run preview` | Serves the built `dist/` locally |
 | `npm run lint` | ESLint, including the React hooks rules |
-| `npm run test:unit` | The 50 unit tests |
+| `npm run test:unit` | The 64 unit tests |
 | `npm run test:e2e` | The two browser tests, 29 steps (need the local Supabase) |
 
 The site needs two settings, in `.env.local` locally and in Cloudflare's build settings when
@@ -556,7 +556,7 @@ must be added to the security policy in `public/_headers`, or browsers will bloc
 **Lint and type-check** run on every pull request (`.github/workflows/frontend.yml`). The build
 fails on any type error.
 
-**50 unit tests** (`npm run test:unit`) test the pure logic, without a browser:
+**64 unit tests** (`npm run test:unit`) test the pure logic, without a browser:
 
 | File | Tests | What they check |
 | --- | --- | --- |
@@ -565,6 +565,9 @@ fails on any type error.
 | `supabase/functions/_shared/account-email.test.ts` | 13 | Verification and reset emails against a stand-in for Firebase: old links and other people's Firebase accounts never count; rate limits |
 | `supabase/functions/_shared/review-message.test.ts` | 5 | The GroupMe message wording, and that it never names the student |
 | `supabase/functions/_shared/turnstile.test.ts` | 5 | The CAPTCHA check: Cloudflare is asked with our secret; missing, wrong or oversized tokens fail; no answer from Cloudflare fails; no secret means no check yet |
+| `src/lib/eventDates.test.ts` | 7 | Today at the university, not on the visitor's clock; upcoming and past split; times and day ranges; whole-week months; multi-day events on each day; days between dates across daylight saving |
+| `src/lib/eventIcs.test.ts` | 4 | The calendar file: time zone and end time, escaped text, multi-day all-day events, lines folded at 75 bytes |
+| `src/lib/eventPaste.test.ts` | 3 | An AI's answer fills the event form; wrong formats are reported, not guessed; text with no event is refused |
 | `src/lib/placeholder.test.ts` | 4 | Names lose titles and suffixes; initials; sorting by surname; steady tints |
 | `src/lib/format.test.ts` | 3 | Paragraphs; project years newest first; dates the same in every time zone |
 | `src/lib/policies.test.ts` | 3 | The privacy and terms plain copies have every heading and paragraph, show text as text, and say what Google sends us |

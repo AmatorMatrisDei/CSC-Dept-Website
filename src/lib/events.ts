@@ -54,6 +54,9 @@ export async function getEvents(version = 0): Promise<EventView[]> {
   return data.map(({ sub_departments, ...event }) => ({ ...event, department: sub_departments }));
 }
 
+// For the home page, where events are a small extra: a failed load hides the section, not the page.
+export const getEventsForHome = (version = 0) => getEvents(version).catch((): EventView[] => []);
+
 export async function getEventDepartments(): Promise<{ id: string; name: string }[]> {
   const { data, error } = await client().from("sub_departments").select("id, name").order("sort_order");
   if (error) throw error;

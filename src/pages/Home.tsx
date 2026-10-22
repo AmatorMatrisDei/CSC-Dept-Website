@@ -6,7 +6,7 @@ import ProjectBrowser from "@/components/ProjectBrowser";
 import SiteText from "@/components/SiteText";
 import { getAllFaculty, getCarouselProjects, getProjects, getSubDepartments } from "@/lib/content";
 import { splitEvents, universityToday } from "@/lib/eventDates";
-import { getEvents } from "@/lib/events";
+import { getEventsForHome } from "@/lib/events";
 import { useEdit } from "@/lib/edit";
 import { useAsync, useTitle } from "@/lib/hooks";
 import { playHomeIntro } from "@/lib/homeIntro";
@@ -26,7 +26,7 @@ export default function Home() {
   const projects = useAsync(getProjects);
   const departments = useAsync(getSubDepartments);
   const advisors = useAsync(getAllFaculty);
-  const events = useAsync(getEvents, 0);
+  const events = useAsync(getEventsForHome, 0);
   const { editing } = useEdit();
   const today = universityToday();
   const soon = events ? splitEvents(events, today).upcoming.slice(0, HOME_EVENTS) : [];

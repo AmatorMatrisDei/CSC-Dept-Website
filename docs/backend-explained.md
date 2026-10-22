@@ -11,8 +11,8 @@ Contents:
 1. [The big picture](#1-the-big-picture)
 2. [How the website talks to Supabase (GET, POST, PATCH, DELETE)](#2-how-the-website-talks-to-supabase)
 3. [Accounts: email restriction, passwords, roles, verification](#3-accounts)
-4. [The 24 tables](#4-the-24-tables)
-5. [The 50 access rules](#5-the-50-access-rules)
+4. [The 30 tables](#4-the-30-tables)
+5. [The 57 access rules](#5-the-57-access-rules)
 6. [The review queue](#6-the-review-queue)
 7. [Photo storage](#7-photo-storage)
 8. [The hourly carousel](#8-the-hourly-carousel)
@@ -784,8 +784,8 @@ Each step and what it protects against:
 
    | Check | Runs |
    | --- | --- |
-   | Lint, unit tests and build (`frontend.yml`) | ESLint, 50 unit tests, TypeScript type-check and build |
-   | Database, API and browser tests (`backend.yml`) | Starts a **throwaway local Supabase** inside GitHub, then: schema lint and 314 database tests, 19 API tests, two browser tests in Chrome (29 steps), the carousel tests, and a check that the generated types are up to date |
+   | Lint, unit tests and build (`frontend.yml`) | ESLint, 64 unit tests, TypeScript type-check and build |
+   | Database, API and browser tests (`backend.yml`) | Starts a **throwaway local Supabase** inside GitHub, then: schema lint and 333 database tests, 19 API tests, two browser tests in Chrome (33 steps), the carousel tests, and a check that the generated types are up to date |
 
    The backend tests run against a temporary database built from the migrations, so CI needs
    **no real keys** and never touches the hosted projects.
@@ -825,7 +825,7 @@ connections to our own site and our two Supabase projects.
 
 ## 11. The tests
 
-### 11.1 The 314 database tests (the slide's "202" predates page-editing drafts and verification)
+### 11.1 The 333 database tests (the slide's "202" predates page-editing drafts, verification and events)
 
 They are written in SQL with **pgTAP**, a testing library that runs inside Postgres. Each test
 signs in as a test user (visitor, student, reviewer, admin), tries something, and checks the
@@ -885,7 +885,7 @@ Each run signs up throwaway accounts and deletes them, and their files, afterwar
 
 ### 11.3 The other suites
 
-- **Browser tests, 29 steps:** `npm run test:e2e`. The student test (17 steps) has Chrome play a
+- **Browser tests, 33 steps:** `npm run test:e2e`. The student test (17 steps) has Chrome play a
   student and a reviewer through the real site:
   - sign up, and other email addresses refused
   - the reminder to verify, and the verify page (the test verifies with the secret key)
@@ -899,9 +899,9 @@ Each run signs up throwaway accounts and deletes them, and their files, afterwar
   - a removal request hides the student at once
   - a reviewer approves their own submission
   - the forms fit a phone screen
-  The editing test (12 steps) checks the Edit bar: drafts only the editor sees, publishing, a
+  The editing test (16 steps) checks the Edit bar: drafts only the editor sees, publishing, a
   clash with someone else's change, and the bar folding away.
-- **Unit tests, 50:** `npm run test:unit`. Planner rules, formatting, the sign-in redirect guard, the
+- **Unit tests, 64:** `npm run test:unit`. Planner rules, formatting, the sign-in redirect guard, the
   Turnstile check,
   the GroupMe message, the policy pages' plain copies, and the verification and reset emails
   against a stand-in for Firebase.
