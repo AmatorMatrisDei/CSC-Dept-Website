@@ -189,13 +189,20 @@ begin
   if new.provider not in ('google', 'github') or private.is_verified(new.user_id) then
     return new;
   end if;
-  select coalesce(u.encrypted_password, '') <> '' into had_password from auth.users u where u.id = new.user_id;
+  -- Only a sign-in with the account's own address counts. Supabase only joins an identity to the
+  -- account with the same address while manual linking is off; this holds even if it is turned on.
+  select coalesce(u.encrypted_password, '') <> '' into had_password
+  from auth.users u
+  where u.id = new.user_id and lower(u.email) = lower(new.identity_data ->> 'email');
+  if had_password is null then
+    return new;
+  end if;
   if had_password then
     update auth.users set encrypted_password = null where id = new.user_id;
     delete from auth.sessions where user_id = new.user_id;
   end if;
   insert into private.account_verifications (user_id, method, password_removed)
-  values (new.user_id, new.provider, coalesce(had_password, false))
+  values (new.user_id, new.provider, had_password)
   on conflict (user_id) do nothing;
   return new;
 end;
@@ -204,13 +211,53 @@ $$;
 create trigger verify_from_identity after insert on auth.identities
   for each row execute function private.verify_from_identity();
 
--- Accounts that already signed in with Google or GitHub.
+-- Accounts that already signed in with Google or GitHub using their own address.
 insert into private.account_verifications (user_id, method, verified_at)
 select distinct on (i.user_id) i.user_id, i.provider, coalesce(i.created_at, now())
 from auth.identities i
+join auth.users u on u.id = i.user_id and lower(u.email) = lower(i.identity_data ->> 'email')
 where i.provider in ('google', 'github')
 order by i.user_id, i.created_at
 on conflict (user_id) do nothing;
+
+-- Reviewers and admins appointed before verification existed keep their powers: an admin chose
+-- each of them, and otherwise every one would be locked out until they verified. Everyone else
+-- verifies once.
+insert into private.account_verifications (user_id, method)
+select p.id, 'admin' from public.profiles p where p.role in ('reviewer', 'admin')
+on conflict (user_id) do nothing;
+
+-- Changing an account's address ------------------------------------------------------------------
+-- The sign-up hook checks the domain only when an account is created, and a verification proves
+-- only the address it was made for. So a new address must be an allowed one, and the account
+-- verifies again. (Supabase's own emails can't confirm an address change for students yet; this
+-- holds once the site sends email itself.)
+create function private.is_allowed_email(address text)
+returns boolean
+language sql stable security definer set search_path = ''
+as $$
+  select exists (
+    select 1 from private.allowed_email_domains d
+    where lower(split_part(address, '@', 2)) = d.domain or lower(split_part(address, '@', 2)) like '%.' || d.domain
+  )
+$$;
+
+create function private.check_email_change()
+returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  if new.email is not null and not private.is_allowed_email(new.email) then
+    raise exception 'Please use your Franciscan University email address.' using errcode = '23514';
+  end if;
+  delete from private.account_verifications where user_id = new.id;
+  return new;
+end;
+$$;
+
+create trigger check_email_change before update of email on auth.users
+  for each row when (lower(old.email) is distinct from lower(new.email))
+  execute function private.check_email_change();
 
 -- For the signed-in person ------------------------------------------------------------------------
 
@@ -281,34 +328,36 @@ as $$
 $$;
 
 -- Records a request, or returns false without recording it when the account has asked too often:
--- at most `per_day` of a kind in 24 hours, and `gap` apart.
+-- at most `most` of a kind `within` a period, and `gap` apart. Finishing a reset counts per hour,
+-- so someone guessing at a classmate's reset can block it for an hour at most.
 create function public.allow_verification_request(account uuid, request_kind text)
 returns boolean
 language plpgsql security definer set search_path = ''
 as $$
 declare
-  per_day int;
+  most int;
+  within interval;
   gap interval;
   recent int;
   latest timestamptz;
 begin
-  select l.per_day, l.gap into per_day, gap
+  select l.most, l.within, l.gap into most, within, gap
   from (values
-    ('verify_send', 5, interval '1 minute'),
-    ('verify_check', 100, interval '2 seconds'),
-    ('reset_send', 5, interval '1 minute'),
-    ('reset_finish', 10, interval '2 seconds')
-  ) as l (kind, per_day, gap)
+    ('verify_send', 5, interval '1 day', interval '1 minute'),
+    ('verify_check', 100, interval '1 day', interval '2 seconds'),
+    ('reset_send', 5, interval '1 day', interval '1 minute'),
+    ('reset_finish', 10, interval '1 hour', interval '2 seconds')
+  ) as l (kind, most, within, gap)
   where l.kind = request_kind;
-  if per_day is null then
+  if most is null then
     raise exception 'Unknown request kind %', request_kind using errcode = '22023';
   end if;
 
   perform pg_advisory_xact_lock(hashtext('verification_requests:' || account::text));
   select count(*), max(r.created_at) into recent, latest
   from private.verification_requests r
-  where r.user_id = account and r.kind = request_kind and r.created_at > now() - interval '1 day';
-  if recent >= per_day or latest > now() - gap then
+  where r.user_id = account and r.kind = request_kind and r.created_at > now() - within;
+  if recent >= most or latest > now() - gap then
     return false;
   end if;
 

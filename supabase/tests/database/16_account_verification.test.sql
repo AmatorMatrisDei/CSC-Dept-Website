@@ -3,7 +3,7 @@
 -- functions use.
 begin;
 \ir _helpers.psql
-select plan(31);
+select plan(36);
 
 -- e0000000-...-01  test.new       a new sign-up, not verified, with a password and a session
 -- e0000000-...-02  test.existing  listed in the directory from before verification existed
@@ -155,6 +155,25 @@ select ok(
   'an already verified account keeps its password when it adds Google'
 );
 
+-- An identity for another address never counts, even if one were joined by hand.
+select pg_temp.create_user('e0000000-0000-4000-8000-000000000004', 'test.mismatch@franciscan.edu', 'student', false, false);
+insert into auth.identities (provider_id, user_id, identity_data, provider)
+values ('github-2', 'e0000000-0000-4000-8000-000000000004', '{"sub": "github-2", "email": "someone.else@franciscan.edu"}', 'github');
+select ok(not private.is_verified('e0000000-0000-4000-8000-000000000004'), 'a sign-in with a different address does not verify the account');
+
+-- Changing an account's address --------------------------------------------------------------------------
+
+select throws_ok(
+  $$ update auth.users set email = 'test.student@gmail.com' where id = 'a0000000-0000-4000-8000-000000000003' $$,
+  '23514', 'Please use your Franciscan University email address.',
+  'an account cannot move to an address outside the university'
+);
+update auth.users set email = 'Test.Student@franciscan.edu' where id = 'a0000000-0000-4000-8000-000000000003';
+select ok(private.is_verified('a0000000-0000-4000-8000-000000000003'), 'changing only the capitals keeps the verification');
+update auth.users set email = 'test.student2@franciscan.edu' where id = 'a0000000-0000-4000-8000-000000000003';
+select ok(not private.is_verified('a0000000-0000-4000-8000-000000000003'), 'a new university address has to be verified again');
+select public.mark_account_verified('a0000000-0000-4000-8000-000000000003', 'admin');
+
 -- After verifying --------------------------------------------------------------------------------------
 
 select pg_temp.login_as('e0000000-0000-4000-8000-000000000001');
@@ -211,6 +230,12 @@ select 'e0000000-0000-4000-8000-000000000003', 'reset_send', now() - interval '1
 select ok(
   not public.allow_verification_request('e0000000-0000-4000-8000-000000000003', 'reset_send'),
   'nor a sixth reset email in a day'
+);
+insert into private.verification_requests (user_id, kind, created_at)
+select 'e0000000-0000-4000-8000-000000000003', 'reset_finish', now() - interval '2 hours' from generate_series(1, 10);
+select ok(
+  public.allow_verification_request('e0000000-0000-4000-8000-000000000003', 'reset_finish'),
+  'finishing a reset is limited per hour, so failed guesses block it for an hour at most'
 );
 select is(
   public.latest_verification_request('e0000000-0000-4000-8000-000000000002', 'verify_send'),

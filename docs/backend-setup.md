@@ -160,7 +160,9 @@ select public.mark_account_verified('<account id>', 'admin');
 ```
 
 Until then the account can browse and plan, but the database refuses its submissions,
-permissions, listing confirmations and reviews. Forgotten passwords go through Firebase too
+permissions, listing confirmations and reviews. Reviewers and admins who existed before the
+migration were marked verified by it. Changing an account's address needs a Franciscan address
+and a new verification. Forgotten passwords go through Firebase too
 (`password-reset`), because Supabase's own emails can't reach students. The full story, including
 the safeguard for Google and GitHub sign-ins, is in
 [backend-explained.md](backend-explained.md), section 3.4. Setup is 3.3, step 10.
@@ -566,7 +568,8 @@ await supabase.functions.invoke("carousel", { body: { action: "reshuffle" } });
 | Guide clarifications: thumbnail field vs first gallery image; whether Internships and Alumni Stories are project categories; pinned cap (target size or 7); who confirms a removal (assumed: the reviewer who approves it) | Requirements team |
 | Replace the placeholder carousel pick | Algorithms team |
 | Sign-in settings on production: minimum password 8 with letters and digits; Cloudflare Turnstile on sign-up; two-factor sign-in required for reviewers and admins once the admin panel supports enrolling | Back End + Front End |
-| Account email changes skip the university-domain rule (it runs only at sign-up). Block them, or decide graduates may switch to a personal address | Team |
+| Account email changes are now held to the university-domain rule and need verifying again. Alumni with personal addresses (#76) will need their own route, with an admin confirming they studied here | Team |
+| No CAPTCHA: someone who knows a classmate's address can use up that account's daily reset emails. Add Cloudflare Turnstile to sign-up, sign-in and the reset form | Back End + Front End |
 
 ## 6. Free plan limits
 

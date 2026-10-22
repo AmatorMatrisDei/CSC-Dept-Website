@@ -176,7 +176,7 @@ every pull request.
    the account by the same id.
 
 Password rules: the site's forms require at least 8 characters, and local Supabase enforces 8
-(`minimum_password_length = 8`). The hosted projects currently enforce only 6 on the server (see
+(`minimum_password_length = 8`), as does dev. Production still enforces only 6 on the server (see
 [Known gaps](#12-known-gaps)).
 
 ### 3.3 New accounts and roles
@@ -243,7 +243,17 @@ reminder with a link to `/account/verify`.
 account with the same address. Someone could create an account with a classmate's address and
 a password, then wait for the classmate to use Google. So when Google or GitHub verifies an
 account that had a password, the trigger removes that password and ends the account's sessions.
-The owner can choose a new one; the account page explains this.
+The owner can choose a new one; the account page explains this. Only a sign-in with the account's
+own address counts, so a Google or GitHub identity joined to an account by any other route
+verifies nothing.
+
+**Existing reviewers and admins** were marked verified when the migration ran: an admin chose each
+of them, and otherwise every one would have lost their powers until they verified. Everyone else
+verifies once.
+
+**Changing an account's address** (trigger `check_email_change` on `auth.users`): the new address
+must be a Franciscan one, like at sign-up, and the account has to verify again, since its
+verification only proved the old address.
 
 **The email link, in short** (full comments in `supabase/functions/_shared/account-email.ts`):
 
@@ -264,7 +274,9 @@ account we made, they must have used the link. It becomes their password here, t
 counts as verified, and their other sessions end.
 
 **Limits** (`allow_verification_request`): 5 verification and 5 reset emails per account a day, a
-minute apart. Requests are kept 7 days.
+minute apart, and 10 tries an hour at finishing a reset. Requests are kept 7 days. The limits are
+per account, so someone who knows a classmate's address can use up that day's reset emails; a
+CAPTCHA on the reset form would stop that (see Known gaps).
 
 ---
 
@@ -762,7 +774,7 @@ Each step and what it protects against:
    | Check | Runs |
    | --- | --- |
    | Lint, unit tests and build (`frontend.yml`) | ESLint, 45 unit tests, TypeScript type-check and build |
-   | Database, API and browser tests (`backend.yml`) | Starts a **throwaway local Supabase** inside GitHub, then: schema lint and 309 database tests, 19 API tests, two browser tests in Chrome (29 steps), the carousel tests, and a check that the generated types are up to date |
+   | Database, API and browser tests (`backend.yml`) | Starts a **throwaway local Supabase** inside GitHub, then: schema lint and 314 database tests, 19 API tests, two browser tests in Chrome (29 steps), the carousel tests, and a check that the generated types are up to date |
 
    The backend tests run against a temporary database built from the migrations, so CI needs
    **no real keys** and never touches the hosted projects.
@@ -802,7 +814,7 @@ connections to our own site and our two Supabase projects.
 
 ## 11. The tests
 
-### 11.1 The 309 database tests (the slide's "202" predates page-editing drafts and verification)
+### 11.1 The 314 database tests (the slide's "202" predates page-editing drafts and verification)
 
 They are written in SQL with **pgTAP**, a testing library that runs inside Postgres. Each test
 signs in as a test user (visitor, student, reviewer, admin), tries something, and checks the
@@ -826,7 +838,7 @@ Run them with `npm run db:test`.
 | `13_review_notifications` | 12 | Submissions and resubmissions trigger a notice with no student name; decisions don't; nothing sends without the Vault secret |
 | `14_cms_drafts` | 20 | Page text: allowed keys, cleaned values, drafts, publishing with the conflict check, history |
 | `15_record_drafts` | 55 | Project, student and faculty edits (and project photos) wait as drafts and go live on publish |
-| `16_account_verification` | 31 | What an unverified account can and can't do; unverified reviewers lose their powers; promotion needs verification; the Google and GitHub safeguard; rate limits; finishing a reset |
+| `16_account_verification` | 36 | What an unverified account can and can't do; unverified reviewers lose their powers; promotion needs verification; the Google and GitHub safeguard, only for the account's own address; changing address; rate limits; finishing a reset |
 
 Example, from `05_auth_and_storage`:
 
@@ -892,13 +904,18 @@ Each run signs up throwaway accounts and deletes them, and their files, afterwar
 
 ## 12. Known gaps
 
-- **Password length.** Both hosted projects enforce only **6** characters on the server, while the
-  site's forms ask for 8. Someone calling the API directly could set a 6-character password. Fix
-  in the dashboard: Authentication > Policies > minimum length 8. `secure_password_change` (asking
-  for the old password before a change) is also off.
+- **Password length.** Production enforces only **6** characters on the server, while the site's
+  forms ask for 8 (dev was raised to 8 on 2026-10-21). Someone calling production's API directly
+  could set a 6-character password. Fix at release: Authentication > Policies > minimum length 8.
+  `secure_password_change` (asking for the old password before a change) is also off.
 - **Production isn't released yet.** It has no planner, sign-in forms, notifications or
   verification. At release it needs "Confirm email" turned off (verification replaces it) and the
   steps in [backend-setup.md](backend-setup.md) 3.3, step 10.
+- **No CAPTCHA yet.** The password-reset form needs no sign-in, so someone who knows a classmate's
+  address can use up that account's 5 reset emails for the day (or its 10 tries an hour at
+  finishing one). It can't take the account over. Its answers also show whether an address has an
+  account, as the sign-up form already does. Cloudflare Turnstile on sign-up, sign-in and the
+  reset form would close this.
 - **Verification emails land in Junk** at franciscan.edu, and Firebase's email wording can't be
   edited on our project yet. The verify and reset pages explain "It's not junk" step by step.
 - **The carousel pick is a placeholder** until the Algorithms team's version lands (section 8.3).
