@@ -1,48 +1,109 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { Notice, TextField, buttonClass } from "@/components/Form";
-import { sendPasswordReset, setPassword, useSession } from "@/lib/auth";
+import { Notice, TextField, buttonClass, secondaryButtonClass } from "@/components/Form";
+import { EMAIL_PROBLEMS, finishReset, sendResetEmail, setPassword, signIn, useSession } from "@/lib/auth";
 import { useAction, useTitle } from "@/lib/hooks";
 
-// Signed out: ask for a reset link. Signed in, including from the link in that email: choose a
-// new password.
+// Signed out: reset a forgotten password through a link we email (see
+// supabase/functions/_shared/account-email.ts). The person chooses the new password on the page
+// that link opens, then types it here once more. Signed in: choose a new password.
 export default function Password() {
   const session = useSession();
   useTitle("Password");
   if (session === undefined) return <p className="text-muted">Loading…</p>;
-  return session ? <ChoosePassword /> : <RequestReset />;
+  return session ? <ChoosePassword /> : <ResetPassword />;
 }
 
-function RequestReset() {
+function ResetPassword() {
   const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
+  const [password, setValue] = useState("");
+  const [step, setStep] = useState<"ask" | "finish">("ask");
+  const [problem, setProblem] = useState<string | null>(null);
   const { busy, error, run } = useAction();
+  const navigate = useNavigate();
 
   return (
-    <div className="flex max-w-xl flex-col gap-6">
+    <div className="flex max-w-2xl flex-col gap-6">
       <h1 className="text-3xl font-semibold">Reset your password</h1>
-      {sent ? (
-        <Notice tone="success">
-          If there&apos;s an account for <strong>{email}</strong>, we&apos;ve sent it a link to choose a new
-          password.
-        </Notice>
-      ) : (
+      {step === "ask" ? (
         <form
           className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 sm:p-6"
           onSubmit={(e) => {
             e.preventDefault();
+            setProblem(null);
             void run(async () => {
-              await sendPasswordReset(email);
-              setSent(true);
+              const status = await sendResetEmail(email);
+              if (status === "sent") setStep("finish");
+              else setProblem(EMAIL_PROBLEMS[status] ?? "Something went wrong. Try again in a few minutes.");
             });
           }}
         >
           <TextField label="University email" type="email" required value={email} onChange={setEmail} autoComplete="email" />
+          {problem && <Notice tone="error">{problem}</Notice>}
           {error && <Notice tone="error">{error}</Notice>}
-          <button type="submit" className={`${buttonClass} w-fit`} disabled={busy}>
-            {busy ? "Sending…" : "Send reset link"}
-          </button>
+          <div className="flex flex-wrap items-center gap-4">
+            <button type="submit" className={buttonClass} disabled={busy}>
+              {busy ? "Sending…" : "Email me a reset link"}
+            </button>
+            <button type="button" className="inline-flex min-h-11 items-center underline" onClick={() => setStep("finish")}>
+              I already chose a new password from your email
+            </button>
+          </div>
         </form>
+      ) : (
+        <>
+          <Notice tone="info">
+            <strong>Look in your Junk Email folder.</strong> If there&apos;s an account for {email || "that address"}, we&apos;ve
+            sent it an email, and university mail almost always files it there.
+          </Notice>
+          <ol className="flex list-decimal flex-col gap-2 pl-6">
+            <li>
+              In Outlook, open <strong>Junk Email</strong>. The email&apos;s subject starts &ldquo;Reset your password&rdquo;,
+              and it comes from an address ending in <strong>firebaseapp.com</strong> (Google&apos;s service that sends it
+              for us).
+            </li>
+            <li>
+              Open it and press <strong>It&apos;s not junk</strong> at the top. Outlook turns off links in junk mail until you
+              do.
+            </li>
+            <li>Click the link within an hour, and choose a new password of at least 8 characters on the page it opens.</li>
+            <li>Come back here and type that same password below.</li>
+          </ol>
+          <form
+            className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 sm:p-6"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setProblem(null);
+              void run(async () => {
+                const status = await finishReset(email, password);
+                if (status === "done") {
+                  await signIn(email, password);
+                  navigate("/account", { state: { message: "Your password has been changed." } });
+                } else if (status === "wrong_password") {
+                  setProblem("That isn't the password you chose on the reset page. Check it, or ask for a new email.");
+                } else if (status === "weak_password") {
+                  setProblem("This site needs a longer password. Ask for a new email and choose one of at least 8 characters.");
+                } else {
+                  setProblem(EMAIL_PROBLEMS[status] ?? "Something went wrong. Try again in a few minutes.");
+                }
+              });
+            }}
+          >
+            <TextField label="University email" type="email" required value={email} onChange={setEmail} autoComplete="email" />
+            <TextField label="The new password you chose" type="password" required value={password} onChange={setValue}
+              autoComplete="new-password" />
+            {problem && <Notice tone="error">{problem}</Notice>}
+            {error && <Notice tone="error">{error}</Notice>}
+            <div className="flex flex-wrap gap-2">
+              <button type="submit" className={buttonClass} disabled={busy}>
+                {busy ? "Saving…" : "Finish"}
+              </button>
+              <button type="button" className={secondaryButtonClass} disabled={busy} onClick={() => setStep("ask")}>
+                Ask for a new email
+              </button>
+            </div>
+          </form>
+        </>
       )}
     </div>
   );

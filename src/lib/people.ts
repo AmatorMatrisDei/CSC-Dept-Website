@@ -2,9 +2,10 @@ import { supabase } from "./supabase";
 import type { Role } from "./account";
 
 // Admin-only: everyone with an account, and changing their role. The database is what enforces
-// this (only admins can read unlisted profiles or change a role, and each change is logged).
+// this (only admins can read unlisted profiles or change a role, each change is logged, and only
+// verified accounts can become reviewers or admins).
 
-export type Person = { id: string; name: string; role: Role; email: string };
+export type Person = { id: string; name: string; role: Role; email: string; verified: boolean };
 
 function client() {
   if (!supabase) throw new Error("Supabase is not configured.");

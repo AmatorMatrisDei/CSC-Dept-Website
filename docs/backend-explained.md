@@ -1,15 +1,16 @@
 # How the backend works
 
 This explains, with the real code, how Supabase runs the website's backend: accounts and
-passwords, the tables and their access rules, the review queue, photo storage, the carousel, the
-GroupMe notices, the GitHub workflow, and the tests. Everything here was checked against the
-`staging` branch and its database on 2026-10-19.
+passwords, email verification, the tables and their access rules, the review queue, photo
+storage, the carousel, the GroupMe notices, the GitHub workflow, and the tests. Everything here
+was checked against the `staging` branch and its database on 2026-10-19; account verification
+(3.4) was added on 2026-10-20.
 
 Contents:
 
 1. [The big picture](#1-the-big-picture)
 2. [How the website talks to Supabase (GET, POST, PATCH, DELETE)](#2-how-the-website-talks-to-supabase)
-3. [Accounts: email restriction, passwords, roles](#3-accounts)
+3. [Accounts: email restriction, passwords, roles, verification](#3-accounts)
 4. [The 24 tables](#4-the-24-tables)
 5. [The 50 access rules](#5-the-50-access-rules)
 6. [The review queue](#6-the-review-queue)
@@ -29,16 +30,17 @@ Contents:
      │  HTTPS, with the publishable key and, once signed in, the user's access token
      ▼
   Supabase project ─────────────────────────────────────────────────────────────
-     Auth      sign-up, sign-in, passwords, access tokens
+     Auth      sign-up, sign-in (password, Google, GitHub), access tokens
      Data API  turns HTTP requests into SQL (PostgREST)
      Postgres  24 tables, 50 access rules, triggers, functions
      Storage   the "media" photo bucket
-     Edge Functions   carousel, notify-reviewers
+     Edge Functions   carousel, notify-reviewers, verify-email, password-reset
      pg_cron + pg_net the hourly timer, and calls from the database to the functions
   ──────────────────────────────────────────────────────────────────────────────
-     │                                  │
-     ▼                                  ▼
-  GroupMe (bot posts)               GitHub (migrations and functions deploy from here)
+     │                        │                               │
+     ▼                        ▼                               ▼
+  GroupMe (bot posts)    Google Firebase (sends the     GitHub (migrations and
+                         verification and reset emails)  functions deploy from here)
 ```
 
 There is no server of our own. The browser talks to Supabase directly. That is safe only because
@@ -75,6 +77,9 @@ signed-in user's id from that token. Every access rule below is written in terms
 | Read published projects | `client.from("projects").select("title, slug")` | `GET /rest/v1/projects?select=title,slug` |
 | Sign up | `client.auth.signUp({ email, password })` (`src/lib/auth.ts`) | `POST /auth/v1/signup` |
 | Sign in | `client.auth.signInWithPassword(...)` | `POST /auth/v1/token?grant_type=password` |
+| Continue with Google or GitHub | `client.auth.signInWithOAuth({ provider })` | the browser goes to `GET /auth/v1/authorize?provider=google`, then Google, then back |
+| Verify the email address | `sendVerificationEmail()`, `checkVerificationEmail()` (`src/lib/auth.ts`) | `POST /functions/v1/verify-email` |
+| Reset a forgotten password | `sendResetEmail()`, `finishReset()` | `POST /functions/v1/password-reset` |
 | Stay signed in | automatic | `POST /auth/v1/token?grant_type=refresh_token` |
 | Agree to be listed | `client.from("consents").insert({ scope })` (`src/lib/account.ts`) | `POST /rest/v1/consents` |
 | Submit a profile or project | `client.from("pending_changes").insert(...)` | `POST /rest/v1/pending_changes` |
@@ -93,6 +98,8 @@ Calls the browser never makes:
 - The hourly carousel: `POST /functions/v1/carousel`, sent by the database itself.
 - New-submission notices: `POST /functions/v1/notify-reviewers`, sent by the database itself.
 - The GroupMe message: `POST https://api.groupme.com/v3/bots/post`, sent by our Edge Function.
+- Firebase's email API: `POST https://identitytoolkit.googleapis.com/v1/accounts:…`, sent by the
+  verify-email and password-reset functions (section 3.4).
 
 The site's security headers (`public/_headers`) also stop the browser from talking to any other
 server: `connect-src` lists only our two Supabase projects.
@@ -169,7 +176,7 @@ every pull request.
    the account by the same id.
 
 Password rules: the site's forms require at least 8 characters, and local Supabase enforces 8
-(`minimum_password_length = 8`). The hosted projects currently enforce only 6 on the server (see
+(`minimum_password_length = 8`), as does dev. Production still enforces only 6 on the server (see
 [Known gaps](#12-known-gaps)).
 
 ### 3.3 New accounts and roles
@@ -184,22 +191,92 @@ create trigger on_auth_user_created
 ```
 
 Roles are an enum on `profiles.role`: `student`, `reviewer` (TAs and faculty), `admin`. Two
-helper functions read it, and every rule uses them:
+helper functions read it, and every rule uses them. Both also require a verified account
+(section 3.4):
 
 ```sql
 create function private.is_reviewer() returns boolean
 language sql stable security definer set search_path = ''
-as $$ select coalesce(private.current_app_role() in ('reviewer', 'admin'), false) $$;
+as $$
+  select coalesce(private.current_app_role() in ('reviewer', 'admin'), false)
+    and private.is_verified((select auth.uid()))
+$$;
 
 create function private.is_admin() returns boolean
 language sql stable security definer set search_path = ''
-as $$ select coalesce(private.current_app_role() = 'admin', false) $$;
+as $$
+  select coalesce(private.current_app_role() = 'admin', false)
+    and private.is_verified((select auth.uid()))
+$$;
 -- current_app_role(): select role from public.profiles where id = auth.uid()
 ```
 
-Only admins can change a role (the profiles `UPDATE` rule is admin-only). Every role change is
-written to the audit log. A trigger, `keep_an_admin`, refuses to demote the last admin, so the
-site can't be locked out.
+Only admins can change a role (the profiles `UPDATE` rule is admin-only), and only to reviewer or
+admin for a verified account (trigger `require_verified_staff`). Every role change is written to
+the audit log. A trigger, `keep_an_admin`, refuses to demote the last admin, so the site can't be
+locked out.
+
+### 3.4 Verifying an account's email
+
+**Why.** Sign-ups are confirmed at once, because Supabase's own emails only reach our team. So
+until an account is verified, nothing proves the person owns the address they typed. Migration
+`20261021100000_account_verification.sql` adds that proof.
+
+**Three ways to verify:**
+
+| Way | How it works |
+| --- | --- |
+| Continue with Google or GitHub | Both only hand over an address their owner has verified. A trigger on `auth.identities` (`verify_from_identity`) marks the account verified |
+| A link by email | The `verify-email` function has **Google Firebase** email a link (free: 1,000 a day). It usually lands in Junk, so the page walks people through "It's not junk" |
+| By hand | The team runs `select public.mark_account_verified('<account id>', 'admin');` with the secret key |
+
+A verified account has a row in `private.account_verifications`, and `private.is_verified(id)`
+checks for it.
+
+**Until then, an account can** sign in, browse, use the planner, leave the directory, withdraw a
+submission or a permission, and decline a project listing. **It can't** submit anything
+(trigger `require_verified_submitter`), give a permission (rule and trigger on `consents`),
+confirm a project listing, or act as a reviewer or admin. Every page under My account shows a
+reminder with a link to `/account/verify`.
+
+**The Google and GitHub safeguard.** Supabase joins a Google or GitHub sign-in to an existing
+account with the same address. Someone could create an account with a classmate's address and
+a password, then wait for the classmate to use Google. So when Google or GitHub verifies an
+account that had a password, the trigger removes that password and ends the account's sessions.
+The owner can choose a new one; the account page explains this. Only a sign-in with the account's
+own address counts, so a Google or GitHub identity joined to an account by any other route
+verifies nothing.
+
+**Existing reviewers and admins** were marked verified when the migration ran: an admin chose each
+of them, and otherwise every one would have lost their powers until they verified. Everyone else
+verifies once.
+
+**Changing an account's address** (trigger `check_email_change` on `auth.users`): the new address
+must be a Franciscan one, like at sign-up, and the account has to verify again, since its
+verification only proved the old address.
+
+**The email link, in short** (full comments in `supabase/functions/_shared/account-email.ts`):
+
+1. `send`: the function makes a new Firebase account for the address, with a password only our
+   functions can work out (`HMAC(FIREBASE_LINK_SECRET, address)`), and asks Firebase to email it
+   a verification link. The id of that Firebase account is remembered (`private.firebase_accounts`).
+2. The person clicks the link on Firebase's page.
+3. `check`: the function signs in to that Firebase account, asks whether it's verified, and if
+   so marks ours verified and deletes the Firebase account.
+
+Each email starts from a new Firebase account, so an old click can't count. An account someone
+made with Firebase's public key never counts either.
+
+**Forgotten passwords work the same way.** Supabase's reset email can't reach students either.
+`password-reset` makes a new Firebase account and has Firebase email a reset link. The person
+chooses a new password on Firebase's page, then types it on ours. If it signs in to the Firebase
+account we made, they must have used the link. It becomes their password here, the account
+counts as verified, and their other sessions end.
+
+**Limits** (`allow_verification_request`): 5 verification and 5 reset emails per account a day, a
+minute apart, and 10 tries an hour at finishing a reset. Requests are kept 7 days. The limits are
+per account, so someone who knows a classmate's address can use up that day's reset emails; a
+CAPTCHA on the reset form would stop that (see Known gaps).
 
 ---
 
@@ -239,7 +316,8 @@ fails the build if a new table forgets.
 There are also two views the site reads: `listed_students` (only students who are listed *and*
 consented) and `carousel_today` (today's cards). Both run with the caller's permissions, so the
 rules still apply. One private table, `private.allowed_email_domains`, holds the email domains
-from section 3.1; the website's API can't reach the `private` schema at all.
+from section 3.1, and three more hold verification (section 3.4); the website's API can't reach
+the `private` schema at all.
 
 ---
 
@@ -283,7 +361,8 @@ create policy "Admins manage projects" on public.projects
 
 | Function | True when |
 | --- | --- |
-| `is_admin()` / `is_reviewer()` | The caller's role is admin, or reviewer or admin (section 3.3) |
+| `is_admin()` / `is_reviewer()` | The caller's role is admin, or reviewer or admin, and the account is verified (section 3.3) |
+| `is_verified(account)` | That account's email address is verified (section 3.4) |
 | `has_consent(student, scope)` | That student has an unrevoked consent for that scope |
 | `is_listed_student(student)` | The profile is `visible` **and** has `directory` consent |
 | `is_project_published(project)` | That project is published |
@@ -694,8 +773,8 @@ Each step and what it protects against:
 
    | Check | Runs |
    | --- | --- |
-   | Lint, unit tests and build (`frontend.yml`) | ESLint, 28 unit tests, TypeScript type-check and build |
-   | Database, API and browser tests (`backend.yml`) | Starts a **throwaway local Supabase** inside GitHub, then: schema lint and 202 database tests, 7 API tests, a 16-step browser test in Chrome, the carousel tests, and a check that the generated types are up to date |
+   | Lint, unit tests and build (`frontend.yml`) | ESLint, 45 unit tests, TypeScript type-check and build |
+   | Database, API and browser tests (`backend.yml`) | Starts a **throwaway local Supabase** inside GitHub, then: schema lint and 314 database tests, 19 API tests, two browser tests in Chrome (29 steps), the carousel tests, and a check that the generated types are up to date |
 
    The backend tests run against a temporary database built from the migrations, so CI needs
    **no real keys** and never touches the hosted projects.
@@ -735,7 +814,7 @@ connections to our own site and our two Supabase projects.
 
 ## 11. The tests
 
-### 11.1 "202" is 202 database tests
+### 11.1 The 314 database tests (the slide's "202" predates page-editing drafts and verification)
 
 They are written in SQL with **pgTAP**, a testing library that runs inside Postgres. Each test
 signs in as a test user (visitor, student, reviewer, admin), tries something, and checks the
@@ -744,7 +823,7 @@ Run them with `npm run db:test`.
 
 | File | Tests | What it checks |
 | --- | --- | --- |
-| `01_schema` | 12 | Every table has RLS; visitors can't write anything; views respect the caller; only allowed helpers are callable |
+| `01_schema` | 13 | Every table has RLS; visitors can't write anything; views respect the caller; only allowed helpers are callable; the verification helpers need the secret key |
 | `02_profiles_and_consent` | 14 | Listed vs unlisted students, consent-gated fields, append-only consent, roles |
 | `03_projects` | 16 | What visitors, team members and other students see; admin-only writes; confirming a listing; priority limits |
 | `04_review_queue` | 28 | Submitting, validation, approving, rejecting, sending back, photos, self-reviews, removal requests, the audit log |
@@ -757,6 +836,9 @@ Run them with `npm run db:test`.
 | `11_planner` | 37 | Catalog years; prerequisites stay within a year and can't loop; plans are private; data spot checks |
 | `12_admin_audit` | 7 | Admin edits are logged; the last admin can't step down |
 | `13_review_notifications` | 12 | Submissions and resubmissions trigger a notice with no student name; decisions don't; nothing sends without the Vault secret |
+| `14_cms_drafts` | 20 | Page text: allowed keys, cleaned values, drafts, publishing with the conflict check, history |
+| `15_record_drafts` | 55 | Project, student and faculty edits (and project photos) wait as drafts and go live on publish |
+| `16_account_verification` | 36 | What an unverified account can and can't do; unverified reviewers lose their powers; promotion needs verification; the Google and GitHub safeguard, only for the account's own address; changing address; rate limits; finishing a reset |
 
 Example, from `05_auth_and_storage`:
 
@@ -768,7 +850,7 @@ select is(
 );
 ```
 
-### 11.2 The 7 API tests
+### 11.2 The 19 API tests
 
 `supabase/tests/api/api.test.mjs` (`npm run test:api`) uses real HTTP against a running Supabase,
 the same way the browser does. It checks that Auth, the Data API and Storage work together.
@@ -776,20 +858,25 @@ the same way the browser does. It checks that Auth, the Data API and Storage wor
 | # | Test | HTTP requests it sends |
 | --- | --- | --- |
 | 1 | Only university email addresses can sign up | `POST /auth/v1/signup` with a gmail address → expects **403** and the Franciscan message |
-| 2 | A new account gets an unlisted student profile | `GET /rest/v1/profiles?id=eq.<id>` as the student → role `student`, not visible; the same `GET` as a visitor → **empty** |
-| 3 | Profile changes wait for a reviewer | `PATCH /rest/v1/profiles` (including `role: "admin"`) → **changes nothing**; `POST /rest/v1/pending_changes`; `POST /rest/v1/rpc/review_change` as the student → **403**; as a reviewer → **200**; `GET` → the new headline is live |
-| 4 | A submitted project goes live after review, with its photo | `POST /storage/v1/object/media/submissions/<id>/…png`; `POST /rest/v1/pending_changes` (new project + photo); `POST /rest/v1/rpc/review_change`; `GET /rest/v1/projects?slug=eq.…&select=title,project_images(…)` as a visitor → live, with the photo |
-| 5 | Photos upload only into the user's own folders | `POST` into your own `avatars/` → **200**, and `GET /storage/v1/object/public/…` loads it; `POST` into another user's folders or `projects/` → **refused**; a `.txt` file → **refused** |
-| 6 | A photo can't be swapped or deleted while in use | Upload, submit it; `PUT` (replace) → **refused**; `DELETE` → removes **nothing**; `PATCH` the submission to withdrawn; then `PUT` and `DELETE` → **allowed** |
-| 7 | An account can be deleted | `DELETE /auth/v1/admin/users/<id>` with the secret key → **200**; the profile is gone too |
+| 2 | An unverified account can't submit, give permissions or be promoted until verified | `POST /rest/v1/pending_changes` and `/consents` → **403**; `PATCH` the role with the secret key → **400**; `POST /rest/v1/rpc/mark_account_verified` with the secret key; then the submission → **201** |
+| 3 | Only the secret key can verify accounts or look up sign-in addresses | each helper as a visitor and as a student → **refused** |
+| 4 | A new account gets an unlisted student profile | `GET /rest/v1/profiles?id=eq.<id>` as the student → role `student`, not visible; the same `GET` as a visitor → **empty** |
+| 5 | Profile changes wait for a reviewer | `PATCH /rest/v1/profiles` (including `role: "admin"`) → **changes nothing**; `POST /rest/v1/pending_changes`; `POST /rest/v1/rpc/review_change` as the student → **403**; as a reviewer → **200**; `GET` → the new headline is live |
+| 6 | A submitted project goes live after review, with its photo | `POST /storage/v1/object/media/submissions/<id>/…png`; `POST /rest/v1/pending_changes` (new project + photo); `POST /rest/v1/rpc/review_change`; `GET /rest/v1/projects?slug=eq.…&select=title,project_images(…)` as a visitor → live, with the photo |
+| 7 | Photos upload only into the user's own folders | `POST` into your own `avatars/` → **200**, and `GET /storage/v1/object/public/…` loads it; `POST` into another user's folders or `projects/` → **refused**; a `.txt` file → **refused** |
+| 8 | A photo can't be swapped or deleted while in use | Upload, submit it; `PUT` (replace) → **refused**; `DELETE` → removes **nothing**; `PATCH` the submission to withdrawn; then `PUT` and `DELETE` → **allowed** |
+| 9 | An account can be deleted | `DELETE /auth/v1/admin/users/<id>` with the secret key → **200**; the profile is gone too |
 
 Each run signs up throwaway accounts and deletes them, and their files, afterwards.
 
+`supabase/tests/api/cms-concurrency.test.mjs` adds 10 more: several admins saving and publishing page and record drafts at the same moment, with nothing lost or published twice.
+
 ### 11.3 The other suites
 
-- **Browser test, 16 steps:** `npm run test:e2e`. Chrome plays a student and a reviewer through
-  the real site:
+- **Browser tests, 29 steps:** `npm run test:e2e`. The student test (17 steps) has Chrome play a
+  student and a reviewer through the real site:
   - sign up, and other email addresses refused
+  - the reminder to verify, and the verify page (the test verifies with the secret key)
   - directory permission
   - a profile with a photo, a project with a gallery, and an internship sent for review
   - nothing public before review
@@ -800,8 +887,11 @@ Each run signs up throwaway accounts and deletes them, and their files, afterwar
   - a removal request hides the student at once
   - a reviewer approves their own submission
   - the forms fit a phone screen
-- **Unit tests, 28:** `npm run test:unit`. Planner rules, formatting, the sign-in redirect guard,
-  and the GroupMe message.
+  The editing test (12 steps) checks the Edit bar: drafts only the editor sees, publishing, a
+  clash with someone else's change, and the bar folding away.
+- **Unit tests, 45:** `npm run test:unit`. Planner rules, formatting, the sign-in redirect guard,
+  the GroupMe message, the policy pages' plain copies, and the verification and reset emails
+  against a stand-in for Firebase.
 - **Carousel tests, 6:** `npm run test:carousel`. The rules any pick must follow:
   - 5 to 7 projects from a full pool, without repeats
   - only projects from the pool
@@ -814,13 +904,20 @@ Each run signs up throwaway accounts and deletes them, and their files, afterwar
 
 ## 12. Known gaps
 
-- **Password length.** Both hosted projects enforce only **6** characters on the server, while the
-  site's forms ask for 8. Someone calling the API directly could set a 6-character password. Fix
-  in the dashboard: Authentication > Policies > minimum length 8. `secure_password_change` (asking
-  for the old password before a change) is also off.
-- **Production isn't released yet.** It has no planner, sign-in forms or notifications.
-  Production's email sender is still Supabase's built-in one (2 emails an hour), and confirmations
-  are on there, so students couldn't confirm sign-ups until university email delivery is set up.
+- **Password length.** Production enforces only **6** characters on the server, while the site's
+  forms ask for 8 (dev was raised to 8 on 2026-10-21). Someone calling production's API directly
+  could set a 6-character password. Fix at release: Authentication > Policies > minimum length 8.
+  `secure_password_change` (asking for the old password before a change) is also off.
+- **Production isn't released yet.** It has no planner, sign-in forms, notifications or
+  verification. At release it needs "Confirm email" turned off (verification replaces it) and the
+  steps in [backend-setup.md](backend-setup.md) 3.3, step 10.
+- **No CAPTCHA yet.** The password-reset form needs no sign-in, so someone who knows a classmate's
+  address can use up that account's 5 reset emails for the day (or its 10 tries an hour at
+  finishing one). It can't take the account over. Its answers also show whether an address has an
+  account, as the sign-up form already does. Cloudflare Turnstile on sign-up, sign-in and the
+  reset form would close this.
+- **Verification emails land in Junk** at franciscan.edu, and Firebase's email wording can't be
+  edited on our project yet. The verify and reset pages explain "It's not junk" step by step.
 - **The carousel pick is a placeholder** until the Algorithms team's version lands (section 8.3).
 - **Public photo links** work for anyone who has the exact address (section 7.4).
 - **The free plan's limits:**

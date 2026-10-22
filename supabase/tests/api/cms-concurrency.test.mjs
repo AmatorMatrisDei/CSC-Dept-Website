@@ -35,7 +35,10 @@ async function makeAdmin(label) {
   assert.equal(res.status, 200, JSON.stringify(res.data));
   const { id } = res.data.user;
   users.push(id);
-  await call(`/rest/v1/profiles?id=eq.${id}`, { method: "PATCH", secret: true, json: { role: "admin" } });
+  // Only verified accounts can be admins (the account_verification migration).
+  await call("/rest/v1/rpc/mark_account_verified", { method: "POST", secret: true, json: { account: id, how: "admin" } });
+  const promoted = await call(`/rest/v1/profiles?id=eq.${id}`, { method: "PATCH", secret: true, json: { role: "admin" } });
+  assert.equal(promoted.status, 204, JSON.stringify(promoted.data));
   // Sign in again so the token is issued for the admin role.
   const signedIn = await call("/auth/v1/token?grant_type=password", { method: "POST", json: { email, password: "password123" } });
   return signedIn.data.access_token;

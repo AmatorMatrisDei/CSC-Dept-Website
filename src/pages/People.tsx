@@ -56,8 +56,8 @@ function PeopleList({ myId }: { myId: string }) {
       <header className="flex flex-col gap-2">
         <h1 className="text-3xl font-semibold">People and roles</h1>
         <p className="max-w-2xl text-muted">
-          Reviewers approve submissions. Admins also edit the site and manage roles. People must have signed up first. The email is the one they signed up with. Role changes are
-          logged.
+          Reviewers approve submissions. Admins also edit the site and manage roles. People must have signed up and verified
+          their email address first. The email is the one they signed up with. Role changes are logged.
         </p>
       </header>
       <label className="flex max-w-md flex-col gap-1 font-medium">
@@ -74,7 +74,10 @@ function PeopleList({ myId }: { myId: string }) {
                 {p.name || "(no name yet)"}
                 {p.id === myId && <span className="ml-2 text-sm font-normal text-muted">you</span>}
               </p>
-              <p className="text-sm text-muted">{p.email}</p>
+              <p className="text-sm text-muted">
+                {p.email}
+                {!p.verified && " · email not verified yet, so can't be a reviewer or admin"}
+              </p>
             </div>
             <label className="flex items-center gap-2 text-sm">
               Role
@@ -86,7 +89,7 @@ function PeopleList({ myId }: { myId: string }) {
                 className={`${fieldClass} !w-auto`}
               >
                 {ROLES.map((r) => (
-                  <option key={r.value} value={r.value}>
+                  <option key={r.value} value={r.value} disabled={!p.verified && r.value !== "student"}>
                     {r.label}
                   </option>
                 ))}

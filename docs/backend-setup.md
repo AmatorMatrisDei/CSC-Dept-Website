@@ -1,7 +1,8 @@
 # Backend setup (Supabase)
 
 The backend is Supabase: a Postgres database with access rules, Supabase Auth for logins,
-Supabase Storage for photos, and one Edge Function for the carousel. Everything about it lives in
+Supabase Storage for photos, and Edge Functions for the carousel, reviewer notices, email
+verification and password resets. Everything about it lives in
 `supabase/` and is applied from git, so each hosted database matches the repository. The design
 follows the Requirements and Team Guide v1.4; requirement IDs such as FR-3.4 refer to it.
 
@@ -10,6 +11,8 @@ follows the Requirements and Team Guide v1.4; requirement IDs such as FR-3.4 ref
 | `supabase/migrations/` | The schema, access rules, review queue and carousel tables, in order |
 | `supabase/functions/carousel/` | The Edge Function that picks the daily carousel |
 | `supabase/functions/_shared/carousel-pick.ts` | The pick itself, owned by the Algorithms team |
+| `supabase/functions/verify-email/`, `password-reset/` | Email verification and forgotten passwords, through Google Firebase |
+| `supabase/functions/_shared/account-email.ts` | How those two work, step by step, with their unit tests beside it |
 | `supabase/seed.sql` | Test accounts and sample content, **local only** |
 | `supabase/dev-content.sql` | Sample content for the hosted dev project, without sign-in accounts (see 3.5) |
 | `supabase/config.toml` | Settings for the local stack (ports, auth, hooks, functions) |
@@ -94,6 +97,9 @@ Who can do what:
   submissions, which the audit log marks as self-reviews; only your own listing). The Supabase Security Advisor flags them as warnings, which is expected.
 - **The carousel function** accepts browser calls only from `CAROUSEL_ALLOWED_ORIGINS`, checks the
   cron secret in constant time, and never returns database error details.
+- **Unverified accounts** can't submit, give permissions, confirm listings, or use a reviewer or
+  admin role (next section). The helpers the verification functions use can only be called with
+  the secret key, and a test fails if that changes.
 
 ### How a submission works (guide 2.4)
 
@@ -142,6 +148,24 @@ and resubmit. Each student can have at most 20 submissions open, and each is lim
   its review page, and never who sent it (`supabase/functions/_shared/review-message.ts`).
 - pg_net sends the request after the submission commits, so a slow or failing chat never holds
   up a submission. Until the secrets in 3.3, step 7, are set, nothing is sent.
+
+### Account verification
+
+Sign-ups are confirmed at once, so an account's address is only proven once it's **verified**:
+by "Continue with Google" or "Continue with GitHub", by a link that the `verify-email` function
+has Google Firebase email (it usually lands in Junk), or by hand:
+
+```sql
+select public.mark_account_verified('<account id>', 'admin');
+```
+
+Until then the account can browse and plan, but the database refuses its submissions,
+permissions, listing confirmations and reviews. Reviewers and admins who existed before the
+migration were marked verified by it. Changing an account's address needs a Franciscan address
+and a new verification. Forgotten passwords go through Firebase too
+(`password-reset`), because Supabase's own emails can't reach students. The full story, including
+the safeguard for Google and GitHub sign-ins, is in
+[backend-explained.md](backend-explained.md), section 3.4. Setup is 3.3, step 10.
 
 ### The degree planner
 
@@ -340,18 +364,15 @@ affected.
    - Site URL: the site's address (production), or `http://localhost:5173` (dev).
    - Redirect URLs: `http://localhost:5173/**`, `http://localhost:4173/**`,
      `https://csc-dept-website.pages.dev/**`, and a wildcard for preview deployments,
-     `https://*.csc-dept-website.pages.dev/**`. Sign-up confirmation and password reset emails
-     link back to `/account` and `/account/password`, so those must be allowed.
+     `https://*.csc-dept-website.pages.dev/**`. Google and GitHub sign-in come back to
+     `/account/sign-in`, so it must be allowed.
 3. **Passwords and email.** Authentication > Sign In / Providers > Email: minimum password
-   length 8. Keep "Confirm email" on in production. On dev, turning it off lets teammates sign
-   up without email delivery.
-4. **Email delivery: open, to settle with ITS.** Supabase's built-in email only reaches
-   members of the Supabase organization, about two messages an hour, so students can't confirm
-   sign-ups and FR-3.6 notifications can't be sent. The options:
-   - "Sign in with Microsoft" (Authentication > Sign In / Providers > Azure), which avoids
-     confirmation email entirely. It needs ITS to register an app in Microsoft Entra ID.
-   - Custom SMTP (Authentication > Emails > SMTP Settings), through the university or a
-     transactional email service.
+   length 8, and **"Confirm email" off**. Supabase's own emails can't reach students, so
+   verification (step 10) takes the place of confirmation.
+4. **Email delivery.** Supabase's built-in email only reaches members of the Supabase
+   organization, about two messages an hour. Verification and password resets don't need it:
+   Google Firebase sends those (step 10). Emails to students for FR-3.6 notifications would still
+   need custom SMTP (Authentication > Emails > SMTP Settings).
 5. **Password for the read-only login** (only needed if server-side code reads through
    Hyperdrive; the Vite site doesn't). In the SQL editor, with a long random password that you
    then store in the password manager:
@@ -402,9 +423,10 @@ affected.
    account and look for the message; the function's logs are under Edge Functions >
    notify-reviewers > Logs.
 8. **Make the first admin.** Sign up on the site (or Authentication > Users > Add user), then in
-   the SQL editor:
+   the SQL editor (only verified accounts can be admins):
 
    ```sql
+   select public.mark_account_verified(id, 'admin') from auth.users where email = 'you@franciscan.edu';
    update public.profiles set role = 'admin'
    where id = (select id from auth.users where email = 'you@franciscan.edu');
    ```
@@ -415,6 +437,35 @@ affected.
    `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`. The "Keep Supabase awake" workflow then reads
    one row every three days. If a project pauses anyway, restore it from the dashboard; no data
    is lost.
+10. **Verification and password resets.** Everything below belongs to the team's shared Google
+    account (franciscan.eac@gmail.com), never a personal one.
+    - **Firebase:** in a Firebase project (console.firebase.google.com), Authentication > Sign-in
+      method > enable **Email/Password**. Its emails come from
+      `noreply@<firebase project>.firebaseapp.com`. Production should have its own Firebase
+      project, so an email in flight on dev can't block the same address on production.
+    - **Secrets** (the web API key is under Project settings > General; it isn't secret, but each
+      project should name its own):
+
+      ```bash
+      npx supabase secrets set FIREBASE_API_KEY=<web API key> FIREBASE_LINK_SECRET=<long random value>
+      npx supabase secrets set ALLOWED_ORIGINS=https://<site>,https://*.csc-dept-website.pages.dev
+      ```
+
+      On dev, also allow `http://localhost:5173`. Never change `FIREBASE_LINK_SECRET` once set:
+      emails already sent would stop working. The integration deploys both functions on merge
+      (they're declared in `config.toml`); by hand, `npx supabase functions deploy verify-email
+      password-reset`.
+    - **Google:** Google Auth Platform (console.cloud.google.com, the Firebase project's Google
+      Cloud project) > Clients > a Web client with the redirect URI
+      `https://<project ref>.supabase.co/auth/v1/callback`. Branding needs the site's home,
+      privacy (`/privacy`) and terms (`/terms`) pages before **Publish app**; until then only
+      listed test users can use it. Don't upload a logo, which needs Google's review.
+    - **GitHub:** the shared account's GitHub > Settings > Developer settings > OAuth Apps, with
+      the same callback URL.
+    - **Supabase:** Authentication > Sign In / Providers > Google and GitHub: paste each client
+      ID and secret.
+    - **Check it:** sign up with a test address, press "Send the email" on `/account/verify`,
+      and look in that inbox's Junk folder.
 
 ### 3.4 Keys
 
@@ -510,13 +561,15 @@ await supabase.functions.invoke("carousel", { body: { action: "reshuffle" } });
 
 | Item | Owner |
 | --- | --- |
-| Email delivery: Microsoft sign-in or SMTP (3.3, step 4) | Back End + ITS |
+| Email to students for FR-3.6 notifications needs SMTP (3.3, step 4). Verification and resets are done (step 10) | Back End |
+| Verification emails land in Junk at franciscan.edu, and Firebase's email wording can't be edited on our project yet | Back End |
 | Which fields are FERPA directory information | Registrar |
 | Pending uploads are readable by URL before approval; move them to a private bucket | Back End |
 | Guide clarifications: thumbnail field vs first gallery image; whether Internships and Alumni Stories are project categories; pinned cap (target size or 7); who confirms a removal (assumed: the reviewer who approves it) | Requirements team |
 | Replace the placeholder carousel pick | Algorithms team |
 | Sign-in settings on production: minimum password 8 with letters and digits; Cloudflare Turnstile on sign-up; two-factor sign-in required for reviewers and admins once the admin panel supports enrolling | Back End + Front End |
-| Account email changes skip the university-domain rule (it runs only at sign-up). Block them, or decide graduates may switch to a personal address | Team |
+| Account email changes are now held to the university-domain rule and need verifying again. Alumni with personal addresses (#76) will need their own route, with an admin confirming they studied here | Team |
+| No CAPTCHA: someone who knows a classmate's address can use up that account's daily reset emails. Add Cloudflare Turnstile to sign-up, sign-in and the reset form | Back End + Front End |
 
 ## 6. Free plan limits
 

@@ -13,7 +13,7 @@ import {
   type ConsentScope,
   type Submission,
 } from "@/lib/account";
-import { signOut, useSignedInSession } from "@/lib/auth";
+import { dismissPasswordNotice, signOut, useSignedInSession, useVerification } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 import { useAction, useAsync, useTitle } from "@/lib/hooks";
 
@@ -54,6 +54,7 @@ export default function Dashboard() {
   const [version, setVersion] = useState(0);
   const data = useAsync(getDashboard, session.user.id, version);
   const role = useAsync(getMyRole, session.user.id);
+  const verification = useVerification(session.user.id);
   const location = useLocation();
   const flash = (location.state as { message?: string } | null)?.message;
   const { busy, error, run } = useAction();
@@ -102,6 +103,24 @@ export default function Dashboard() {
 
       {flash && <Notice tone="success">{flash}</Notice>}
       {error && <Notice tone="error">{error}</Notice>}
+      {verification?.passwordRemoved && (
+        <Notice tone="info">
+          <p>
+            Signing in with {verification.method === "github" ? "GitHub" : "Google"} verified your account. The password it had
+            before was turned off, in case someone else had chosen it. Keep using {verification.method === "github" ? "GitHub" : "Google"},
+            or choose a new password to sign in with.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-4">
+            <Link to="/account/password" className="inline-flex min-h-11 items-center underline">
+              Choose a new password
+            </Link>
+            <button type="button" className="inline-flex min-h-11 items-center underline" disabled={busy}
+              onClick={() => void run(dismissPasswordNotice)}>
+              Dismiss
+            </button>
+          </div>
+        </Notice>
+      )}
 
       {(listings.length > 0 || returned.length > 0) && (
         <Card title="Needs your attention" id="attention">

@@ -425,3 +425,12 @@ verify_jwt = false
 # Called only by the database, with its own secret (see the function's comment).
 [functions.notify-reviewers]
 verify_jwt = false
+
+# Account verification and password resets (see supabase/functions/_shared/account-email.ts).
+# Both check who is calling themselves: verify-email reads the person's access token, and
+# password-reset needs no sign-in.
+[functions.verify-email]
+verify_jwt = false
+
+[functions.password-reset]
+verify_jwt = false

@@ -131,7 +131,7 @@ export function friendlyError(error: unknown): string {
     [/https_url/, "Links must start with https:// and contain no spaces."],
     [/email_address/, "Enter one valid email address."],
     [/phone_number/, "Phone numbers are 7 to 25 characters: digits, spaces and + ( ) . -"],
-    [/Invalid login credentials/i, "That email address and password don't match an account."],
+    [/Invalid login credentials/i, "That email address and password don't match an account. If you've used Continue with Google or GitHub before, use that button instead."],
     [/Email not confirmed/i, "Confirm your email address first, using the link we sent you."],
     [/User already registered/i, "There's already an account with that email address. Sign in instead."],
     [/Password should be/i, "Choose a password of at least 8 characters."],

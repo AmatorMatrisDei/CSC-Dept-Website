@@ -52,7 +52,12 @@ async function createUser({ name, email }, role) {
   const { id } = await res.json();
   assert.ok(id, "the test account was created");
   userIds.push(id);
-  if (role) await api(`/rest/v1/profiles?id=eq.${id}`, { method: "PATCH", body: JSON.stringify({ role }) });
+  // Test accounts have verified their email; only verified accounts can be admins.
+  await api("/rest/v1/rpc/mark_account_verified", { method: "POST", body: JSON.stringify({ account: id, how: "admin" }) });
+  if (role) {
+    const promoted = await api(`/rest/v1/profiles?id=eq.${id}`, { method: "PATCH", body: JSON.stringify({ role }) });
+    assert.ok(promoted.ok, `the test account became ${role}`);
+  }
 }
 
 before(async () => {

@@ -16,6 +16,10 @@ const { API_URL, PUBLISHABLE_KEY, SECRET_KEY } = JSON.parse(
 );
 const BASE = "http://localhost:5174";
 
+// The secret key, for setup and cleanup the site itself can't do.
+const admin = (path, init = {}) =>
+  fetch(API_URL + path, { ...init, headers: { apikey: SECRET_KEY, Authorization: `Bearer ${SECRET_KEY}`, "Content-Type": "application/json" } });
+
 // A PNG larger than the site's 2000px limit, so the resize step is exercised.
 function makePng(width, height) {
   const row = width * 3 + 1;
@@ -87,8 +91,6 @@ before(async () => {
 after(async () => {
   await browser?.close();
   vite?.kill();
-  const admin = (path, init = {}) =>
-    fetch(API_URL + path, { ...init, headers: { apikey: SECRET_KEY, Authorization: `Bearer ${SECRET_KEY}`, "Content-Type": "application/json" } });
   const people = await (await admin(`/rest/v1/profiles?name=eq.${encodeURIComponent(student.name)}&select=id`)).json();
   await admin(`/rest/v1/projects?title=eq.${encodeURIComponent(projectTitle)}`, { method: "DELETE" });
   await admin(`/rest/v1/internships?company=eq.${encodeURIComponent(`Self Review Corp ${tag}`)}`, { method: "DELETE" });
@@ -136,10 +138,28 @@ test("a student creates an account from the request page", async () => {
   await page.waitForURL(`${BASE}/account/profile`);
 });
 
+test("a new account is asked to verify its email address before adding anything", async () => {
+  const reminder = page.getByRole("status").filter({ hasText: "Verify your email address" });
+  await reminder.waitFor();
+  await page.getByRole("link", { name: "Verify it now" }).click();
+  await page.getByRole("heading", { level: 1, name: "Verify your email address" }).waitFor();
+  await page.getByRole("button", { name: "Send the email" }).waitFor();
+  // Stands in for clicking the emailed link; the verify-email function's unit tests cover the email.
+  const [{ id }] = await (await admin(`/rest/v1/profiles?name=eq.${encodeURIComponent(student.name)}&select=id`)).json();
+  const marked = await admin("/rest/v1/rpc/mark_account_verified", { method: "POST", body: JSON.stringify({ account: id, how: "admin" }) });
+  assert.equal(marked.status, 204);
+  await page.reload();
+  await page.getByRole("heading", { level: 1, name: "Your email address is verified" }).waitFor();
+  await page.goto(`${BASE}/account/profile`);
+  await page.getByLabel("List me in the student directory").waitFor();
+  assert.equal(await reminder.count(), 0);
+});
+
 test("other email addresses are refused", async () => {
   const visitor = await browser.newContext();
   const p = await visitor.newPage();
   await p.goto(`${BASE}/account/sign-in?mode=sign-up`);
+  await p.getByRole("button", { name: "Continue with Google" }).waitFor();
   await p.getByLabel("Your name").fill("Outsider");
   await p.getByLabel("University email").fill(`outsider-${tag}@gmail.com`);
   await p.getByLabel("Password").fill("password-e2e-1");
