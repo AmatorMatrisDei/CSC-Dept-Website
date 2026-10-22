@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { Link, Navigate, useSearchParams } from "react-router";
+import { Link, Navigate, useLocation, useSearchParams } from "react-router";
+import Captcha from "@/components/Captcha";
 import { Notice, TextField, buttonClass, secondaryButtonClass } from "@/components/Form";
 import { safeNext, signIn, signInWithProvider, signUp, useSession } from "@/lib/auth";
 import { useAction, useTitle } from "@/lib/hooks";
+import { useTurnstileToken } from "@/lib/turnstile";
 
 // Google and GitHub send problems back in the address, e.g. ?error_description=... (or after #).
 function providerError(params: URLSearchParams): string | null {
@@ -18,14 +20,17 @@ function providerError(params: URLSearchParams): string | null {
 export default function SignIn() {
   const session = useSession();
   const [params] = useSearchParams();
+  // After a password reset: a message, and the address to sign in with.
+  const arrived = useLocation().state as { message?: string; email?: string } | null;
   const next = safeNext(params.get("next"));
   const [mode, setMode] = useState<"sign-in" | "sign-up">(params.get("mode") === "sign-up" ? "sign-up" : "sign-in");
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(arrived?.email ?? "");
   const [password, setPassword] = useState("");
   const [checkEmail, setCheckEmail] = useState(false);
   const { busy, error, run, setError } = useAction();
   const [returnedError] = useState(() => providerError(params));
+  const captcha = useTurnstileToken();
   useTitle(mode === "sign-in" ? "Sign in" : "Create an account");
 
   if (session) return <Navigate to={next} replace />;
@@ -53,6 +58,7 @@ export default function SignIn() {
         </p>
       </header>
 
+      {arrived?.message && <Notice tone="success">{arrived.message}</Notice>}
       {returnedError && <Notice tone="error">{returnedError}</Notice>}
       <section aria-labelledby="provider-heading" className="flex flex-col gap-3">
         <h2 id="provider-heading" className="text-lg font-semibold">
@@ -79,11 +85,13 @@ export default function SignIn() {
         className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 sm:p-6"
         onSubmit={(e) => {
           e.preventDefault();
+          const token = captcha.token;
+          captcha.renew(); // a token works once, so the next try gets a fresh one
           void run(async () => {
             if (signingUp) {
-              if (await signUp(name, email, password)) setCheckEmail(true);
+              if (await signUp(name, email, password, token)) setCheckEmail(true);
             } else {
-              await signIn(email, password);
+              await signIn(email, password, token);
             }
           });
         }}
@@ -110,10 +118,11 @@ export default function SignIn() {
           autoComplete={signingUp ? "new-password" : "current-password"}
           hint={signingUp ? "At least 8 characters. Don't reuse your university password." : undefined}
         />
+        <Captcha key={captcha.round} onToken={captcha.setToken} />
         {error && <Notice tone="error">{error}</Notice>}
         <div className="flex flex-wrap items-center gap-4">
-          <button type="submit" className={buttonClass} disabled={busy}>
-            {busy ? "Please wait…" : signingUp ? "Create account" : "Sign in"}
+          <button type="submit" className={buttonClass} disabled={busy || !captcha.ready}>
+            {busy ? "Please wait…" : !captcha.ready ? "Checking you're a person…" : signingUp ? "Create account" : "Sign in"}
           </button>
           {!signingUp && (
             <Link to="/account/password" className="inline-flex min-h-11 items-center underline">

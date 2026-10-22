@@ -8,6 +8,8 @@
 //   ALLOWED_ORIGINS       Sites whose pages may call the functions, comma-separated. An entry
 //                         like https://*.csc-dept-website.pages.dev allows that site's previews.
 //   FIREBASE_API_URL      Optional, for testing against a stand-in for Firebase.
+//   TURNSTILE_SECRET_KEY  password-reset only: the Cloudflare Turnstile widget's secret key. Until it
+//                         is set there is no CAPTCHA check (see ../_shared/turnstile.ts).
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import type { Deps, Status, Store } from "./account-email.ts";
 import { FIREBASE_API, firebase } from "./firebase.ts";

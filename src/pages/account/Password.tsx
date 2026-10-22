@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import Captcha from "@/components/Captcha";
 import { Notice, TextField, buttonClass, secondaryButtonClass } from "@/components/Form";
-import { EMAIL_PROBLEMS, finishReset, sendResetEmail, setPassword, signIn, useSession } from "@/lib/auth";
+import { EMAIL_PROBLEMS, finishReset, sendResetEmail, setPassword, useSession } from "@/lib/auth";
 import { useAction, useTitle } from "@/lib/hooks";
+import { useTurnstileToken } from "@/lib/turnstile";
 
 // Signed out: reset a forgotten password through a link we email (see
 // supabase/functions/_shared/account-email.ts). The person chooses the new password on the page
@@ -21,6 +23,13 @@ function ResetPassword() {
   const [problem, setProblem] = useState<string | null>(null);
   const { busy, error, run } = useAction();
   const navigate = useNavigate();
+  const captcha = useTurnstileToken();
+  // Each try uses up the form's Turnstile token, so the next one gets a fresh check.
+  const takeToken = () => {
+    const token = captcha.token;
+    captcha.renew();
+    return token;
+  };
 
   return (
     <div className="flex max-w-2xl flex-col gap-6">
@@ -31,19 +40,21 @@ function ResetPassword() {
           onSubmit={(e) => {
             e.preventDefault();
             setProblem(null);
+            const token = takeToken();
             void run(async () => {
-              const status = await sendResetEmail(email);
+              const status = await sendResetEmail(email, token);
               if (status === "sent") setStep("finish");
               else setProblem(EMAIL_PROBLEMS[status] ?? "Something went wrong. Try again in a few minutes.");
             });
           }}
         >
           <TextField label="University email" type="email" required value={email} onChange={setEmail} autoComplete="email" />
+          <Captcha key={captcha.round} onToken={captcha.setToken} />
           {problem && <Notice tone="error">{problem}</Notice>}
           {error && <Notice tone="error">{error}</Notice>}
           <div className="flex flex-wrap items-center gap-4">
-            <button type="submit" className={buttonClass} disabled={busy}>
-              {busy ? "Sending…" : "Email me a reset link"}
+            <button type="submit" className={buttonClass} disabled={busy || !captcha.ready}>
+              {busy ? "Sending…" : !captcha.ready ? "Checking you're a person…" : "Email me a reset link"}
             </button>
             <button type="button" className="inline-flex min-h-11 items-center underline" onClick={() => setStep("finish")}>
               I already chose a new password from your email
@@ -74,11 +85,11 @@ function ResetPassword() {
             onSubmit={(e) => {
               e.preventDefault();
               setProblem(null);
+              const token = takeToken();
               void run(async () => {
-                const status = await finishReset(email, password);
+                const status = await finishReset(email, password, token);
                 if (status === "done") {
-                  await signIn(email, password);
-                  navigate("/account", { state: { message: "Your password has been changed." } });
+                  navigate("/account/sign-in", { state: { message: "Your password has been changed. Sign in with it.", email } });
                 } else if (status === "wrong_password") {
                   setProblem("That isn't the password you chose on the reset page. Check it, or ask for a new email.");
                 } else if (status === "weak_password") {
@@ -92,11 +103,12 @@ function ResetPassword() {
             <TextField label="University email" type="email" required value={email} onChange={setEmail} autoComplete="email" />
             <TextField label="The new password you chose" type="password" required value={password} onChange={setValue}
               autoComplete="new-password" />
+            <Captcha key={captcha.round} onToken={captcha.setToken} />
             {problem && <Notice tone="error">{problem}</Notice>}
             {error && <Notice tone="error">{error}</Notice>}
             <div className="flex flex-wrap gap-2">
-              <button type="submit" className={buttonClass} disabled={busy}>
-                {busy ? "Saving…" : "Finish"}
+              <button type="submit" className={buttonClass} disabled={busy || !captcha.ready}>
+                {busy ? "Saving…" : !captcha.ready ? "Checking you're a person…" : "Finish"}
               </button>
               <button type="button" className={secondaryButtonClass} disabled={busy} onClick={() => setStep("ask")}>
                 Ask for a new email

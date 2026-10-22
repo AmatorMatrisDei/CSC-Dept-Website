@@ -65,7 +65,7 @@ Our use of information received from Google APIs follows the Google API Services
     {
       id: "services",
       title: "Services we use",
-      body: `Supabase stores the database, accounts and photos, in the United States. Cloudflare hosts the website. Google Firebase sends account verification and password-reset emails, so it receives your email address. Google and GitHub sign you in if you choose them. GroupMe carries the reviewer notices described above.
+      body: `Supabase stores the database, accounts and photos, in the United States. Cloudflare hosts the website. On the sign-in, sign-up and password-reset forms, Cloudflare Turnstile checks that you are a person and not an automated program: it runs in your browser on those forms only and sends Cloudflare details about your browser and connection, which Cloudflare says it does not use for advertising. Google Firebase sends account verification and password-reset emails, so it receives your email address. Google and GitHub sign you in if you choose them. GroupMe carries the reviewer notices described above.
 
 We don't use advertising, analytics or tracking tools, and we don't sell or share your information with anyone else.`,
     },

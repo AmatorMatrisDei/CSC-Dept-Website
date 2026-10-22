@@ -17,7 +17,7 @@
     "test:carousel": "node --experimental-strip-types --test supabase/functions/_shared/carousel-pick.test.ts",
     "test:e2e": "node --test tests/e2e/student-submissions.test.mjs tests/e2e/cms-editing.test.mjs",
     "test:e2e:cms": "node --test tests/e2e/cms-editing.test.mjs",
-    "test:unit": "node --experimental-strip-types --test \"src/**/*.test.ts\" \"supabase/functions/_shared/review-message.test.ts\" \"supabase/functions/_shared/account-email.test.ts\"",
+    "test:unit": "node --experimental-strip-types --test \"src/**/*.test.ts\" \"supabase/functions/_shared/review-message.test.ts\" \"supabase/functions/_shared/account-email.test.ts\" \"supabase/functions/_shared/turnstile.test.ts\"",
     "preview": "vite preview",
     "icons": "node scripts/icons.mjs",
     "changes": "node scripts/changes.mjs"

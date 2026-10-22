@@ -13,6 +13,7 @@ follows the Requirements and Team Guide v1.4; requirement IDs such as FR-3.4 ref
 | `supabase/functions/_shared/carousel-pick.ts` | The pick itself, owned by the Algorithms team |
 | `supabase/functions/verify-email/`, `password-reset/` | Email verification and forgotten passwords, through Google Firebase |
 | `supabase/functions/_shared/account-email.ts` | How those two work, step by step, with their unit tests beside it |
+| `supabase/functions/_shared/turnstile.ts` | Checks the CAPTCHA token on the password-reset form |
 | `supabase/seed.sql` | Test accounts and sample content, **local only** |
 | `supabase/dev-content.sql` | Sample content for the hosted dev project, without sign-in accounts (see 3.5) |
 | `supabase/config.toml` | Settings for the local stack (ports, auth, hooks, functions) |
@@ -466,6 +467,30 @@ affected.
       ID and secret.
     - **Check it:** sign up with a test address, press "Send the email" on `/account/verify`,
       and look in that inbox's Junk folder.
+11. **CAPTCHA (Cloudflare Turnstile).** Sam owns the Turnstile widget, in Sam's Cloudflare account.
+    It protects sign-up, password sign-in and both steps of a password reset. **Do these in order:
+    turning on Supabase's check before the site sends tokens locks everyone out of signing in.**
+    1. **Sam:** Cloudflare dashboard > Turnstile > **Add widget**. Name it "EAC Website", add the
+       hostname `csc-dept-website.pages.dev` (its subdomains, `staging.` and the previews, are
+       covered), and choose **Managed**. It shows a **site key** (public) and a **secret key**
+       (private: share it only through a password manager or by entering it yourself, never in
+       chat or git).
+    2. **Site key → Cloudflare Pages:** in the Pages project, Settings > Variables and Secrets, add
+       `VITE_TURNSTILE_SITE_KEY` to **Preview** and **Production**, then redeploy (Vite builds the
+       key into the site, so it takes effect on the next build).
+    3. **Secret key → our function:**
+
+       ```bash
+       npx supabase secrets set TURNSTILE_SECRET_KEY=<secret key> --project-ref <project ref>
+       ```
+
+    4. **Check the site:** on the deployed sign-in page, the check appears above the button, and
+       the button turns on once it passes.
+    5. **Secret key → Supabase Auth, last:** Authentication > Attack Protection > **Enable Captcha
+       protection**, provider Turnstile, paste the secret key. From then on Supabase refuses
+       sign-ups and password sign-ins without a token. (Google and GitHub sign-in aren't affected.)
+
+    Undo in reverse order: turn Supabase's check off before removing the site key.
 
 ### 3.4 Keys
 
@@ -569,7 +594,7 @@ await supabase.functions.invoke("carousel", { body: { action: "reshuffle" } });
 | Replace the placeholder carousel pick | Algorithms team |
 | Sign-in settings on production: minimum password 8 with letters and digits; Cloudflare Turnstile on sign-up; two-factor sign-in required for reviewers and admins once the admin panel supports enrolling | Back End + Front End |
 | Account email changes are now held to the university-domain rule and need verifying again. Alumni with personal addresses (#76) will need their own route, with an admin confirming they studied here | Team |
-| No CAPTCHA: someone who knows a classmate's address can use up that account's daily reset emails. Add Cloudflare Turnstile to sign-up, sign-in and the reset form | Back End + Front End |
+| CAPTCHA keys: the Turnstile code is in, but each project needs its keys (3.3, step 11). Until then someone who knows a classmate's address can use up that account's daily reset emails | Sam (Turnstile owner) + Back End |
 
 ## 6. Free plan limits
 
