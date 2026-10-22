@@ -32,6 +32,7 @@ export type Status =
   | "done" // finish: the new password works on the site
   | "wait" // asked too often; try again later
   | "address_in_use" // a Firebase account we can't use blocks this address
+  | "captcha_failed" // password-reset: the Turnstile token didn't pass
   | "unavailable"; // Firebase or the database failed
 
 export type RequestKind = "verify_send" | "verify_check" | "reset_send" | "reset_finish";

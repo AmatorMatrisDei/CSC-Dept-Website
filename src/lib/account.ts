@@ -139,6 +139,7 @@ export function friendlyError(error: unknown): string {
     [/exceeded the maximum allowed size|Payload too large/i, "That photo is too large. Photos must be under 5 MB."],
     [/mime type .* is not supported/i, "Photos must be JPEG, PNG or WebP."],
     [/Failed to fetch|NetworkError/i, "Couldn't reach the server. Check your connection and try again."],
+    [/captcha/i, "The check that you're a person didn't pass. Wait for it to finish, then try again."],
   ];
   return rules.find(([pattern]) => pattern.test(message))?.[1] ?? message;
 }

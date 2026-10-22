@@ -42,17 +42,23 @@ function client() {
   return supabase;
 }
 
-export async function signIn(email: string, password: string): Promise<void> {
-  const { error } = await client().auth.signInWithPassword({ email: email.trim(), password });
+// `captchaToken` is the form's Turnstile token (src/lib/turnstile.ts); Supabase checks it once
+// CAPTCHA protection is on for the project, and ignores it until then.
+export async function signIn(email: string, password: string, captchaToken?: string | null): Promise<void> {
+  const { error } = await client().auth.signInWithPassword({
+    email: email.trim(),
+    password,
+    options: { captchaToken: captchaToken ?? undefined },
+  });
   if (error) throw error;
 }
 
 // Returns true when the account needs its email address confirmed before signing in.
-export async function signUp(name: string, email: string, password: string): Promise<boolean> {
+export async function signUp(name: string, email: string, password: string, captchaToken?: string | null): Promise<boolean> {
   const { data, error } = await client().auth.signUp({
     email: email.trim(),
     password,
-    options: { data: { full_name: name.trim() }, emailRedirectTo: returnUrl("/account") },
+    options: { data: { full_name: name.trim() }, emailRedirectTo: returnUrl("/account"), captchaToken: captchaToken ?? undefined },
   });
   if (error) throw error;
   return data.session === null;
@@ -149,6 +155,7 @@ export type EmailStatus =
   | "done"
   | "wait"
   | "address_in_use"
+  | "captcha_failed"
   | "unavailable";
 
 async function callEmailFunction(name: "verify-email" | "password-reset", body: object): Promise<EmailStatus> {
@@ -169,10 +176,12 @@ export async function checkVerificationEmail(): Promise<EmailStatus> {
   return status;
 }
 
-export const sendResetEmail = (email: string) => callEmailFunction("password-reset", { action: "send", email: email.trim() });
+// Both need the form's Turnstile token, which the function checks (src/lib/turnstile.ts).
+export const sendResetEmail = (email: string, captcha: string | null) =>
+  callEmailFunction("password-reset", { action: "send", email: email.trim(), captcha });
 
-export const finishReset = (email: string, password: string) =>
-  callEmailFunction("password-reset", { action: "finish", email: email.trim(), password });
+export const finishReset = (email: string, password: string, captcha: string | null) =>
+  callEmailFunction("password-reset", { action: "finish", email: email.trim(), password, captcha });
 
 // Answers both pages explain the same way.
 export const EMAIL_PROBLEMS: Partial<Record<EmailStatus, string>> = {
@@ -180,4 +189,5 @@ export const EMAIL_PROBLEMS: Partial<Record<EmailStatus, string>> = {
   address_in_use:
     "We can't send an email to this address right now. If you started a password reset and chose a new password, finish it on the Reset password page. Otherwise, email franciscan.eac@gmail.com from your university address and we'll sort it out.",
   unavailable: "The email service isn't working right now. Try again in a few minutes.",
+  captcha_failed: "The check that you're a person didn't pass. Wait for it to finish, then try again.",
 };

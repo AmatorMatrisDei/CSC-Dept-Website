@@ -237,6 +237,11 @@ so both pages lead with step-by-step "It's not junk" instructions.
 successful check, so the reminder disappears at once. If a Google or GitHub sign-in turned off an
 old password, the dashboard explains it, with a link to choose a new one.
 
+**The CAPTCHA.** Sign-up, password sign-in and both reset steps show Cloudflare's Turnstile check
+(`<Captcha>`), and their button stays off until it passes. `useTurnstileToken()` in
+`src/lib/turnstile.ts` holds the token; each token works once, so every try asks for a fresh one.
+Without `VITE_TURNSTILE_SITE_KEY` (locally, in the tests) there is no check at all.
+
 ### 5.4 The `?next=` guard
 
 After sign-in, the site goes to the `next` address. A crafted link like
@@ -436,7 +441,8 @@ token, so they act as that user and no one else.
 Cloudflare sends these with every page:
 
 ```
-Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self';
+Content-Security-Policy: default-src 'self'; script-src 'self' https://challenges.cloudflare.com;
+  frame-src https://challenges.cloudflare.com; style-src 'self'; font-src 'self';
   img-src 'self' data: blob: <our two Supabase projects>; connect-src <our two Supabase projects>;
   frame-ancestors 'none'; base-uri 'self'; form-action 'self'
 X-Frame-Options: DENY
@@ -445,8 +451,11 @@ Permissions-Policy: camera=(), microphone=(), geolocation=()
 
 What that means:
 
-- **`script-src 'self'`:** only our own script files run. No inline scripts, no scripts from
-  other sites. Injected text can't become running code.
+- **`script-src 'self'`:** only our own script files run, plus Cloudflare's Turnstile script
+  (below). No inline scripts, no scripts from other sites. Injected text can't become running code.
+- **`frame-src`:** the only frame the site may show is Cloudflare's Turnstile check, the "are you
+  a person?" box on the sign-in, sign-up and password-reset forms (`src/components/Captcha.tsx`).
+  Its script loads only on those pages.
 - **`connect-src`:** the page can only send data to our two Supabase projects. Even a bug couldn't
   leak data to another server.
 - **`img-src`:** images only from our site and our Supabase storage.
@@ -512,7 +521,7 @@ What that means:
 | `npm run build` | Type-checks (`tsc`), then builds into `dist/` |
 | `npm run preview` | Serves the built `dist/` locally |
 | `npm run lint` | ESLint, including the React hooks rules |
-| `npm run test:unit` | The 45 unit tests |
+| `npm run test:unit` | The 50 unit tests |
 | `npm run test:e2e` | The two browser tests, 29 steps (need the local Supabase) |
 
 The site needs two settings, in `.env.local` locally and in Cloudflare's build settings when
@@ -521,6 +530,7 @@ hosted:
 ```
 VITE_SUPABASE_URL=https://<project>.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_…
+VITE_TURNSTILE_SITE_KEY=0x…   # optional: the CAPTCHA's public key; without it there is no check
 ```
 
 Cloudflare Pages builds every push (build command `npm run build`, output `dist`, Node 22):
@@ -545,7 +555,7 @@ must be added to the security policy in `public/_headers`, or browsers will bloc
 **Lint and type-check** run on every pull request (`.github/workflows/frontend.yml`). The build
 fails on any type error.
 
-**45 unit tests** (`npm run test:unit`) test the pure logic, without a browser:
+**50 unit tests** (`npm run test:unit`) test the pure logic, without a browser:
 
 | File | Tests | What they check |
 | --- | --- | --- |
@@ -553,6 +563,7 @@ fails on any type error.
 | `src/lib/markdown.test.ts` | 6 | Formatting; HTML shown as text, never run; unsafe link addresses dropped; outside links in a new tab; headings below the page's; images become links |
 | `supabase/functions/_shared/account-email.test.ts` | 13 | Verification and reset emails against a stand-in for Firebase: old links and other people's Firebase accounts never count; rate limits |
 | `supabase/functions/_shared/review-message.test.ts` | 5 | The GroupMe message wording, and that it never names the student |
+| `supabase/functions/_shared/turnstile.test.ts` | 5 | The CAPTCHA check: Cloudflare is asked with our secret; missing, wrong or oversized tokens fail; no answer from Cloudflare fails; no secret means no check yet |
 | `src/lib/placeholder.test.ts` | 4 | Names lose titles and suffixes; initials; sorting by surname; steady tints |
 | `src/lib/format.test.ts` | 3 | Paragraphs; project years newest first; dates the same in every time zone |
 | `src/lib/policies.test.ts` | 3 | The privacy and terms plain copies have every heading and paragraph, show text as text, and say what Google sends us |

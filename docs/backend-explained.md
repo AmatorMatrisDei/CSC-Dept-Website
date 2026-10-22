@@ -100,6 +100,9 @@ Calls the browser never makes:
 - The GroupMe message: `POST https://api.groupme.com/v3/bots/post`, sent by our Edge Function.
 - Firebase's email API: `POST https://identitytoolkit.googleapis.com/v1/accounts:…`, sent by the
   verify-email and password-reset functions (section 3.4).
+- Cloudflare's Turnstile check: `POST https://challenges.cloudflare.com/turnstile/v0/siteverify`,
+  sent by Supabase Auth (sign-up, sign-in) and by `password-reset`, with the token the browser got
+  from Cloudflare's widget.
 
 The site's security headers (`public/_headers`) also stop the browser from talking to any other
 server: `connect-src` lists only our two Supabase projects.
@@ -276,7 +279,7 @@ counts as verified, and their other sessions end.
 **Limits** (`allow_verification_request`): 5 verification and 5 reset emails per account a day, a
 minute apart, and 10 tries an hour at finishing a reset. Requests are kept 7 days. The limits are
 per account, so someone who knows a classmate's address can use up that day's reset emails; a
-CAPTCHA on the reset form would stop that (see Known gaps).
+Turnstile check on the reset form stops that once its keys are set (see Known gaps).
 
 ---
 
@@ -773,7 +776,7 @@ Each step and what it protects against:
 
    | Check | Runs |
    | --- | --- |
-   | Lint, unit tests and build (`frontend.yml`) | ESLint, 45 unit tests, TypeScript type-check and build |
+   | Lint, unit tests and build (`frontend.yml`) | ESLint, 50 unit tests, TypeScript type-check and build |
    | Database, API and browser tests (`backend.yml`) | Starts a **throwaway local Supabase** inside GitHub, then: schema lint and 314 database tests, 19 API tests, two browser tests in Chrome (29 steps), the carousel tests, and a check that the generated types are up to date |
 
    The backend tests run against a temporary database built from the migrations, so CI needs
@@ -889,7 +892,8 @@ Each run signs up throwaway accounts and deletes them, and their files, afterwar
   - the forms fit a phone screen
   The editing test (12 steps) checks the Edit bar: drafts only the editor sees, publishing, a
   clash with someone else's change, and the bar folding away.
-- **Unit tests, 45:** `npm run test:unit`. Planner rules, formatting, the sign-in redirect guard,
+- **Unit tests, 50:** `npm run test:unit`. Planner rules, formatting, the sign-in redirect guard, the
+  Turnstile check,
   the GroupMe message, the policy pages' plain copies, and the verification and reset emails
   against a stand-in for Firebase.
 - **Carousel tests, 6:** `npm run test:carousel`. The rules any pick must follow:
@@ -911,11 +915,13 @@ Each run signs up throwaway accounts and deletes them, and their files, afterwar
 - **Production isn't released yet.** It has no planner, sign-in forms, notifications or
   verification. At release it needs "Confirm email" turned off (verification replaces it) and the
   steps in [backend-setup.md](backend-setup.md) 3.3, step 10.
-- **No CAPTCHA yet.** The password-reset form needs no sign-in, so someone who knows a classmate's
-  address can use up that account's 5 reset emails for the day (or its 10 tries an hour at
-  finishing one). It can't take the account over. Its answers also show whether an address has an
-  account, as the sign-up form already does. Cloudflare Turnstile on sign-up, sign-in and the
-  reset form would close this.
+- **CAPTCHA until the keys are set.** Sign-up, password sign-in and both steps of a password reset
+  carry a Cloudflare Turnstile check (`src/components/Captcha.tsx`). Supabase checks it for sign-up
+  and sign-in, and `password-reset` checks it itself (`_shared/turnstile.ts`). Until a project has
+  the keys ([backend-setup.md](backend-setup.md), 3.3 step 11), there is no check: someone who knows
+  a classmate's address can then use up that account's 5 reset emails for the day, though never
+  take the account over. Replies also show whether an address has an account, as the sign-up form
+  already does.
 - **Verification emails land in Junk** at franciscan.edu, and Firebase's email wording can't be
   edited on our project yet. The verify and reset pages explain "It's not junk" step by step.
 - **The carousel pick is a placeholder** until the Algorithms team's version lands (section 8.3).
