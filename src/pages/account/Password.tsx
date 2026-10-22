@@ -54,7 +54,7 @@ function ResetPassword() {
           {error && <Notice tone="error">{error}</Notice>}
           <div className="flex flex-wrap items-center gap-4">
             <button type="submit" className={buttonClass} disabled={busy || !captcha.ready}>
-              {busy ? "Sending…" : !captcha.ready ? "Checking you're a person…" : "Email me a reset link"}
+              {busy ? "Sending…" : !captcha.ready ? "Waiting for the check above…" : "Email me a reset link"}
             </button>
             <button type="button" className="inline-flex min-h-11 items-center underline" onClick={() => setStep("finish")}>
               I already chose a new password from your email
@@ -108,7 +108,7 @@ function ResetPassword() {
             {error && <Notice tone="error">{error}</Notice>}
             <div className="flex flex-wrap gap-2">
               <button type="submit" className={buttonClass} disabled={busy || !captcha.ready}>
-                {busy ? "Saving…" : !captcha.ready ? "Checking you're a person…" : "Finish"}
+                {busy ? "Saving…" : !captcha.ready ? "Waiting for the check above…" : "Finish"}
               </button>
               <button type="button" className={secondaryButtonClass} disabled={busy} onClick={() => setStep("ask")}>
                 Ask for a new email

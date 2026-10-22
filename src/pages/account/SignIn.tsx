@@ -122,7 +122,7 @@ export default function SignIn() {
         {error && <Notice tone="error">{error}</Notice>}
         <div className="flex flex-wrap items-center gap-4">
           <button type="submit" className={buttonClass} disabled={busy || !captcha.ready}>
-            {busy ? "Please wait…" : !captcha.ready ? "Checking you're a person…" : signingUp ? "Create account" : "Sign in"}
+            {busy ? "Please wait…" : !captcha.ready ? "Waiting for the check above…" : signingUp ? "Create account" : "Sign in"}
           </button>
           {!signingUp && (
             <Link to="/account/password" className="inline-flex min-h-11 items-center underline">
