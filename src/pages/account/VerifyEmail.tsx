@@ -114,8 +114,8 @@ export default function VerifyEmail() {
       <section aria-labelledby="by-provider" className="flex flex-col gap-3">
         <h2 id="by-provider" className="text-2xl font-semibold">Or sign in with Google or GitHub</h2>
         <p>
-          If your Franciscan address is on a Google or GitHub account (on GitHub, as the primary email), signing in with it
-          verifies you at once. The password this account has stops working, in case someone else chose it; you can set a new
+          If you have a Google account made with your Franciscan address (not a Gmail address), or a GitHub account with it
+          as the primary email, signing in with it verifies you at once. The password this account has stops working, in case someone else chose it; you can set a new
           one afterwards.
         </p>
         <div className="flex flex-wrap gap-2">

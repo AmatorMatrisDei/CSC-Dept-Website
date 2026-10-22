@@ -11,7 +11,7 @@ function providerError(params: URLSearchParams): string | null {
   const description = params.get("error_description") ?? new URLSearchParams(window.location.hash.slice(1)).get("error_description");
   if (!description) return null;
   return /franciscan/i.test(description)
-    ? "That Google or GitHub account doesn't use a Franciscan University address. Use one that does, or sign in with your email below."
+    ? "That Google or GitHub account doesn't use your Franciscan University address, so it can't be used here. Sign in with your Franciscan email and a password below instead."
     : `Google or GitHub sign-in didn't work: ${description}`;
 }
 
@@ -75,8 +75,9 @@ export default function SignIn() {
           </button>
         </div>
         <p className="text-sm text-muted">
-          Use the account that has your Franciscan University address (on GitHub, as your primary email). It verifies your
-          account at once, so you can start adding your work.
+          Only for an account that uses your Franciscan University address: a Google account made with that address (not
+          a Gmail address), or GitHub with it as your primary email. It verifies your account at once, so you can start
+          adding your work.
         </p>
       </section>
 
