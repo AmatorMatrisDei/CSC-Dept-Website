@@ -7,7 +7,7 @@ import ProjectCard from "@/components/ProjectCard";
 import { useEdit } from "@/lib/edit";
 import { getFaculty } from "@/lib/content";
 import { useReloadable, useTitle } from "@/lib/hooks";
-import { saveRecordDraft, useRecordDraft, useReloadOnPublish, withFacultyDraft } from "@/lib/recordDrafts";
+import { isDrafted, saveRecordDraft, useRecordDraft, useReloadOnPublish, withFacultyDraft } from "@/lib/recordDrafts";
 import NotFound from "@/pages/NotFound";
 
 export default function FacultyMember() {
@@ -40,8 +40,8 @@ export default function FacultyMember() {
             <QuickView person={facultyQuickInfo(person, false)} className="size-28 text-3xl" />
           )}
         </div>
-        <Editable as="h1" label="name" value={person.name} maxLength={120} onSave={(name) => save({ name })} className="text-3xl font-semibold" />
-        <Editable as="p" label="title" value={person.title} maxLength={200} onSave={(title) => save({ title })} className="text-muted" />
+        <Editable as="h1" label="name" drafted={isDrafted(draft, "name")} value={person.name} maxLength={120} onSave={(name) => save({ name })} className="text-3xl font-semibold" />
+        <Editable as="p" label="title" drafted={isDrafted(draft, "title")} value={person.title} maxLength={200} onSave={(title) => save({ title })} className="text-muted" />
         {editing ? (
           <Editable label="email" value={person.email ?? ""} maxLength={200} onSave={(v) => save({ email: v.trim() || null })} className="inline-flex min-h-11 w-fit items-center underline" />
         ) : (

@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { discardRecordDrafts, finishRecordPublish } from "./recordDrafts";
 import { supabase } from "./supabase";
+import { DRAFT_SAVED, showToast } from "./toast";
 
 // Page wording that staff can edit. The pages carry their own default text; a row in
 // site_content (key, value) replaces the default for that key. If the table is missing or
@@ -11,7 +12,7 @@ import { supabase } from "./supabase";
 // can tell if someone else changed that text in the meantime.
 
 export type ListItem = { title: string; text: string; url: string };
-export type HistoryEntry = { id: number; key: string; value: string; replaced_at: string };
+export type HistoryEntry = { id: number; key: string; value: string; replaced_at: string; batch: number | null };
 
 let texts: Record<string, string> = {};
 let stamps: Record<string, string> = {}; // updated_at of each live text, as loaded
@@ -66,6 +67,14 @@ export function useSiteList(key: string, showDrafts = false): ListItem[] {
   return parseList(useSiteText(key, "[]", showDrafts));
 }
 
+// The live and drafted text right now, for describing what a draft changes.
+export const siteTextSnapshot = () => ({ live: texts, drafts });
+
+export function useIsDrafted(key: string): boolean {
+  const pending = useSyncExternalStore(subscribe, () => drafts);
+  return key in pending;
+}
+
 export function useDraftKeys(): string[] {
   const pending = useSyncExternalStore(subscribe, () => drafts);
   return Object.keys(pending).sort();
@@ -89,6 +98,7 @@ export async function saveSiteText(key: string, value: string): Promise<string |
   });
   if (error) return "Could not save: " + error.message;
   await loadSiteDrafts();
+  showToast(DRAFT_SAVED);
   return null;
 }
 
@@ -124,6 +134,15 @@ export async function publishSiteDrafts(): Promise<string | null> {
   return null;
 }
 
+// Undoes the draft of one text.
+export async function discardSiteDraft(key: string): Promise<string | null> {
+  if (!supabase) return "Discarding is not available.";
+  const { error } = await supabase.rpc("discard_site_drafts", { only_keys: [key] });
+  if (error) return "Could not undo: " + error.message;
+  await loadSiteDrafts();
+  return null;
+}
+
 export async function discardSiteDrafts(): Promise<string | null> {
   if (!supabase) return "Discarding is not available.";
   const { error } = await supabase.rpc("discard_site_drafts");
@@ -137,7 +156,7 @@ export async function loadSiteHistory(limit = 30): Promise<HistoryEntry[] | stri
   if (!supabase) return "History is not available.";
   const { data, error } = await supabase
     .from("site_content_history")
-    .select("id, key, value, replaced_at")
+    .select("id, key, value, replaced_at, batch")
     .order("replaced_at", { ascending: false })
     .limit(limit);
   if (error) return "Could not load the history: " + error.message;

@@ -2,7 +2,7 @@ import type { ElementType } from "react";
 import Editable from "@/components/Editable";
 import { useEdit } from "@/lib/edit";
 import { paragraphs } from "@/lib/format";
-import { saveSiteText, useSiteText } from "@/lib/siteText";
+import { saveSiteText, useIsDrafted, useSiteText } from "@/lib/siteText";
 
 // A piece of page wording that staff can edit in place. `id` names it in the database and
 // `fallback` is the wording the site ships with. Long text (`multiline`) keeps its paragraphs.
@@ -23,11 +23,13 @@ export default function SiteText({
 }) {
   const { editing } = useEdit();
   const value = useSiteText(id, fallback, editing);
+  const drafted = useIsDrafted(id);
   return (
     <Editable
       as={multiline ? "div" : as}
       label={label ?? id.replace(/[._]/g, " ")}
       value={value}
+      drafted={drafted}
       multiline={multiline}
       maxLength={multiline ? 20000 : 300}
       onSave={(next) => saveSiteText(id, next)}

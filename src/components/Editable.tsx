@@ -13,6 +13,7 @@ export default function Editable({
   multiline = false,
   maxLength,
   placeholder,
+  drafted = false,
   className,
   children,
 }: {
@@ -23,6 +24,7 @@ export default function Editable({
   multiline?: boolean;
   maxLength?: number;
   placeholder?: string;
+  drafted?: boolean; // has an unpublished change: shows an amber dot
   className?: string;
   children?: ReactNode;
 }) {
@@ -120,7 +122,16 @@ export default function Editable({
         </Tag>
       )}
       <span className="min-h-5 text-sm text-muted" role="status">
-        {open && !message ? hint : message}
+        {open && !message ? (
+          hint
+        ) : message ? (
+          message
+        ) : drafted ? (
+          <>
+            <span aria-hidden="true" className="mr-1.5 inline-block size-2.5 rounded-full bg-draft align-middle" />
+            Unpublished change
+          </>
+        ) : null}
       </span>
     </div>
   );

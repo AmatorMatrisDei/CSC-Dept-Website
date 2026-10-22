@@ -149,7 +149,7 @@ test("a student does not get the edit bar", async () => {
   await signIn(p, studentUser);
   await p.goto(BASE);
   await heading(p).waitFor();
-  assert.equal(await p.getByRole("region", { name: "Edit tools" }).count(), 0);
+  assert.equal(await p.getByRole("toolbar", { name: "Edit tools" }).count(), 0);
   assert.equal(await p.getByRole("button", { name: /^Edit/ }).count(), 0);
   await p.close();
 });
@@ -157,7 +157,7 @@ test("a student does not get the edit bar", async () => {
 test("an admin gets the edit bar, and the header has no edit switch", async () => {
   await signIn(page, adminUser);
   await page.goto(BASE);
-  await page.getByRole("region", { name: "Edit tools" }).waitFor();
+  await page.getByRole("toolbar", { name: "Edit tools" }).waitFor();
   assert.equal(await page.getByRole("banner").getByRole("switch").count(), 0);
 });
 
@@ -167,15 +167,16 @@ test("an edit is a draft only the editor sees, until it is published", async () 
   await page.getByLabel(KEY.replace(".", " ")).fill(firstText);
   await page.getByLabel(KEY.replace(".", " ")).press("Enter");
 
-  await page.getByText("1 unpublished change").waitFor();
+  await page.getByRole("button", { name: "Changes 1 unpublished" }).waitFor();
   await page.getByRole("button", { name: `Edit ${KEY.replace(".", " ")}` }).filter({ hasText: firstText }).waitFor(); // editors see their draft
 
   await visitor.goto(BASE);
   await heading(visitor).waitFor();
   assert.notEqual((await heading(visitor).textContent())?.trim(), firstText, "visitors still see the old wording");
 
-  await page.getByRole("button", { name: "Publish" }).click();
-  await page.getByText("unpublished").waitFor({ state: "detached" });
+  await page.getByRole("button", { name: /^Publish \(/ }).click();
+  await page.getByRole("button", { name: "Publish now" }).click();
+  await page.getByRole("button", { name: /^Changes \d+ unpublished/ }).waitFor({ state: "detached" });
 
   await visitor.reload();
   await visitor.getByRole("heading", { level: 1, name: firstText }).waitFor();
@@ -185,28 +186,27 @@ test("publishing refuses when the live text changed after the draft was started"
   await page.getByRole("button", { name: `Edit ${KEY.replace(".", " ")}` }).click();
   await page.getByLabel(KEY.replace(".", " ")).fill(`My draft ${tag}`);
   await page.getByLabel(KEY.replace(".", " ")).press("Enter");
-  await page.getByText("1 unpublished change").waitFor();
+  await page.getByRole("button", { name: "Changes 1 unpublished" }).waitFor();
 
   await api(`/rest/v1/site_content?key=eq.${KEY}`, { method: "PATCH", body: JSON.stringify({ value: elsewhereText }) });
 
-  await page.getByRole("button", { name: "Publish" }).click();
+  await page.getByRole("button", { name: /^Publish \(/ }).click();
+  await page.getByRole("button", { name: "Publish now" }).click();
   await page.getByText(/Someone else changed home\.title/).waitFor();
   const live = await (await api(`/rest/v1/site_content?key=eq.${KEY}&select=value`)).json();
   assert.equal(live[0].value, elsewhereText, "the other person's text was not overwritten");
 
-  await page.getByRole("button", { name: "Discard" }).click();
-  await page.getByText(/unpublished|Someone else/).waitFor({ state: "detached" });
+  await page.getByRole("button", { name: "Changes" }).click();
+  await page.getByRole("button", { name: "Discard all" }).click();
+  await page.getByRole("button", { name: /^Changes \d+ unpublished/ }).waitFor({ state: "detached" });
 });
 
-test("the bar folds into a tab and remembers it", async () => {
-  await page.getByRole("button", { name: "Hide" }).click();
-  await page.getByRole("region", { name: "Edit tools" }).waitFor({ state: "detached" });
-  await page.reload();
-  const tab = page.getByRole("button", { name: /^Edit/ }).last();
-  await tab.waitFor();
-  assert.equal(await page.getByRole("region", { name: "Edit tools" }).count(), 0, "still folded after a reload");
-  await tab.click();
-  await page.getByRole("region", { name: "Edit tools" }).waitFor();
+test("turning Edit mode off shrinks the pill to the switch", async () => {
+  await page.getByRole("button", { name: "History" }).waitFor();
+  await page.getByRole("switch", { name: "Edit mode" }).click();
+  await page.getByRole("button", { name: "History" }).waitFor({ state: "detached" });
+  await page.getByRole("switch", { name: "Edit mode" }).click();
+  await page.getByRole("button", { name: "History" }).waitFor();
 });
 
 test("two editors on different pages: both drafts are shared and published together", async () => {
@@ -217,7 +217,7 @@ test("two editors on different pages: both drafts are shared and published toget
   await second.getByRole("button", { name: `Edit ${OTHER_KEY.replace(".", " ")}` }).click();
   await second.getByLabel(OTHER_KEY.replace(".", " ")).fill(`About by two ${tag}`);
   await second.getByLabel(OTHER_KEY.replace(".", " ")).press("Enter");
-  await second.getByText("1 unpublished change").waitFor();
+  await second.getByRole("button", { name: "Changes 1 unpublished" }).waitFor();
 
   await page.goto(BASE);
   await page.getByRole("switch", { name: "Edit mode" }).waitFor();
@@ -227,10 +227,11 @@ test("two editors on different pages: both drafts are shared and published toget
   await page.getByRole("button", { name: `Edit ${KEY.replace(".", " ")}` }).click();
   await page.getByLabel(KEY.replace(".", " ")).fill(`Home by one ${tag}`);
   await page.getByLabel(KEY.replace(".", " ")).press("Enter");
-  await page.getByText("2 unpublished changes").waitFor();
+  await page.getByRole("button", { name: "Changes 2 unpublished" }).waitFor();
 
-  await page.getByRole("button", { name: "Publish" }).click();
-  await page.getByText("unpublished").waitFor({ state: "detached" });
+  await page.getByRole("button", { name: /^Publish \(/ }).click();
+  await page.getByRole("button", { name: "Publish now" }).click();
+  await page.getByRole("button", { name: /^Changes \d+ unpublished/ }).waitFor({ state: "detached" });
   await visitor.goto(`${BASE}/about`);
   await visitor.getByRole("heading", { level: 1, name: `About by two ${tag}` }).waitFor();
   await visitor.goto(BASE);
@@ -274,8 +275,9 @@ test("a list can be added to, reordered, trimmed and published", async () => {
   await saved(() => page.getByRole("button", { name: "Remove Item 3" }).click());
   await page.getByLabel("Item 3: title").waitFor({ state: "detached" });
 
-  await page.getByRole("button", { name: "Publish" }).click();
-  await page.getByText("unpublished").waitFor({ state: "detached" });
+  await page.getByRole("button", { name: /^Publish \(/ }).click();
+  await page.getByRole("button", { name: "Publish now" }).click();
+  await page.getByRole("button", { name: /^Changes \d+ unpublished/ }).waitFor({ state: "detached" });
   await visitor.goto(`${BASE}/about`);
   const shown = await visitor.getByRole("main").locator("ul").first().innerText();
   assert.ok(shown.indexOf(`Second ${tag}`) < shown.indexOf(`First ${tag}`), "reordered");
@@ -284,14 +286,15 @@ test("a list can be added to, reordered, trimmed and published", async () => {
 
 test("an earlier version can be restored from the history", async () => {
   await page.goto(BASE);
+  await page.getByRole("switch", { name: "Edit mode" }).click();
   await page.getByRole("button", { name: "History" }).click();
-  const row = page.getByRole("listitem").filter({ hasText: KEY }).first();
-  await row.waitFor();
-  await row.getByRole("button", { name: /^Restore/ }).click();
+  const restore = page.getByRole("button", { name: /^Restore Home, title from/ }).first();
+  await restore.waitFor();
+  await restore.click();
   await page.getByText("Put back as a draft").waitFor();
-  await page.getByText("1 unpublished change").waitFor();
-  await page.getByRole("button", { name: "Discard" }).click();
-  await page.getByText("unpublished").waitFor({ state: "detached" });
+  await page.getByRole("button", { name: "Changes 1 unpublished" }).waitFor();
+  await page.getByRole("button", { name: "Discard all" }).click(); // restoring opens the Changes panel
+  await page.getByRole("button", { name: /^Changes \d+ unpublished/ }).waitFor({ state: "detached" });
 });
 
 test("an admin's project edits and photos wait as a draft until Publish", async () => {
@@ -308,7 +311,7 @@ test("an admin's project edits and photos wait as a draft until Publish", async 
   await page.getByRole("button", { name: "Edit title" }).click();
   await page.getByLabel("title").fill(newTitle);
   await page.getByLabel("title").press("Enter");
-  await page.getByText("1 unpublished change").waitFor();
+  await page.getByRole("button", { name: "Changes 1 unpublished" }).waitFor();
 
   // Cover photo
   await page.getByLabel("Description for screen readers").fill(`Cover ${tag}`);
@@ -352,8 +355,9 @@ test("an admin's project edits and photos wait as a draft until Publish", async 
   assert.equal(await visitor.getByRole("main").locator("figure img").count(), project.thumbnail_path ? 1 : 0, "visitors see no new photo (only the live cover, if any)");
 
   // Publish puts it all live
-  await page.getByRole("button", { name: "Publish" }).click();
-  await page.getByText("unpublished").waitFor({ state: "detached" });
+  await page.getByRole("button", { name: /^Publish \(/ }).click();
+  await page.getByRole("button", { name: "Publish now" }).click();
+  await page.getByRole("button", { name: /^Changes \d+ unpublished/ }).waitFor({ state: "detached" });
   [live] = await rows("projects", `id=eq.${project.id}&select=title,thumbnail_path,thumbnail_alt`);
   assert.equal(live.title, newTitle);
   assert.ok(live.thumbnail_path.startsWith(`projects/${project.id}/`));
@@ -381,7 +385,7 @@ test("clicking a photo replaces it as a draft, and an earlier title can be resto
 
   // The picture in the page grid, not the Photos card
   await page.locator("ul input[type=file]").first().setInputFiles(picture);
-  await page.getByText("1 unpublished change").waitFor();
+  await page.getByRole("button", { name: "Changes 1 unpublished" }).waitFor();
   const [draft] = await rows("record_draft", `row_slug=eq.${project.slug}&select=gallery`);
   assert.equal(draft.gallery.length, 1);
   assert.notEqual(draft.gallery[0].path, liveBefore.storage_path, "the draft points at the new file");
@@ -389,33 +393,35 @@ test("clicking a photo replaces it as a draft, and an earlier title can be resto
   const [stillLive] = await rows("project_images", `project_id=eq.${project.id}&select=storage_path`);
   assert.equal(stillLive.storage_path, liveBefore.storage_path, "the live photo is unchanged until Publish");
 
-  await page.getByRole("button", { name: "Publish" }).click();
-  await page.getByText("unpublished").waitFor({ state: "detached" });
+  await page.getByRole("button", { name: /^Publish \(/ }).click();
+  await page.getByRole("button", { name: "Publish now" }).click();
+  await page.getByRole("button", { name: /^Changes \d+ unpublished/ }).waitFor({ state: "detached" });
   const [nowLive] = await rows("project_images", `project_id=eq.${project.id}&select=storage_path`);
   assert.equal(nowLive.storage_path, draft.gallery[0].path);
 
   // History: the title the earlier publish replaced
   await page.getByRole("button", { name: "History" }).click();
-  await page.getByRole("button", { name: new RegExp(`Restore projects/${project.slug}`) }).first().click();
-  await page.getByText("1 unpublished change").waitFor();
+  await page.getByRole("button", { name: new RegExp(`Restore Project: ${project.slug}`) }).first().click();
+  await page.getByRole("button", { name: "Changes 1 unpublished" }).waitFor();
   const [restored] = await rows("record_draft", `row_slug=eq.${project.slug}&select=patch`);
   assert.equal(restored.patch.title, project.title);
-  await page.getByRole("button", { name: "Publish" }).click();
-  await page.getByText("unpublished").waitFor({ state: "detached" });
+  await page.getByRole("button", { name: /^Publish \(/ }).click();
+  await page.getByRole("button", { name: "Publish now" }).click();
+  await page.getByRole("button", { name: /^Changes \d+ unpublished/ }).waitFor({ state: "detached" });
   const [back] = await rows("projects", `id=eq.${project.id}&select=title`);
   assert.equal(back.title, project.title);
 
   // History: the photo the replacement kept comes back as a draft, and goes live on Publish
   const [kept] = await rows("record_photo_history", `project_id=eq.${project.id}&select=storage_path`);
   assert.equal(kept.storage_path, liveBefore.storage_path, "the replaced photo is kept");
-  await page.getByRole("button", { name: "History" }).click(); // closes the panel, so the list loads afresh
   await page.getByRole("button", { name: "History" }).click();
-  await page.getByRole("button", { name: new RegExp(`Restore photo of ${project.slug}`) }).first().click();
-  await page.getByText("1 unpublished change").waitFor();
+  await page.getByRole("button", { name: new RegExp(`Restore Photo of ${project.slug}`) }).first().click();
+  await page.getByRole("button", { name: "Changes 1 unpublished" }).waitFor();
   const [photoDraft] = await rows("record_draft", `row_slug=eq.${project.slug}&select=gallery`);
   assert.ok(photoDraft.gallery.some((g) => g.path === liveBefore.storage_path), "the draft has the old photo back");
-  await page.getByRole("button", { name: "Publish" }).click();
-  await page.getByText("unpublished").waitFor({ state: "detached" });
+  await page.getByRole("button", { name: /^Publish \(/ }).click();
+  await page.getByRole("button", { name: "Publish now" }).click();
+  await page.getByRole("button", { name: /^Changes \d+ unpublished/ }).waitFor({ state: "detached" });
   const live = await rows("project_images", `project_id=eq.${project.id}&select=storage_path`);
   assert.ok(live.some((r) => r.storage_path === liveBefore.storage_path), "the old photo is live again");
 });
@@ -429,14 +435,15 @@ test("a faculty photo is a draft until Publish, and the replaced one can be rest
   if ((await editSwitch.getAttribute("aria-checked")) !== "true") await editSwitch.click();
 
   await page.locator("input[type=file]").first().setInputFiles(picture);
-  await page.getByText("1 unpublished change").waitFor();
+  await page.getByRole("button", { name: "Changes 1 unpublished" }).waitFor();
   const [draft] = await rows("record_draft", `row_slug=eq.${faculty.slug}&select=patch`);
   assert.match(draft.patch.photo_path, new RegExp(`^faculty/${faculty.id}/`));
   const [stillLive] = await rows("faculty", `id=eq.${faculty.id}&select=photo_path`);
   assert.equal(stillLive.photo_path, faculty.photo_path, "the live photo is unchanged until Publish");
 
-  await page.getByRole("button", { name: "Publish" }).click();
-  await page.getByText("unpublished").waitFor({ state: "detached" });
+  await page.getByRole("button", { name: /^Publish \(/ }).click();
+  await page.getByRole("button", { name: "Publish now" }).click();
+  await page.getByRole("button", { name: /^Changes \d+ unpublished/ }).waitFor({ state: "detached" });
   const [nowLive] = await rows("faculty", `id=eq.${faculty.id}&select=photo_path`);
   assert.equal(nowLive.photo_path, draft.patch.photo_path);
 
@@ -444,10 +451,11 @@ test("a faculty photo is a draft until Publish, and the replaced one can be rest
     const kept = await rows("record_history", `row_slug=eq.${faculty.slug}&select=before`);
     assert.ok(kept.some((r) => r.before.photo_path === faculty.photo_path), "the replaced photo is kept");
     await page.getByRole("button", { name: "History" }).click();
-    await page.getByRole("button", { name: new RegExp(`Restore faculty/${faculty.slug}`) }).first().click();
-    await page.getByText("1 unpublished change").waitFor();
-    await page.getByRole("button", { name: "Publish" }).click();
-    await page.getByText("unpublished").waitFor({ state: "detached" });
+    await page.getByRole("button", { name: new RegExp(`Restore Faculty: ${faculty.slug}`) }).first().click();
+    await page.getByRole("button", { name: "Changes 1 unpublished" }).waitFor();
+    await page.getByRole("button", { name: /^Publish \(/ }).click();
+  await page.getByRole("button", { name: "Publish now" }).click();
+    await page.getByRole("button", { name: /^Changes \d+ unpublished/ }).waitFor({ state: "detached" });
     const [back] = await rows("faculty", `id=eq.${faculty.id}&select=photo_path`);
     assert.equal(back.photo_path, faculty.photo_path, "the old photo is live again");
   }
@@ -652,6 +660,33 @@ test("an editor's form opens right under the event it is for, and an editor can 
   assert.equal(await card.count(), 0, "the deleted event's card does not come back");
   const left = await (await api(`/rest/v1/events?title=eq.${encodeURIComponent(eventTitle)}&select=id`)).json();
   assert.equal(left.length, 0, "the event is gone from the database");
+});
+
+test("the Changes panel describes a draft, asks before publishing, and undoes it", async () => {
+  await page.goto(BASE);
+  const edit = async () => {
+    if ((await page.getByRole("switch", { name: "Edit mode" }).getAttribute("aria-checked")) !== "true") {
+      await page.getByRole("switch", { name: "Edit mode" }).click();
+    }
+  };
+  await edit();
+  await page.getByRole("button", { name: `Edit ${KEY.replace(".", " ")}` }).click();
+  await page.getByLabel(KEY.replace(".", " ")).fill(`Card ${tag}`);
+  await page.getByLabel(KEY.replace(".", " ")).press("Enter");
+  await page.getByRole("button", { name: "Changes 1 unpublished" }).waitFor();
+
+  await page.getByRole("button", { name: "Changes 1 unpublished" }).click();
+  const panel = page.getByRole("dialog", { name: "Unpublished changes" });
+  await panel.getByText("Home, title", { exact: true }).first().waitFor();
+  await panel.getByText(`Card ${tag}`).waitFor();
+
+  await panel.getByRole("button", { name: "Publish…" }).click();
+  await page.getByRole("heading", { name: "Publish 1 change?" }).waitFor();
+  await page.getByRole("button", { name: "Not yet" }).click();
+  await page.getByRole("heading", { name: "Publish 1 change?" }).waitFor({ state: "detached" });
+
+  await panel.getByRole("button", { name: /^Undo/ }).click();
+  await page.getByRole("button", { name: /^Changes \d+ unpublished/ }).waitFor({ state: "detached" });
 });
 
 test("nothing threw in the browser", () => {
