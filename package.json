@@ -20,7 +20,8 @@
     "test:unit": "node --experimental-strip-types --test \"src/**/*.test.ts\" \"supabase/functions/_shared/review-message.test.ts\" \"supabase/functions/_shared/account-email.test.ts\" \"supabase/functions/_shared/turnstile.test.ts\"",
     "preview": "vite preview",
     "icons": "node scripts/icons.mjs",
-    "changes": "node scripts/changes.mjs"
+    "changes": "node scripts/changes.mjs",
+    "setup:local": "node scripts/setup-local.mjs"
   },
   "dependencies": {
     "@fontsource/montserrat": "^5.3.0",
