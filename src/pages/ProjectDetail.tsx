@@ -56,11 +56,14 @@ export default function ProjectDetail() {
   return (
     <article className="flex flex-col gap-8">
       <header className="flex flex-col gap-3">
-        <p className="text-sm">
-          <Link to="/projects" className="inline-flex min-h-11 items-center underline">
-            All projects
-          </Link>
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <p className="text-sm">
+            <Link to="/projects" className="inline-flex min-h-11 items-center underline">
+              All projects
+            </Link>
+          </p>
+          {editing && <HighlightSwitch kind="project" refId={project.id} />}
+        </div>
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
           <StatusBadge status={project.status} />
           <span>{project.sub_department.name}</span>
@@ -111,7 +114,6 @@ export default function ProjectDetail() {
       </ul>
 
       {editing && <ProjectPhotos project={project} live={live} />}
-      {editing && <HighlightSwitch kind="project" refId={project.id} />}
 
       <div className="grid gap-8 md:grid-cols-[2fr_1fr]">
         <div className="flex flex-col gap-4">
