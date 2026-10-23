@@ -2,7 +2,7 @@
 -- settings that shape the site, and nothing for an unverified account.
 begin;
 \ir _helpers.psql
-select plan(18);
+select plan(19);
 
 select pg_temp.create_test_projects();
 select pg_temp.create_user('a0000000-0000-4000-8000-000000000006', 'test.faculty@franciscan.edu', 'faculty');
@@ -34,6 +34,9 @@ select is((select headline from public.profiles where id = 'a0000000-0000-4000-8
 
 select lives_ok($$ insert into public.categories (name, slug) values ('Faculty topic', 'faculty-topic') $$,
   'faculty add content such as categories');
+
+select lives_ok($$ insert into public.events (title, event_date) values ('Faculty talk', '2026-12-04') $$,
+  'faculty add events');
 
 select ok(private.can_manage_media('projects/b0000000-0000-4000-8000-000000000001/cover.jpg'),
   'faculty can manage project photos');

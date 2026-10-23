@@ -788,8 +788,8 @@ Each step and what it protects against:
 
    | Check | Runs |
    | --- | --- |
-   | Lint, unit tests and build (`frontend.yml`) | ESLint, 64 unit tests, TypeScript type-check and build |
-   | Database, API and browser tests (`backend.yml`) | Starts a **throwaway local Supabase** inside GitHub, then: schema lint and 360 database tests, 19 API tests, two browser tests in Chrome (34 steps), the carousel tests, and a check that the generated types are up to date |
+   | Lint, unit tests and build (`frontend.yml`) | ESLint, 65 unit tests, TypeScript type-check and build |
+   | Database, API and browser tests (`backend.yml`) | Starts a **throwaway local Supabase** inside GitHub, then: schema lint and 362 database tests, 19 API tests, two browser tests in Chrome (34 steps), the carousel tests, and a check that the generated types are up to date |
 
    The backend tests run against a temporary database built from the migrations, so CI needs
    **no real keys** and never touches the hosted projects.
@@ -829,7 +829,7 @@ connections to our own site and our two Supabase projects.
 
 ## 11. The tests
 
-### 11.1 The 360 database tests (the slide's "202" predates page-editing drafts, verification, events and publish batches)
+### 11.1 The 362 database tests (the slide's "202" predates page-editing drafts, verification, events and publish batches)
 
 They are written in SQL with **pgTAP**, a testing library that runs inside Postgres. Each test
 signs in as a test user (visitor, student, reviewer, admin), tries something, and checks the
@@ -856,6 +856,7 @@ Run them with `npm run db:test`.
 | `16_account_verification` | 36 | What an unverified account can and can't do; unverified reviewers lose their powers; promotion needs verification; the Google and GitHub safeguard, only for the account's own address; changing address; rate limits; finishing a reset |
 | `16_events` | 20 | Everyone reads events; only admins write; dates, times, titles and links are checked; admin changes are logged |
 | `16_publish_batches` | 9 | One Publish is one batch in the history; a single record draft can be undone on its own; students can't |
+| `17_faculty_role` | 19 | Faculty edit page text, projects, student profiles, categories, events and project photos; they are refused admin-only changes; a student cannot give themselves the role; unverified faculty have no powers |
 
 Example, from `05_auth_and_storage`:
 
