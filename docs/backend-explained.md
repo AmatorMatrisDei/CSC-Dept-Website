@@ -788,7 +788,7 @@ Each step and what it protects against:
 
    | Check | Runs |
    | --- | --- |
-   | Lint, unit tests and build (`frontend.yml`) | ESLint, 68 unit tests, TypeScript type-check and build |
+   | Lint, unit tests and build (`frontend.yml`) | ESLint, 70 unit tests, TypeScript type-check and build |
    | Database, API and browser tests (`backend.yml`) | Starts a **throwaway local Supabase** inside GitHub, then: schema lint and 394 database tests, 19 API tests, two browser tests in Chrome (35 steps), the carousel tests, and a check that the generated types are up to date |
 
    The backend tests run against a temporary database built from the migrations, so CI needs

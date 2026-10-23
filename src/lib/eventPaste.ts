@@ -1,4 +1,4 @@
-import type { EventInput } from "./events";
+import type { EventInput } from "./eventInput";
 
 // What a paste can fill in: everything but the importance, which only the editor chooses.
 export type PastedEvent = Omit<EventInput, "importance">;
