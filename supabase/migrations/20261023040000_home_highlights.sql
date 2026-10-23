@@ -19,7 +19,15 @@ comment on table public.highlights is
 
 alter table public.highlights enable row level security;
 
-create policy "Highlights are public" on public.highlights for select to anon, authenticated using (true);
+-- A visitor reads only the highlights of pages they could already see: the raw table must not leak
+-- the blurb of an unpublished project or story, or of a student who is not listed. (Editors read
+-- every row through the policy below.)
+create policy "Visitors see highlights of public pages" on public.highlights for select to anon, authenticated
+  using (
+    (kind = 'project' and private.is_project_published(ref))
+    or (kind = 'student' and private.is_listed_student(ref))
+    or (kind = 'alumni' and exists (select 1 from public.alumni_stories a where a.id = ref and a.published))
+  );
 create policy "Editors manage highlights" on public.highlights for all to authenticated
   using ((select private.can_edit_site())) with check ((select private.can_edit_site()));
 
@@ -66,6 +74,23 @@ create trigger drop_highlight_if_hidden after update of visible on public.profil
   for each row when (old.visible and not new.visible) execute function private.drop_highlight_if_hidden();
 revoke execute on function private.drop_highlight_if_hidden() from public, anon, authenticated;
 
+-- Withdrawing directory permission ends the highlight too (it can leave `visible` alone), so
+-- agreeing to be listed again does not bring it back.
+create function private.drop_highlight_if_unconsented()
+returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  delete from public.highlights where kind = 'student' and ref = new.student_id;
+  return new;
+end;
+$$;
+
+create trigger drop_highlight_if_unconsented after update of revoked_at on public.consents
+  for each row when (new.scope = 'directory' and old.revoked_at is null and new.revoked_at is not null)
+  execute function private.drop_highlight_if_unconsented();
+revoke execute on function private.drop_highlight_if_unconsented() from public, anon, authenticated;
+
 -- A deleted project, student or story leaves the pool with it.
 create function private.drop_highlight()
 returns trigger
@@ -109,7 +134,9 @@ where h.kind = 'alumni' and a.published;
 revoke all on public.home_highlights from anon, authenticated;
 grant select on public.home_highlights to anon, authenticated;
 
--- Highlighted projects join the carousel's pool alongside the admin's monthly picks.
+-- Highlighted projects join the carousel's pool alongside the admin's monthly picks. The recent
+-- projects still fill the rest, unless a monthly pool of published projects has been chosen:
+-- a few highlights must not shrink the carousel to just those projects.
 create or replace function public.carousel_candidates(for_day date)
 returns table (project_id uuid, sub_department_id uuid, priority smallint, is_pinned boolean, updated_at timestamptz)
 language sql stable security definer set search_path = ''
@@ -127,7 +154,10 @@ as $$
   select * from (
     select p.id, p.sub_department_id, p.priority, p.is_pinned, p.updated_at
     from public.projects p
-    where p.published and not exists (select 1 from pool)
+    where p.published
+      and not exists (select 1 from public.monthly_pool mp join public.projects mpp on mpp.id = mp.project_id
+                      where mp.month = to_char(for_day, 'YYYY-MM') and mpp.published)
+      and p.id not in (select id from pool)
     order by p.updated_at desc
     limit 15
   ) as recent

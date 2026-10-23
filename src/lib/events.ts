@@ -98,6 +98,7 @@ export const eventToInput = (e: EventView): EventInput => ({
 // The problem with what was typed, in words for the editor, or null. The database checks the same things.
 export function eventProblem(input: EventInput): string | null {
   if (!input.title.trim()) return "Give the event a title.";
+  if (!(input.importance in IMPORTANCE_LABELS)) return "Choose how important the event is.";
   if (!input.event_date) return "Choose the date of the event.";
   if (input.end_date && input.end_date < input.event_date) return "The last day can't be before the first day.";
   if (input.end_time && !input.start_time) return "Add a start time, or clear the end time.";

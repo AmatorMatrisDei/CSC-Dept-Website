@@ -13,24 +13,40 @@ export default function HighlightSwitch({ kind, refId }: { kind: HighlightKind; 
   const [state, reload] = useReloadable(getHighlightState, kind, refId);
   const { busy, error, run } = useAction();
   const [lineOpen, setLineOpen] = useState(false);
+  // What the editor just chose, shown while it saves so the box does not snap back; `from` ties it
+  // to the state it was chosen from, so a reload (or a failed save) drops it.
+  const [wanted, setWanted] = useState<{ from: boolean; to: boolean } | null>(null);
 
   if (!state) return null;
+  const on = wanted && wanted.from === state.on ? wanted.to : state.on;
   const hint = `The home page shows a few highlighted ${NOUN[kind]}s, a different few each day. This is live at once, not part of the draft.`;
   return (
     <section aria-label="Home page highlight" className="flex w-full flex-col items-start gap-1 sm:w-auto sm:max-w-sm sm:items-end">
       <label
         title={hint}
-        className={`inline-flex min-h-11 items-center gap-2 rounded-full border border-accent px-4 text-sm ${state.on ? "bg-accent/15 font-semibold" : ""}`}
+        className={`inline-flex min-h-11 items-center gap-2 rounded-full border border-accent px-4 text-sm ${on ? "bg-accent/15 font-semibold" : ""}`}
       >
         <input
           type="checkbox"
           className="size-4"
-          checked={state.on}
+          checked={on}
           disabled={busy}
           aria-describedby={`highlight-hint-${refId}`}
-          onChange={(e) => void run(async () => { await setHighlight(kind, refId, e.target.checked, state.blurb); reload(); })}
+          onChange={(e) => {
+            const to = e.target.checked;
+            setWanted({ from: state.on, to });
+            void run(async () => {
+              try {
+                await setHighlight(kind, refId, to, state.blurb);
+              } catch (err) {
+                setWanted(null);
+                throw err;
+              }
+              reload();
+            });
+          }}
         />
-        <span>{state.on ? "On the home page" : "Highlight on the home page"}</span>
+        <span>{on ? "On the home page" : "Highlight on the home page"}</span>
       </label>
       <span id={`highlight-hint-${refId}`} className="sr-only">
         {hint}

@@ -30,6 +30,7 @@ export async function getHomeHighlights(): Promise<Highlight[]> {
     const { data, error } = await client()
       .from("home_highlights")
       .select("kind, ref, blurb, name, detail, slug, image_path")
+      .in("kind", ["student", "alumni"])
       .returns<HighlightRow[]>();
     if (error) throw error;
     return data.map(({ image_path, ...row }) => ({ ...row, image: mediaUrl(image_path) }));
@@ -38,11 +39,16 @@ export async function getHomeHighlights(): Promise<Highlight[]> {
   }
 }
 
-// Whether a page's project, student or story is in the pool, and its one-line note.
-export async function getHighlightState(kind: HighlightKind, ref: string): Promise<{ on: boolean; blurb: string }> {
-  const { data, error } = await client().from("highlights").select("blurb").eq("kind", kind).eq("ref", ref).maybeSingle();
-  if (error) throw error;
-  return { on: !!data, blurb: data?.blurb ?? "" };
+// Whether a page's project, student or story is in the pool, and its one-line note. The switch is
+// an extra on the page, so a failed load gives null (no switch), not an error screen.
+export async function getHighlightState(kind: HighlightKind, ref: string): Promise<{ on: boolean; blurb: string } | null> {
+  try {
+    const { data, error } = await client().from("highlights").select("blurb").eq("kind", kind).eq("ref", ref).maybeSingle();
+    if (error) throw error;
+    return { on: !!data, blurb: data?.blurb ?? "" };
+  } catch {
+    return null;
+  }
 }
 
 export async function setHighlight(kind: HighlightKind, ref: string, on: boolean, blurb = ""): Promise<void> {

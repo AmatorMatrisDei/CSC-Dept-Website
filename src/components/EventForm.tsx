@@ -82,7 +82,7 @@ export default function EventForm({
                   setPasteResult({ tone: "error", text: result.problem });
                   return;
                 }
-                setInput(result.input);
+                setInput((prev) => ({ ...result.input, importance: prev.importance }));
                 setProblem(null);
                 setPasteResult({
                   tone: "success",

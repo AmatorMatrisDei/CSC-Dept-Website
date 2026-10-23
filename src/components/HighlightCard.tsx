@@ -23,7 +23,7 @@ export default function HighlightCard({ item }: { item: Highlight }) {
     <li className="lift relative flex h-full flex-col items-center gap-3 wrap-anywhere rounded-lg border border-border bg-surface p-4 text-center">
       <Portrait src={item.image} alt="" name={item.name} className="size-24" />
       <h3 className="text-lg font-semibold">
-        {item.slug ? (
+        {item.kind === "student" && item.slug ? (
           <Link to={`/students/${item.slug}`} className="after:absolute after:inset-0 hover:underline">
             {item.name}
           </Link>

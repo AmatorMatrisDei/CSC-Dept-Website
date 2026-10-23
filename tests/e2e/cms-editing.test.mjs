@@ -694,6 +694,11 @@ test("the Changes panel describes a draft, asks before publishing, and undoes it
 
 test("an editor switches a project's home page highlight on, adds a line, and switches it off; visitors see no switch", async () => {
   const stored = async () => (await api(`/rest/v1/highlights?kind=eq.project&ref=eq.${project.id}&select=blurb`)).json();
+  // The box answers at once and the save follows, so wait for the stored rows to match.
+  const storedCount = async (want) => {
+    for (let i = 0; i < 50 && (await stored()).length !== want; i++) await new Promise((r) => setTimeout(r, 100));
+    return (await stored()).length;
+  };
   await api(`/rest/v1/highlights?kind=eq.project&ref=eq.${project.id}`, { method: "DELETE" });
   await page.goto(`${BASE}/projects/${project.slug}`);
   const editSwitch = page.getByRole("switch", { name: "Edit mode" });
@@ -706,7 +711,7 @@ test("an editor switches a project's home page highlight on, adds a line, and sw
   assert.ok((await off.evaluate((el) => el.closest("label").getBoundingClientRect().height)) >= 44, "the switch is a full-size target");
   await off.click();
   await page.getByRole("checkbox", { name: "On the home page", exact: true }).waitFor();
-  assert.equal((await stored()).length, 1, "switching it on is saved at once, with no draft step");
+  assert.equal(await storedCount(1), 1, "switching it on is saved at once, with no draft step");
 
   const line = `A line for the card ${tag}`;
   await page.getByRole("button", { name: "Add a line" }).click();
@@ -721,7 +726,7 @@ test("an editor switches a project's home page highlight on, adds a line, and sw
 
   await page.getByRole("checkbox", { name: "On the home page", exact: true }).click();
   await page.getByRole("checkbox", { name: "Highlight on the home page", exact: true }).waitFor();
-  assert.equal((await stored()).length, 0, "switching it off removes it from the pool");
+  assert.equal(await storedCount(0), 0, "switching it off removes it from the pool");
 });
 
 test("nothing threw in the browser", () => {

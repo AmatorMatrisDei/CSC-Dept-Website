@@ -6,7 +6,7 @@ import HighlightCard from "@/components/HighlightCard";
 import SiteText from "@/components/SiteText";
 import { getCarouselProjects } from "@/lib/content";
 import { dailyPick } from "@/lib/dailyPick";
-import { formatEventDays, formatEventTime, splitEvents, universityToday } from "@/lib/eventDates";
+import { splitEvents, universityToday } from "@/lib/eventDates";
 import { getEventsForHome } from "@/lib/events";
 import { getHomeHighlights } from "@/lib/highlights";
 import { useEdit } from "@/lib/edit";
@@ -83,21 +83,7 @@ export default function Home() {
           </h2>
           <ul className="grid gap-4 md:grid-cols-2">
             {banner.map((e) => (
-              <li key={e.id} className="lift flex flex-col gap-2 wrap-anywhere rounded-lg border-2 border-accent bg-surface p-6">
-                <p className="text-xl font-semibold text-accent">
-                  <time dateTime={e.event_date}>{formatEventDays(e, today)}</time>
-                </p>
-                <h3 className="text-2xl font-semibold">{e.title}</h3>
-                <p>{[formatEventTime(e), e.place].filter(Boolean).join(" · ")}</p>
-                {e.description && <p className="whitespace-pre-line text-muted">{e.description}</p>}
-                {e.link_url && (
-                  <div>
-                    <a href={e.link_url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center underline">
-                      More details<span className="sr-only"> about {e.title} (opens in a new tab)</span>
-                    </a>
-                  </div>
-                )}
-              </li>
+              <EventCard key={e.id} event={e} today={today} banner />
             ))}
           </ul>
         </section>
@@ -134,12 +120,15 @@ export default function Home() {
           ) : (
             <p className="text-muted">No more upcoming events. Add one on the events page.</p>
           )}
-          <div>
-            <Link to="/events" className="inline-flex min-h-11 items-center underline">
-              All events
-            </Link>
-          </div>
         </section>
+      )}
+
+      {(banner.length > 0 || soon.length > 0 || editing) && (
+        <div>
+          <Link to="/events" className="inline-flex min-h-11 items-center underline">
+            All events
+          </Link>
+        </div>
       )}
     </div>
   );
