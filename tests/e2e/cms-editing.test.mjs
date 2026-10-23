@@ -103,6 +103,7 @@ after(async () => {
     await api(`/rest/v1/site_content_history?key=eq.${key}`, { method: "DELETE" });
   }
   if (project) {
+    await api(`/rest/v1/highlights?kind=eq.project&ref=eq.${project.id}`, { method: "DELETE" });
     await api(`/rest/v1/record_draft?row_slug=eq.${project.slug}`, { method: "DELETE" });
     await api(`/rest/v1/record_photo_history?project_id=eq.${project.id}`, { method: "DELETE" });
     await api(`/rest/v1/project_images?project_id=eq.${project.id}`, { method: "DELETE" });
@@ -689,6 +690,38 @@ test("the Changes panel describes a draft, asks before publishing, and undoes it
 
   await panel.getByRole("button", { name: /^Undo/ }).click();
   await page.getByRole("button", { name: /^Changes \d+ unpublished/ }).waitFor({ state: "detached" });
+});
+
+test("an editor switches a project's home page highlight on, adds a line, and switches it off; visitors see no switch", async () => {
+  const stored = async () => (await api(`/rest/v1/highlights?kind=eq.project&ref=eq.${project.id}&select=blurb`)).json();
+  await api(`/rest/v1/highlights?kind=eq.project&ref=eq.${project.id}`, { method: "DELETE" });
+  await page.goto(`${BASE}/projects/${project.slug}`);
+  const editSwitch = page.getByRole("switch", { name: "Edit mode" });
+  await editSwitch.waitFor();
+  if ((await editSwitch.getAttribute("aria-checked")) !== "true") await editSwitch.click();
+
+  const off = page.getByRole("checkbox", { name: "Highlight on the home page", exact: true });
+  await off.waitFor();
+  assert.equal(await off.isChecked(), false);
+  assert.ok((await off.evaluate((el) => el.closest("label").getBoundingClientRect().height)) >= 44, "the switch is a full-size target");
+  await off.click();
+  await page.getByRole("checkbox", { name: "On the home page", exact: true }).waitFor();
+  assert.equal((await stored()).length, 1, "switching it on is saved at once, with no draft step");
+
+  const line = `A line for the card ${tag}`;
+  await page.getByRole("button", { name: "Add a line" }).click();
+  await page.getByLabel(/One line shown on the card/).fill(line);
+  await page.getByRole("button", { name: "Save line" }).click();
+  await page.getByRole("button", { name: "Edit its line" }).waitFor();
+  assert.equal((await stored())[0].blurb, line);
+
+  await visitor.goto(`${BASE}/projects/${project.slug}`);
+  await heading(visitor).waitFor();
+  assert.equal(await visitor.getByRole("checkbox", { name: /home page/ }).count(), 0, "visitors get no highlight switch");
+
+  await page.getByRole("checkbox", { name: "On the home page", exact: true }).click();
+  await page.getByRole("checkbox", { name: "Highlight on the home page", exact: true }).waitFor();
+  assert.equal((await stored()).length, 0, "switching it off removes it from the pool");
 });
 
 test("nothing threw in the browser", () => {
