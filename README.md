@@ -32,9 +32,29 @@ As of October 15, 2026.
 | Still to build | Adding faculty and partners, news, alumni stories and the monthly carousel pool (FR-6). Email notifications to students when a submission is reviewed (FR-3.6) |
 | Open | Email delivery with ITS (Microsoft sign-in or university SMTP). Until it's settled, students can't confirm new accounts on production |
 
+## Documentation
+
+Start with the first row; the rest are there when you need them.
+
+| Read this | When |
+| --- | --- |
+| [docs/contributing.md](docs/contributing.md) | Before your first change: the branch, pull request and review path, and the rules for code |
+| [docs/backend-setup.md](docs/backend-setup.md) | Setting up the local database, the test accounts, and how the hosted databases are deployed |
+| [docs/testing.md](docs/testing.md) | Which tests exist, how to run them, and how to try the developer site with people |
+| [docs/frontend-explained.md](docs/frontend-explained.md) | How the site's pages, components and data files fit together |
+| [docs/backend-explained.md](docs/backend-explained.md) | How the database, the access rules and the review queue work, with the code |
+| [docs/issue-sizes.md](docs/issue-sizes.md) | Choosing an issue: what the priority and size labels mean |
+| [docs/change-log.md](docs/change-log.md) | How each pull request records what changed, and how to list changes for a release |
+| [docs/cms-testing.md](docs/cms-testing.md) | The page-editor test plan, for picking a test to write |
+| [docs/repository-settings.md](docs/repository-settings.md) | GitHub rules that live in settings, not files (only the owner can change them) |
+| [docs/supabase-upgrade.md](docs/supabase-upgrade.md) | A draft comparing the Supabase Free and Pro plans |
+| [docs/Website-Content-Guide.docx](docs/Website-Content-Guide.docx) and [docs/Website-Content-Import.xlsx](docs/Website-Content-Import.xlsx) | Writing and importing page content (Word and Excel files) |
+
+AI assistants read [AGENTS.md](AGENTS.md), which says the same thing as the contributing guide.
+
 ## Getting started
 
-Requires **Node.js 22+**, and **Docker Desktop** if you run the database locally.
+Requires **Node.js 22+**, and **Docker** if you run the database locally ([setup below](#setting-up-docker)).
 
 ```bash
 npm install
@@ -51,6 +71,46 @@ For `.env.local`, use either:
   from the Supabase dashboard (Project Settings > API Keys). No Docker needed.
 
 Never put the secret key (`sb_secret_...`) in `.env.local` or anywhere in the site's code.
+
+### Setting up Docker
+
+The local database (`npm run db:start`) runs in Docker. You only need it for database work; the
+hosted dev project needs no Docker (see above). Check it first:
+
+```bash
+docker info          # prints details if Docker is running; an error means it isn't
+```
+
+**Windows and macOS:** install [Docker Desktop](https://docs.docker.com/desktop/), start it, and
+wait for it to say it is running. On Windows, turn on the WSL 2 backend (Settings > General).
+
+**Linux:** you don't need Docker Desktop. Install Docker Engine for your distribution by following
+[the official steps](https://docs.docker.com/engine/install/), then:
+
+```bash
+sudo systemctl enable --now docker    # start Docker now and at every boot
+sudo usermod -aG docker "$USER"       # run docker without sudo
+```
+
+Log out and back in (or run `newgrp docker`) so the group change applies, then check it:
+
+```bash
+docker run --rm hello-world
+```
+
+Then `npm run db:start` works as above. The first start downloads several GB of images and can
+take 10 minutes. To stop the local database, run `npm run db:stop`.
+
+If it fails:
+
+| You see | Try |
+| --- | --- |
+| `permission denied` on `/var/run/docker.sock` | You aren't in the `docker` group yet; do the `usermod` step and log in again |
+| `Cannot connect to the Docker daemon` | Start Docker (`sudo systemctl start docker`, or open Docker Desktop) |
+| A port is already in use (54321 to 54324) | Another local database is running; stop it, or run `npm run db:stop` and start again |
+
+More about the local database, its test accounts and resetting it:
+[docs/backend-setup.md](docs/backend-setup.md#1-local-harness-everyone).
 
 | Command | Does |
 | --- | --- |

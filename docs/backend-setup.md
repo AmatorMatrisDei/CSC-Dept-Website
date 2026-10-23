@@ -197,7 +197,7 @@ the safeguard for Google and GitHub sign-ins, is in
 You need:
 
 - **Node.js 22 or later**
-- **Docker Desktop**, running. On Windows, turn on the WSL 2 backend (Docker Desktop >
+- **Docker**, running (Docker Desktop on Windows and macOS, Docker Engine on Linux; see the README's "Setting up Docker"). On Windows, turn on the WSL 2 backend (Docker Desktop >
   Settings > General).
 - Git
 
