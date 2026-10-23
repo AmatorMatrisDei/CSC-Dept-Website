@@ -54,23 +54,105 @@ AI assistants read [AGENTS.md](AGENTS.md), which says the same thing as the cont
 
 ## Getting started
 
-Requires **Node.js 22+**, and **Docker** if you run the database locally ([setup below](#setting-up-docker)).
+Requires **Node.js 22+** and **Git**. There are two ways to run the site:
+
+- **With a local database (recommended).** Everything runs on your computer, with sample content and
+  test accounts, so you can edit, sign in as any role and break things safely. Needs **Docker**
+  ([setup below](#setting-up-docker)).
+- **With the shared hosted dev project.** No Docker, but you share one database with the team
+  ([steps below](#using-the-hosted-dev-project-instead)).
+
+### Run it with a local database
+
+1. **Install and start Docker.** See [Setting up Docker](#setting-up-docker) (Docker Desktop on
+   Windows and macOS, Docker Engine from the terminal on Linux). Check it with `docker info`; an
+   error means Docker isn't running.
+
+2. **Get the code and install its packages:**
+
+   ```bash
+   git clone https://github.com/AmatorMatrisDei/CSC-Dept-Website.git
+   cd CSC-Dept-Website
+   npm install
+   ```
+
+   `npm install` downloads the libraries the site is built with.
+
+3. **Start the local database:**
+
+   ```bash
+   npm run db:start
+   ```
+
+   This starts Supabase (the database, sign-in and file storage) in Docker, builds the tables and
+   access rules from `supabase/migrations/`, and fills them with the sample projects, people and test
+   accounts from `supabase/seed.sql`. The first run downloads several GB and can take 10 minutes;
+   later runs take seconds. When it finishes it prints the local addresses. Leave Docker running.
+
+4. **Create your settings files:**
+
+   ```bash
+   npm run setup:local
+   ```
+
+   The site and its server-side functions each read a settings file that isn't in git, because real
+   ones can hold secrets. This command asks the running database for its local address and
+   publishable key and writes them to `.env.local` (read by the site), and copies
+   `supabase/functions/.env.example` to `supabase/functions/.env` (read by the edge functions). It
+   never overwrites a file you already have, and never reads a secret key. If you already have a
+   `.env.local` (for the hosted dev project, say), it prints the two lines to swap in instead. Without
+   this step the site has no database to talk to and every page says "Content could not be loaded".
+
+5. **Start the site:**
+
+   ```bash
+   npm run dev
+   ```
+
+   Open http://localhost:5173. It reloads when you save a file.
+
+6. **Sign in** as `admin@franciscan.edu` with the password `password123`. That account is an admin,
+   so you can turn on Edit mode from the bar at the bottom of the page. The other test accounts
+   (reviewer, faculty, students) all use the same password and are listed in
+   [docs/backend-setup.md](docs/backend-setup.md#1-local-harness-everyone). To make your own sign-up
+   an admin, use the SQL under "Make the first admin" in the same file.
+
+**Day to day:** start Docker, then `npm run db:start` and `npm run dev`. After you pull new
+migrations, run `npm run db:reset`, which rebuilds the database from the migrations and reloads the
+sample data (your local data is wiped, which is fine). `npm run db:stop` stops the database and keeps
+its data.
+
+Also running locally: Studio, a web view of the database, at http://127.0.0.1:54323, and Mailpit,
+where the emails the site "sends" land, at http://127.0.0.1:54324.
+
+**If pages say "Content could not be loaded":**
+
+| Check | Fix |
+| --- | --- |
+| Is the database running? `npx supabase status` | Start Docker, then `npm run db:start` |
+| Does `.env.local` hold `http://127.0.0.1:54321` and the key from `npx supabase status`? | Delete `.env.local` and run `npm run setup:local`, then restart `npm run dev` (it reads the file only at startup) |
+| Did you pull new migrations? | `npm run db:reset` |
+
+What doesn't work out of the box:
+
+- **The edge functions** (the carousel's daily pick, reviewer messages, email verification, password
+  reset) aren't started by `db:start`. Run `npm run functions:serve` in a second terminal to
+  try them.
+- **Email verification and password reset** go through Google Firebase, so they answer
+  "unavailable" locally. You can still sign up and sign in, because local sign-up needs no email
+  confirmation.
+
+### Using the hosted dev project instead
 
 ```bash
 npm install
-cp .env.example .env.local   # fill in a Supabase URL and publishable key (below)
-npm run db:start             # optional: a local Supabase with test accounts and sample content
+cp .env.example .env.local   # then fill in the two values below
 npm run dev                  # the site at http://localhost:5173
 ```
 
-For `.env.local`, use either:
-
-- **the local stack:** `http://127.0.0.1:54321` and the "Publishable" key from `npx supabase status`.
-  Test accounts are listed in [docs/backend-setup.md](docs/backend-setup.md#1-local-harness-everyone).
-- **the hosted dev project:** `https://zekufoxhojjqqbmcxmtu.supabase.co` and its publishable key
-  from the Supabase dashboard (Project Settings > API Keys). No Docker needed.
-
-Never put the secret key (`sb_secret_...`) in `.env.local` or anywhere in the site's code.
+In `.env.local`, set `VITE_SUPABASE_URL` to `https://zekufoxhojjqqbmcxmtu.supabase.co` and
+`VITE_SUPABASE_PUBLISHABLE_KEY` to its publishable key from the Supabase dashboard (Project Settings
+> API Keys). Never put the secret key (`sb_secret_...`) in `.env.local` or anywhere in the site's code.
 
 ### Setting up Docker
 
@@ -111,35 +193,6 @@ If it fails:
 
 More about the local database, its test accounts and resetting it:
 [docs/backend-setup.md](docs/backend-setup.md#1-local-harness-everyone).
-
-### Local database in 5 steps
-
-For database work, or to try everything (editing, student accounts, the review queue) without
-touching the shared dev project. You need Node.js 22+, Git and Docker (see above).
-
-1. **Get the code and install:** `git clone` the repository, then `npm install`.
-2. **Start the database:** `npm run db:start`. The first run downloads several GB and can take 10
-   minutes. It comes with sample projects, people and test accounts.
-3. **Set up the settings files:** `npm run setup:local`. It creates `.env.local` (the local URL and
-   key) and `supabase/functions/.env`, and never overwrites a file you already have. If you have a
-   `.env.local` for the hosted dev project, it prints the two lines to swap in instead.
-4. **Start the site:** `npm run dev`, then open http://localhost:5173.
-5. **Sign in** as `admin@franciscan.edu` with the password `password123` (every test account is in
-   [docs/backend-setup.md](docs/backend-setup.md#1-local-harness-everyone)).
-
-Also running locally: Studio, a web view of the database, at http://127.0.0.1:54323, and Mailpit,
-where the emails the site "sends" land, at http://127.0.0.1:54324. `npm run db:reset` rebuilds the
-database from the migrations; run it after pulling new ones. `npm run db:stop` stops it, and your
-data stays.
-
-What doesn't work out of the box:
-
-- **The edge functions** (the carousel's daily pick, reviewer messages, email verification, password
-  reset) aren't started by `db:start`. Run `npm run functions:serve` in a second terminal to
-  try them.
-- **Email verification and password reset** go through Google Firebase, so they answer
-  "unavailable" locally. You can still sign up and sign in, because local sign-up needs no email
-  confirmation.
 
 | Command | Does |
 | --- | --- |
