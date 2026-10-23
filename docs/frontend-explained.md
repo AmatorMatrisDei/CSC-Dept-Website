@@ -529,7 +529,7 @@ What that means:
 | `npm run preview` | Serves the built `dist/` locally |
 | `npm run lint` | ESLint, including the React hooks rules |
 | `npm run test:unit` | The 68 unit tests |
-| `npm run test:e2e` | The two browser tests, 34 steps (need the local Supabase) |
+| `npm run test:e2e` | The two browser tests, 35 steps (need the local Supabase) |
 
 The site needs two settings, in `.env.local` locally and in Cloudflare's build settings when
 hosted:

@@ -789,7 +789,7 @@ Each step and what it protects against:
    | Check | Runs |
    | --- | --- |
    | Lint, unit tests and build (`frontend.yml`) | ESLint, 68 unit tests, TypeScript type-check and build |
-   | Database, API and browser tests (`backend.yml`) | Starts a **throwaway local Supabase** inside GitHub, then: schema lint and 384 database tests, 19 API tests, two browser tests in Chrome (34 steps), the carousel tests, and a check that the generated types are up to date |
+   | Database, API and browser tests (`backend.yml`) | Starts a **throwaway local Supabase** inside GitHub, then: schema lint and 384 database tests, 19 API tests, two browser tests in Chrome (35 steps), the carousel tests, and a check that the generated types are up to date |
 
    The backend tests run against a temporary database built from the migrations, so CI needs
    **no real keys** and never touches the hosted projects.
@@ -892,7 +892,7 @@ Each run signs up throwaway accounts and deletes them, and their files, afterwar
 
 ### 11.3 The other suites
 
-- **Browser tests, 34 steps:** `npm run test:e2e`. The student test (17 steps) has Chrome play a
+- **Browser tests, 35 steps:** `npm run test:e2e`. The student test (17 steps) has Chrome play a
   student and a reviewer through the real site:
   - sign up, and other email addresses refused
   - the reminder to verify, and the verify page (the test verifies with the secret key)
@@ -906,7 +906,7 @@ Each run signs up throwaway accounts and deletes them, and their files, afterwar
   - a removal request hides the student at once
   - a reviewer approves their own submission
   - the forms fit a phone screen
-  The editing test (17 steps) checks the Edit bar: drafts only the editor sees, publishing, a
+  The editing test (18 steps) checks the Edit bar: drafts only the editor sees, publishing, a
   clash with someone else's change, and the bar folding away.
 - **Unit tests, 68:** `npm run test:unit`. Planner rules, formatting, the sign-in redirect guard, the
   Turnstile check,
