@@ -8,6 +8,7 @@ import { getPeople, setRole, type Person } from "@/lib/people";
 const ROLES: { value: Role; label: string }[] = [
   { value: "student", label: "Student" },
   { value: "reviewer", label: "Reviewer" },
+  { value: "faculty", label: "Faculty" },
   { value: "admin", label: "Admin" },
 ];
 
@@ -41,13 +42,13 @@ function PeopleList({ myId }: { myId: string }) {
   const shown = people.filter((p) => !q || p.name.toLowerCase().includes(q) || p.email.toLowerCase().includes(q));
 
   function change(person: Person, role: Role) {
-    const verb = role === "admin" ? "make an admin" : role === "reviewer" ? "make a reviewer" : "make a student";
-    if (!window.confirm(`${person.name || "This person"}: ${verb}? Admins can edit the whole site and approve or reject submissions.`)) return;
+    const verb = role === "admin" ? "make an admin" : role === "faculty" ? "make faculty" : role === "reviewer" ? "make a reviewer" : "make a student";
+    if (!window.confirm(`${person.name || "This person"}: ${verb}? Faculty edit most of the site and approve or reject submissions; admins can also change roles and site settings.`)) return;
     setDone(null);
     void run(async () => {
       await setRole(person.id, role);
       setVersion((v) => v + 1);
-      setDone(`${person.name || "That person"} is now ${role === "admin" ? "an admin" : `a ${role}`}.`);
+      setDone(`${person.name || "That person"} is now ${role === "admin" ? "an admin" : role === "faculty" ? "faculty" : `a ${role}`}.`);
     });
   }
 
@@ -56,7 +57,7 @@ function PeopleList({ myId }: { myId: string }) {
       <header className="flex flex-col gap-2">
         <h1 className="text-3xl font-semibold">People and roles</h1>
         <p className="max-w-2xl text-muted">
-          Reviewers approve submissions. Admins also edit the site and manage roles. People must have signed up and verified
+          Reviewers approve submissions. Faculty also edit most of the site. Admins also manage roles and site settings. People must have signed up and verified
           their email address first. The email is the one they signed up with. Role changes are logged.
         </p>
       </header>
@@ -76,7 +77,7 @@ function PeopleList({ myId }: { myId: string }) {
               </p>
               <p className="text-sm text-muted">
                 {p.email}
-                {!p.verified && " · email not verified yet, so can't be a reviewer or admin"}
+                {!p.verified && " · email not verified yet, so can't be a reviewer, faculty or admin"}
               </p>
             </div>
             <label className="flex items-center gap-2 text-sm">

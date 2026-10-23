@@ -4,7 +4,7 @@ import { supabase } from "./supabase";
 // sends a submission to `pending_changes`, and a reviewer's approval applies it (see
 // supabase/migrations/*_review_queue.sql). Consents are the exception: they take effect at once.
 
-export type Role = "student" | "reviewer" | "admin";
+export type Role = "student" | "reviewer" | "faculty" | "admin";
 export type ConsentScope = "directory" | "photo" | "email" | "phone";
 export type ChangeTarget = "profile" | "project" | "internship";
 export type ChangeAction = "create" | "update" | "delete";
