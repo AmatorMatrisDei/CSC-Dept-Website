@@ -42,14 +42,16 @@ export default function EventBrowser({
   today,
   areas,
   renderCard,
+  initialWhen = "upcoming",
 }: {
+  initialWhen?: string;
   events: EventView[];
   today: string;
   areas: { id: string; name: string }[];
   renderCard: (event: EventView, past: boolean) => ReactNode;
 }) {
   const [query, setQuery] = useState("");
-  const [when, setWhen] = useState("upcoming");
+  const [when, setWhen] = useState(initialWhen);
   const [area, setArea] = useState("");
   const [year, setYear] = useState("");
 
@@ -65,7 +67,7 @@ export default function EventBrowser({
   const { upcoming, past } = splitEvents(visible, today);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div id="event-list" className="flex scroll-mt-4 flex-col gap-6">
       <form role="search" aria-label="Filter events" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" onSubmit={(e) => e.preventDefault()}>
         <label className="flex flex-col gap-1 text-sm">
           Search events

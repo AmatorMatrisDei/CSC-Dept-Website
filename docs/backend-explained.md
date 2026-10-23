@@ -784,8 +784,8 @@ Each step and what it protects against:
 
    | Check | Runs |
    | --- | --- |
-   | Lint, unit tests and build (`frontend.yml`) | ESLint, 64 unit tests, TypeScript type-check and build |
-   | Database, API and browser tests (`backend.yml`) | Starts a **throwaway local Supabase** inside GitHub, then: schema lint and 333 database tests, 19 API tests, two browser tests in Chrome (33 steps), the carousel tests, and a check that the generated types are up to date |
+   | Lint, unit tests and build (`frontend.yml`) | ESLint, 65 unit tests, TypeScript type-check and build |
+   | Database, API and browser tests (`backend.yml`) | Starts a **throwaway local Supabase** inside GitHub, then: schema lint and 334 database tests, 19 API tests, two browser tests in Chrome (33 steps), the carousel tests, and a check that the generated types are up to date |
 
    The backend tests run against a temporary database built from the migrations, so CI needs
    **no real keys** and never touches the hosted projects.
@@ -825,7 +825,7 @@ connections to our own site and our two Supabase projects.
 
 ## 11. The tests
 
-### 11.1 The 333 database tests (the slide's "202" predates page-editing drafts, verification and events)
+### 11.1 The 334 database tests (the slide's "202" predates page-editing drafts, verification and events)
 
 They are written in SQL with **pgTAP**, a testing library that runs inside Postgres. Each test
 signs in as a test user (visitor, student, reviewer, admin), tries something, and checks the
@@ -850,7 +850,7 @@ Run them with `npm run db:test`.
 | `14_cms_drafts` | 20 | Page text: allowed keys, cleaned values, drafts, publishing with the conflict check, history |
 | `15_record_drafts` | 55 | Project, student and faculty edits (and project photos) wait as drafts and go live on publish |
 | `16_account_verification` | 36 | What an unverified account can and can't do; unverified reviewers lose their powers; promotion needs verification; the Google and GitHub safeguard, only for the account's own address; changing address; rate limits; finishing a reset |
-| `16_events` | 19 | Everyone reads events; only admins write; dates, times, titles and links are checked; admin changes are logged |
+| `16_events` | 20 | Everyone reads events; only admins write; dates, times, titles and links are checked; admin changes are logged |
 
 Example, from `05_auth_and_storage`:
 
@@ -901,7 +901,7 @@ Each run signs up throwaway accounts and deletes them, and their files, afterwar
   - the forms fit a phone screen
   The editing test (16 steps) checks the Edit bar: drafts only the editor sees, publishing, a
   clash with someone else's change, and the bar folding away.
-- **Unit tests, 64:** `npm run test:unit`. Planner rules, formatting, the sign-in redirect guard, the
+- **Unit tests, 65:** `npm run test:unit`. Planner rules, formatting, the sign-in redirect guard, the
   Turnstile check,
   the GroupMe message, the policy pages' plain copies, and the verification and reset emails
   against a stand-in for Firebase.

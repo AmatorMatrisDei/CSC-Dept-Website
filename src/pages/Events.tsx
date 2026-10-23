@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router";
 import EventBrowser from "@/components/EventBrowser";
 import EventCalendar from "@/components/EventCalendar";
 import EventCard from "@/components/EventCard";
@@ -8,7 +9,7 @@ import { buttonClass, secondaryButtonClass } from "@/components/Form";
 import { splitEvents, universityToday } from "@/lib/eventDates";
 import { emptyEvent, eventToInput, getEventDepartments, getEvents, type EventInput, type EventView } from "@/lib/events";
 import { useEdit } from "@/lib/edit";
-import { useAsync, useReloadable, useTitle } from "@/lib/hooks";
+import { useAsync, useTitle } from "@/lib/hooks";
 import { useScrollTurn } from "@/lib/motion";
 
 // `id` null is a new event (a copy starts from an existing one without its dates). The form opens
@@ -19,15 +20,33 @@ export default function Events() {
   useTitle("Events");
   const page = useScrollTurn<HTMLDivElement>();
   const { editing } = useEdit();
-  const [events, reload] = useReloadable(getEvents, 0);
+  const loadedEvents = useAsync(getEvents);
+  const [fresh, setFresh] = useState<EventView[]>();
+  const events = fresh ?? loadedEvents;
+  const { hash } = useLocation();
   const departments = useAsync(getEventDepartments);
   const [open, setOpen] = useState<Open | null>(null);
-  const [view, setView] = useState<"calendar" | "list">("calendar");
+  // The header's "Upcoming events" and "Past events" links open the list with that filter.
+  const wanted = hash === "#upcoming" ? "upcoming" : hash === "#past" ? "past" : null;
+  const [choice, setChoice] = useState<{ hash: string; view: "calendar" | "list" }>();
+  const view = choice?.hash === hash ? choice.view : wanted ? "list" : "calendar";
+  const setView = (v: "calendar" | "list") => setChoice({ hash, view: v });
   const [calendarStart, setCalendarStart] = useState<string>();
   const today = universityToday();
 
   const all = events ?? [];
   const first = splitEvents(all, today).upcoming[0];
+
+  // The scroll waits for the events, because the list is not there before they load.
+  const loaded = !!events;
+  const scrolledTo = useRef<string | null>(null);
+  useEffect(() => {
+    if (!wanted) scrolledTo.current = null;
+    else if (loaded && view === "list" && scrolledTo.current !== hash) {
+      scrolledTo.current = hash;
+      document.getElementById("event-list")?.scrollIntoView();
+    }
+  }, [wanted, hash, loaded, view]);
 
   useEffect(() => {
     if (open) document.getElementById("event-form")?.scrollIntoView({ block: "nearest" });
@@ -39,9 +58,10 @@ export default function Events() {
       id={open.id}
       initial={open.initial}
       departments={departments ?? []}
-      onDone={() => {
+      // The form stays (busy) until the new list arrives, so the old values never flash back.
+      onDone={async () => {
+        setFresh(await getEvents());
         setOpen(null);
-        reload();
       }}
       onCancel={() => setOpen(null)}
     />
@@ -114,7 +134,7 @@ export default function Events() {
       ) : view === "calendar" ? (
         <EventCalendar key={calendarStart} events={all} today={today} startDate={calendarStart} renderCard={card} />
       ) : (
-        <EventBrowser events={all} today={today} areas={departments ?? []} renderCard={card} />
+        <EventBrowser key={wanted} initialWhen={wanted ?? "upcoming"} events={all} today={today} areas={departments ?? []} renderCard={card} />
       )}
     </div>
   );

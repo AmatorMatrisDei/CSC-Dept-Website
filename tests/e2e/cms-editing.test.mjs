@@ -573,6 +573,14 @@ test("visitors can search and filter the list, and save an upcoming event to the
   assert.equal(await upcoming.count(), 0);
   await when.selectOption({ label: "Upcoming" });
 
+  // The header's links open the list already filtered.
+  await visitor.goto(`${BASE}/events#past`);
+  await visitor.getByRole("region", { name: "Past events" }).getByRole("heading", { level: 3, name: `Old ${eventTitle}` }).waitFor();
+  assert.equal(await visitor.getByLabel("When").inputValue(), "past");
+  await visitor.goto(`${BASE}/events#upcoming`);
+  await visitor.getByRole("region", { name: "Upcoming events" }).getByRole("heading", { level: 3, name: eventTitle }).waitFor();
+  assert.equal(await visitor.getByLabel("When").inputValue(), "upcoming");
+
   // Searching by words in the place or the description, not only the title.
   await visitor.getByLabel("Search events").fill(`Pasted ${tag}`);
   await upcoming.getByRole("heading", { level: 3, name: eventTitle }).waitFor();
@@ -640,6 +648,7 @@ test("an editor's form opens right under the event it is for, and an editor can 
   await page.getByRole("button", { name: "Delete…" }).click();
   await page.getByRole("button", { name: "Yes, delete it" }).click();
   await form.waitFor({ state: "detached" });
+  await card.waitFor({ state: "detached" });
   assert.equal(await card.count(), 0, "the deleted event's card does not come back");
   const left = await (await api(`/rest/v1/events?title=eq.${encodeURIComponent(eventTitle)}&select=id`)).json();
   assert.equal(left.length, 0, "the event is gone from the database");

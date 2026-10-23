@@ -2,7 +2,7 @@
 begin;
 \ir _helpers.psql
 select pg_temp.create_test_projects(); -- also creates the test admin, reviewer and students
-select plan(19);
+select plan(20);
 
 -- Admins write ----------------------------------------------------------------------------------
 
@@ -28,6 +28,8 @@ select throws_ok($$ insert into public.events (title, event_date) values ('   ',
   '23514', null, 'an event needs a title');
 select throws_ok($$ insert into public.events (title, event_date, end_date) values ('Backwards', '2026-12-04', '2026-12-01') $$,
   '23514', null, 'an event cannot end before it starts');
+select throws_ok($$ insert into public.events (title, event_date, start_time, end_time) values ('Backwards', '2026-12-04', '18:00', '17:00') $$,
+  '23514', null, 'a one-day event cannot end at a time before it starts');
 select throws_ok($$ insert into public.events (title, event_date, end_time) values ('Ends only', '2026-12-04', '17:00') $$,
   '23514', null, 'an end time needs a start time');
 select throws_ok($$ insert into public.events (title, event_date, link_url) values ('Bad link', '2026-12-04', 'javascript:alert(1)') $$,

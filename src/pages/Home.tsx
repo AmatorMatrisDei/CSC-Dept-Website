@@ -26,7 +26,7 @@ export default function Home() {
   const projects = useAsync(getProjects);
   const departments = useAsync(getSubDepartments);
   const advisors = useAsync(getAllFaculty);
-  const events = useAsync(getEventsForHome, 0);
+  const events = useAsync(getEventsForHome);
   const { editing } = useEdit();
   const today = universityToday();
   const soon = events ? splitEvents(events, today).upcoming.slice(0, HOME_EVENTS) : [];

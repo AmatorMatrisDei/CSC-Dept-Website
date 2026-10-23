@@ -42,8 +42,7 @@ function client() {
   return supabase;
 }
 
-export async function getEvents(version = 0): Promise<EventView[]> {
-  void version; // changes after an edit, so the list loads again
+export async function getEvents(): Promise<EventView[]> {
   const { data, error } = await client()
     .from("events")
     .select("id, title, event_date, end_date, start_time, end_time, place, link_url, description, sub_departments(id, slug, name)")
@@ -55,7 +54,7 @@ export async function getEvents(version = 0): Promise<EventView[]> {
 }
 
 // For the home page, where events are a small extra: a failed load hides the section, not the page.
-export const getEventsForHome = (version = 0) => getEvents(version).catch((): EventView[] => []);
+export const getEventsForHome = () => getEvents().catch((): EventView[] => []);
 
 export async function getEventDepartments(): Promise<{ id: string; name: string }[]> {
   const { data, error } = await client().from("sub_departments").select("id, name").order("sort_order");
@@ -93,6 +92,7 @@ export function eventProblem(input: EventInput): string | null {
   if (!input.event_date) return "Choose the date of the event.";
   if (input.end_date && input.end_date < input.event_date) return "The last day can't be before the first day.";
   if (input.end_time && !input.start_time) return "Add a start time, or clear the end time.";
+  if (input.end_time && !(input.end_date > input.event_date) && input.end_time <= input.start_time) return "The end time must be after the start time.";
   if (input.link_url.trim() && !/^https?:\/\/\S{1,255}$/.test(input.link_url.trim())) {
     return "The link must start with https:// and contain no spaces.";
   }

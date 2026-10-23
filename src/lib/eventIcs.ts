@@ -58,7 +58,7 @@ function fold(line: string): string {
 export function eventIcs(event: IcsEvent, now = new Date()): string {
   const last = lastDay(event);
   const when = event.start_time
-    ? [`DTSTART;TZID=${ZONE}:${stamp(event.event_date, event.start_time)}`, ...(event.end_time ? [`DTEND;TZID=${ZONE}:${stamp(last, event.end_time)}`] : [])]
+    ? [`DTSTART;TZID=${ZONE}:${stamp(event.event_date, event.start_time)}`, ...(event.end_time ? [`DTEND;TZID=${ZONE}:${stamp(last, event.end_time)}`] : last > event.event_date ? [`DTEND;TZID=${ZONE}:${stamp(last, "23:59")}`] : [])]
     : [`DTSTART;VALUE=DATE:${event.event_date.replaceAll("-", "")}`, `DTEND;VALUE=DATE:${nextDay(last)}`];
   const lines = [
     "BEGIN:VCALENDAR",
@@ -87,5 +87,6 @@ export function downloadEventIcs(event: IcsEvent) {
   link.href = URL.createObjectURL(file);
   link.download = `${event.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "event"}.ics`;
   link.click();
-  URL.revokeObjectURL(link.href);
+  // Safari can cancel the download if the address is released straight away.
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 }

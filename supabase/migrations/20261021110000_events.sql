@@ -17,7 +17,9 @@ create table public.events (
   description text not null default '' check (length(description) <= 2000),
   sub_department_id uuid references public.sub_departments (id) on delete set null,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  -- On a one-day event the end is after the start (calendar files need it).
+  constraint events_end_after_start check (end_time is null or coalesce(end_date, event_date) > event_date or end_time > start_time)
 );
 
 comment on table public.events is

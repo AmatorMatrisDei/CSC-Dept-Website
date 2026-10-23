@@ -155,9 +155,9 @@ export default function EventCalendar({
       </div>
 
       <section aria-labelledby="chosen-day" className="flex flex-col gap-3">
-        <h3 id="chosen-day" className="text-xl font-semibold">
+        <h2 id="chosen-day" className="text-xl font-semibold">
           {dayName(selected)}
-        </h3>
+        </h2>
         <div key={selected} className="day-in">
           {chosen.length ? (
             <ul className="flex flex-col gap-4">{chosen.map((e) => renderCard(e, lastDay(e) < today))}</ul>

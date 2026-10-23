@@ -522,7 +522,7 @@ What that means:
 | `npm run build` | Type-checks (`tsc`), then builds into `dist/` |
 | `npm run preview` | Serves the built `dist/` locally |
 | `npm run lint` | ESLint, including the React hooks rules |
-| `npm run test:unit` | The 64 unit tests |
+| `npm run test:unit` | The 65 unit tests |
 | `npm run test:e2e` | The two browser tests, 29 steps (need the local Supabase) |
 
 The site needs two settings, in `.env.local` locally and in Cloudflare's build settings when
@@ -556,7 +556,7 @@ must be added to the security policy in `public/_headers`, or browsers will bloc
 **Lint and type-check** run on every pull request (`.github/workflows/frontend.yml`). The build
 fails on any type error.
 
-**64 unit tests** (`npm run test:unit`) test the pure logic, without a browser:
+**65 unit tests** (`npm run test:unit`) test the pure logic, without a browser:
 
 | File | Tests | What they check |
 | --- | --- | --- |

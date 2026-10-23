@@ -16,7 +16,7 @@ export default function EventForm({
   id: string | null;
   initial: EventInput;
   departments: { id: string; name: string }[];
-  onDone: () => void;
+  onDone: () => void | Promise<void>;
   onCancel: () => void;
 }) {
   const [input, setInput] = useState(initial);
@@ -38,7 +38,7 @@ export default function EventForm({
         if (!issue) {
           run(async () => {
             await saveEvent(id, input);
-            onDone();
+            await onDone();
           });
         }
       }}
@@ -150,7 +150,7 @@ export default function EventForm({
               onClick={() =>
                 run(async () => {
                   await deleteEvent(id);
-                  onDone();
+                  await onDone();
                 })
               }
             >

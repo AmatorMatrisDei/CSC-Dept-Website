@@ -32,6 +32,11 @@ test("text is escaped and the link and place are included", () => {
   assert.ok(ics.includes("URL:https://example.org/showcase"));
 });
 
+test("a timed multi-day event with no end time runs to the end of its last day", () => {
+  const ics = eventIcs({ ...base, end_date: "2026-12-06", end_time: null }, now);
+  assert.ok(ics.includes("DTEND;TZID=America/New_York:20261206T235900\r\n"));
+});
+
 test("an all-day, multi-day event ends the day after its last day", () => {
   const ics = eventIcs({ ...base, end_date: "2026-12-06", start_time: null, end_time: null }, now);
   assert.ok(ics.includes("DTSTART;VALUE=DATE:20261204\r\n"));
