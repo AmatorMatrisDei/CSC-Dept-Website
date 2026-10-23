@@ -513,6 +513,7 @@ test("an admin adds an upcoming event with a pasted AI answer and a past event b
   await page.getByLabel(/^Date/).fill(dayOf(-10));
   await page.getByRole("button", { name: "Add event", exact: true }).click();
   await page.getByRole("button", { name: "Add an event" }).waitFor();
+  await page.getByText("Saved. It's live now.").waitFor();
   const old = await (await api(`/rest/v1/events?title=eq.${encodeURIComponent(`Old ${eventTitle}`)}&select=id`)).json();
   assert.equal(old.length, 1);
 });

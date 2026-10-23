@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAction } from "@/lib/hooks";
+import { LIVE_SAVED, showToast } from "@/lib/toast";
 import { universityToday } from "@/lib/eventDates";
 import { deleteEvent, eventProblem, saveEvent, type EventInput } from "@/lib/events";
 import { eventPrompt, parseEventPaste } from "@/lib/eventPaste";
@@ -39,6 +40,7 @@ export default function EventForm({
           run(async () => {
             await saveEvent(id, input);
             await onDone();
+            showToast(LIVE_SAVED);
           });
         }
       }}
