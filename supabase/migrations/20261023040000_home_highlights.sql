@@ -172,3 +172,44 @@ comment on column public.events.importance is
   'major leads the home page; regular is the default; minor is for filtering. No visual difference elsewhere yet.';
 
 create index events_importance_idx on public.events (importance, event_date);
+
+-- A highlight row has no id of its own (its key is kind + ref), so a changed line in the audit log
+-- would not say which page it was for. Log the ref as the entry's target and add the kind.
+create or replace function private.log_admin_edit(tbl text, op text, before_row jsonb, after_row jsonb)
+returns void
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  ident text;
+  changes jsonb;
+  row_now jsonb := coalesce(after_row, before_row);
+begin
+  if not (private.can_edit_content() or current_setting('role', true) = 'service_role') then
+    return;
+  end if;
+  ident := row_now ->> coalesce(
+    (select k from unnest(array['id', 'key', 'user_id', 'year', 'ref']) k where row_now ? k limit 1), 'id');
+
+  select coalesce(jsonb_object_agg(k, jsonb_build_object(
+           'from', private.audit_clip(before_row -> k), 'to', private.audit_clip(after_row -> k))), '{}')
+  into changes
+  from jsonb_object_keys(row_now) k
+  where k not in ('updated_at', 'created_at', 'search')
+    and not (tbl = 'profiles' and k = 'role')  -- role changes have their own entry
+    and (op <> 'UPDATE' or before_row -> k is distinct from after_row -> k);
+
+  if op = 'UPDATE' and changes = '{}'::jsonb then
+    return;
+  end if;
+
+  perform private.audit(
+    case op when 'INSERT' then 'admin_created' when 'UPDATE' then 'admin_edited' else 'admin_deleted' end,
+    tbl,
+    case when ident ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then ident::uuid end,
+    jsonb_build_object('key', ident, 'changes', changes)
+      || case when tbl <> 'planner_catalogs' and row_now ? 'catalog_year'
+              then jsonb_build_object('catalog_year', row_now ->> 'catalog_year') else '{}'::jsonb end
+      || case when tbl = 'highlights' then jsonb_build_object('kind', row_now ->> 'kind') else '{}'::jsonb end
+  );
+end;
+$$;

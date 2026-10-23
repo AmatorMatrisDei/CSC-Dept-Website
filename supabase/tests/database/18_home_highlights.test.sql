@@ -2,7 +2,7 @@
 begin;
 \ir _helpers.psql
 select pg_temp.create_test_projects(); -- also creates the test admin, reviewer and students
-select plan(30);
+select plan(32);
 
 select pg_temp.login_as('a0000000-0000-4000-8000-000000000001');
 
@@ -39,6 +39,22 @@ reset role;
 select isnt_empty(
   $$ select 1 from public.audit_log where action = 'admin_created' and target_type = 'highlights' $$,
   'switching a highlight on is logged'
+);
+
+-- A changed line says which page it was for.
+select pg_temp.login_as('a0000000-0000-4000-8000-000000000001');
+update public.highlights set blurb = 'Changed line' where kind = 'project' and ref = 'b0000000-0000-4000-8000-000000000001';
+reset role;
+select is(
+  (select details ->> 'kind' || ':' || (details ->> 'key') from public.audit_log
+    where action = 'admin_edited' and target_type = 'highlights' order by created_at desc limit 1),
+  'project:b0000000-0000-4000-8000-000000000001',
+  'an edited highlight is logged with its kind and page'
+);
+select is(
+  (select target_id from public.audit_log where action = 'admin_edited' and target_type = 'highlights' order by created_at desc limit 1),
+  'b0000000-0000-4000-8000-000000000001'::uuid,
+  'and the entry targets that page'
 );
 
 -- Visitors only see what is already public ---------------------------------------------------------
