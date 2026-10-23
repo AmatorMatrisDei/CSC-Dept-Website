@@ -142,7 +142,7 @@ function HistoryPanel({ onClose, onRestored }: { onClose: () => void; onRestored
                     <span className="font-normal text-muted"> · {g.entries.length} {g.entries.length === 1 ? "change" : "changes"}</span>
                   </p>
                   <button type="button" disabled={busy} onClick={() => void restore(g.entries)} className={panelButton}>
-                    Restore page to this<span className="sr-only"> (before {when})</span>
+                    Put these back<span className="sr-only"> (before {when})</span>
                   </button>
                 </div>
                 <ul className="mt-2 flex flex-col gap-3">

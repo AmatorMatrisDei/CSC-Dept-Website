@@ -322,7 +322,7 @@ reviewer approves it**.
   - Page wording uses `<SiteText id="about.mission" fallback="…">`. The page ships with its default
     text, and a row in `site_content` replaces it once an admin edits it. If that table can't be
     reached, the defaults show, so the site never breaks over it.
-    Edits are drafts, shown only to editors until Publish. The Changes panel (`lib/changes.ts` describes each draft in plain words) shows each draft as a card with the old text struck through, the new text below and an Undo; Publish asks "Publish N changes?" first. History is grouped by publish (the `batch` column), with "Restore page to this" per group and Restore per change; restoring makes drafts and opens Changes. Edits to project, student and faculty
+    Edits are drafts, shown only to editors until Publish. The Changes panel (`lib/changes.ts` describes each draft in plain words) shows each draft as a card with the old text struck through, the new text below and an Undo; Publish asks "Publish N changes?" first. History is grouped by publish (the `batch` column), with "Put these back" per group and Restore per change; restoring makes drafts and opens Changes. Edits to project, student and faculty
     pages, and a project's photos (`ProjectPhotos`), are drafts too (`lib/recordDrafts.ts`): the page
     shows the draft in Edit mode and the bar's Publish makes everything live together. The History panel lists
     replaced record details and the last 3 replaced photos per project; restoring a photo makes a draft (student and faculty portraits work the same way through `EditablePortrait`: click to change, "Remove photo", last 3 kept in the History), and a file in the photo history is never deleted by clean-up. In Edit mode, clicking a
