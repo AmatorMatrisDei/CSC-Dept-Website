@@ -16,7 +16,7 @@ follows the Requirements and Team Guide v1.4; requirement IDs such as FR-3.4 ref
 | `supabase/functions/_shared/turnstile.ts` | Checks the CAPTCHA token on the password-reset form |
 | `supabase/seed.sql` | Test accounts and sample content, **local only** |
 | `supabase/dev-content.sql` | Sample content for the hosted dev project, without sign-in accounts (see 3.5) |
-| `supabase/config.toml` | Settings for the local stack (ports, auth, hooks, functions) |
+| `supabase/config.toml` | Settings for the local stack (ports, auth, hooks, functions), and each hosted project's own values at the end (see 3.1) |
 | `supabase/tests/` | Database tests (pgTAP) and end-to-end API tests |
 | `src/lib/database.types.ts` | TypeScript types generated from the schema, for the frontend |
 
@@ -329,10 +329,24 @@ production**, matching the branch workflow in the README. Production has followe
 October 15, 2026; dev follows `staging`.
 
 On each merge, the integration applies new migrations and deploys the Edge Functions
-declared in `config.toml` (`carousel`). It ignores `seed.sql` and the Auth and API settings in
-`config.toml` (there is no `[remotes]` block), so the local test accounts and localhost URLs
-never reach a hosted project. After a merge, check that the change arrived (Database >
-Migrations lists the applied versions). If it didn't, deploy by hand as in 3.2.
+declared in `config.toml` (`carousel`, `notify-reviewers`, `verify-email`, `password-reset`). It
+ignores `seed.sql`, so the local test accounts never reach a hosted project.
+
+It also applies `config.toml`'s settings to the project, using the project's own section at the
+end of the file (`[remotes.dev]`, `[remotes.production]`) on top of the local values. Those
+sections hold each project's site address, redirect URLs and the other settings that differ from
+a laptop. Change those settings in the file, not in the dashboard, or the next deploy can put
+them back. Before merging a change to the file, preview what a deploy would change:
+
+```bash
+npx supabase config diff --project-ref <project ref>
+```
+
+Without those sections, the deploy tries to apply the laptop settings (localhost URLs and all),
+and when a project refuses one, the deploy stops before the migrations. That happened to dev on
+October 22, 2026 ("Failed to update config for branch"). The "Supabase Preview" check on the
+merge commit shows whether a deploy worked. After a merge, check that the change arrived
+(Database > Migrations lists the applied versions). If it didn't, deploy by hand as in 3.2.
 
 ### 3.2 Deploying by hand
 
@@ -345,10 +359,11 @@ npx supabase login                              # opens a browser; run it in you
 npx supabase link --project-ref <project ref>   # see the table above
 npx supabase db push --dry-run                  # lists the migrations it would apply
 npx supabase db push
-npx supabase functions deploy carousel
+npx supabase functions deploy carousel notify-reviewers verify-email password-reset
 ```
 
-Run it from an up-to-date `main`: `db push` sends every migration in your working folder,
+Run it from an up-to-date copy of the branch the project follows (`main` for production,
+`staging` for dev): `db push` sends every migration in your working folder,
 including ones on an unmerged branch. `cat supabase/.temp/project-ref` shows which project you're
 linked to.
 
@@ -361,15 +376,16 @@ affected.
 
 1. **Turn on the sign-up rule.** Authentication > Hooks > add **Before User Created** > Postgres
    function > `public.hook_before_user_created`. Without this, anyone can sign up.
-2. **URLs.** Authentication > URL Configuration:
-   - Site URL: the site's address (production), or `http://localhost:5173` (dev).
-   - Redirect URLs: `http://localhost:5173/**`, `http://localhost:4173/**`,
-     `https://csc-dept-website.pages.dev/**`, and a wildcard for preview deployments,
-     `https://*.csc-dept-website.pages.dev/**`. Google and GitHub sign-in come back to
-     `/account/sign-in`, so it must be allowed.
-3. **Passwords and email.** Authentication > Sign In / Providers > Email: minimum password
-   length 8, and **"Confirm email" off**. Supabase's own emails can't reach students, so
-   verification (step 10) takes the place of confirmation.
+2. **URLs.** Set by the project's section in `config.toml` on each deploy (see 3.1), so for a
+   new project, add a section there rather than using the dashboard:
+   - Site URL: the site's address (`https://csc-dept-website.pages.dev` for production,
+     `https://staging.csc-dept-website.pages.dev` for dev).
+   - Redirect URLs: the site's address with `/**`; on dev also the preview wildcard,
+     `https://*.csc-dept-website.pages.dev/**`, and the laptop addresses. Google and GitHub
+     sign-in come back to `/account/sign-in`, so it must be allowed.
+3. **Passwords and email.** Also set by `config.toml`: minimum password length 8, and
+   **"Confirm email" off**. Supabase's own emails can't reach students, so verification
+   (step 10) takes the place of confirmation.
 4. **Email delivery.** Supabase's built-in email only reaches members of the Supabase
    organization, about two messages an hour. Verification and password resets don't need it:
    Google Firebase sends those (step 10). Emails to students for FR-3.6 notifications would still
