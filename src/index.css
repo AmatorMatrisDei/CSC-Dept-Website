@@ -167,6 +167,41 @@ a.underline:hover {
   animation: reveal-failsafe 0.01s var(--motion-intro-failsafe) forwards;
 }
 
+/* Calendar: the month grid slides in from the side it was reached from, the chosen day's events
+   rise into place, and a day's preview fades in. The reduced-motion rule below shortens all of them. */
+@keyframes slide-from-right {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+@keyframes slide-from-left {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.month-next {
+  animation: slide-from-right 300ms ease-out;
+}
+
+.month-previous {
+  animation: slide-from-left 300ms ease-out;
+}
+
+.day-in {
+  animation: rise-in 250ms ease-out backwards;
+}
+
 @media print {
   [data-reveal] > :not([data-revealed]),
   [data-intro]:not([data-intro-done]) [data-intro-part] {

@@ -47,7 +47,7 @@ export function TextField({
 }: Common & {
   value: string;
   onChange: (value: string) => void;
-  type?: "text" | "email" | "url" | "tel" | "password" | "number" | "date";
+  type?: "text" | "email" | "url" | "tel" | "password" | "number" | "date" | "time";
   maxLength?: number;
   autoComplete?: string;
   placeholder?: string;

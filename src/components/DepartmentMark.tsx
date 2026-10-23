@@ -4,21 +4,7 @@
 // attributes: "line" for strokes that draw, "gear" for a gear that turns (data-turn is one tooth,
 // in degrees, so a turn ends looking exactly as it started) and "pad" for the traces' end points.
 
-// A gear outline: `teeth` tapered teeth of height `depth` around a circle of radius `root`, the
-// first tooth starting `phase` degrees round from the right.
-function gear(cx: number, cy: number, root: number, depth: number, teeth: number, phase: number): string {
-  const step = 360 / teeth;
-  const point = (degrees: number, radius: number) => {
-    const angle = (degrees * Math.PI) / 180;
-    return `${(cx + radius * Math.cos(angle)).toFixed(1)} ${(cy + radius * Math.sin(angle)).toFixed(1)}`;
-  };
-  const points: string[] = [];
-  for (let i = 0; i < teeth; i++) {
-    const start = phase + i * step;
-    points.push(point(start, root), point(start + step * 0.18, root + depth), point(start + step * 0.42, root + depth), point(start + step * 0.6, root));
-  }
-  return `M${points.join("L")}Z`;
-}
+import { gearPath as gear } from "@/lib/gears";
 
 // The small gear sits up and to the right of the large one. Both have teeth of the same size, so
 // the small one has 8 to the large one's 12. At the point where they meet, a tooth of the large

@@ -11,6 +11,7 @@ import Password from "@/pages/account/Password";
 import ProfileForm from "@/pages/account/ProfileForm";
 import ProjectForm from "@/pages/account/ProjectForm";
 import SignIn from "@/pages/account/SignIn";
+import Events from "@/pages/Events";
 import VerifyEmail from "@/pages/account/VerifyEmail";
 import FacultyList from "@/pages/FacultyList";
 import FacultyMember from "@/pages/FacultyMember";
@@ -64,6 +65,7 @@ export default function App() {
         <Route index element={<Home />} />
         <Route path="projects" element={<Projects />} />
         <Route path="projects/:slug" element={<ProjectDetail />} />
+        <Route path="events" element={<Events />} />
         <Route path="faculty" element={<FacultyList />} />
         <Route path="faculty/:slug" element={<FacultyMember />} />
         <Route path="students" element={<Students />} />
