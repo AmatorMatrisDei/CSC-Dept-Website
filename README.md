@@ -32,9 +32,29 @@ As of October 15, 2026.
 | Still to build | Adding faculty and partners, news, alumni stories and the monthly carousel pool (FR-6). Email notifications to students when a submission is reviewed (FR-3.6) |
 | Open | Email delivery with ITS (Microsoft sign-in or university SMTP). Until it's settled, students can't confirm new accounts on production |
 
+## Documentation
+
+Start with the first row; the rest are there when you need them.
+
+| Read this | When |
+| --- | --- |
+| [docs/contributing.md](docs/contributing.md) | Before your first change: the branch, pull request and review path, and the rules for code |
+| [docs/backend-setup.md](docs/backend-setup.md) | Setting up the local database, the test accounts, and how the hosted databases are deployed |
+| [docs/testing.md](docs/testing.md) | Which tests exist, how to run them, and how to try the developer site with people |
+| [docs/frontend-explained.md](docs/frontend-explained.md) | How the site's pages, components and data files fit together |
+| [docs/backend-explained.md](docs/backend-explained.md) | How the database, the access rules and the review queue work, with the code |
+| [docs/issue-sizes.md](docs/issue-sizes.md) | Choosing an issue: what the priority and size labels mean |
+| [docs/change-log.md](docs/change-log.md) | How each pull request records what changed, and how to list changes for a release |
+| [docs/cms-testing.md](docs/cms-testing.md) | The page-editor test plan, for picking a test to write |
+| [docs/repository-settings.md](docs/repository-settings.md) | GitHub rules that live in settings, not files (only the owner can change them) |
+| [docs/supabase-upgrade.md](docs/supabase-upgrade.md) | A draft comparing the Supabase Free and Pro plans |
+| [docs/Website-Content-Guide.docx](docs/Website-Content-Guide.docx) and [docs/Website-Content-Import.xlsx](docs/Website-Content-Import.xlsx) | Writing and importing page content (Word and Excel files) |
+
+AI assistants read [AGENTS.md](AGENTS.md), which says the same thing as the contributing guide.
+
 ## Getting started
 
-Requires **Node.js 22+**, and **Docker Desktop** if you run the database locally.
+Requires **Node.js 22+**, and **Docker** if you run the database locally ([setup below](#setting-up-docker)).
 
 ```bash
 npm install
@@ -52,6 +72,75 @@ For `.env.local`, use either:
 
 Never put the secret key (`sb_secret_...`) in `.env.local` or anywhere in the site's code.
 
+### Setting up Docker
+
+The local database (`npm run db:start`) runs in Docker. You only need it for database work; the
+hosted dev project needs no Docker (see above). Check it first:
+
+```bash
+docker info          # prints details if Docker is running; an error means it isn't
+```
+
+**Windows and macOS:** install [Docker Desktop](https://docs.docker.com/desktop/), start it, and
+wait for it to say it is running. On Windows, turn on the WSL 2 backend (Settings > General).
+
+**Linux:** you don't need Docker Desktop. Install Docker Engine for your distribution by following
+[the official steps](https://docs.docker.com/engine/install/), then:
+
+```bash
+sudo systemctl enable --now docker    # start Docker now and at every boot
+sudo usermod -aG docker "$USER"       # run docker without sudo
+```
+
+Log out and back in (or run `newgrp docker`) so the group change applies, then check it:
+
+```bash
+docker run --rm hello-world
+```
+
+Then `npm run db:start` works as above. The first start downloads several GB of images and can
+take 10 minutes. To stop the local database, run `npm run db:stop`.
+
+If it fails:
+
+| You see | Try |
+| --- | --- |
+| `permission denied` on `/var/run/docker.sock` | You aren't in the `docker` group yet; do the `usermod` step and log in again |
+| `Cannot connect to the Docker daemon` | Start Docker (`sudo systemctl start docker`, or open Docker Desktop) |
+| A port is already in use (54321 to 54324) | Another local database is running; stop it, or run `npm run db:stop` and start again |
+
+More about the local database, its test accounts and resetting it:
+[docs/backend-setup.md](docs/backend-setup.md#1-local-harness-everyone).
+
+### Local database in 5 steps
+
+For database work, or to try everything (editing, student accounts, the review queue) without
+touching the shared dev project. You need Node.js 22+, Git and Docker (see above).
+
+1. **Get the code and install:** `git clone` the repository, then `npm install`.
+2. **Start the database:** `npm run db:start`. The first run downloads several GB and can take 10
+   minutes. It comes with sample projects, people and test accounts.
+3. **Set up the settings files:** `npm run setup:local`. It creates `.env.local` (the local URL and
+   key) and `supabase/functions/.env`, and never overwrites a file you already have. If you have a
+   `.env.local` for the hosted dev project, it prints the two lines to swap in instead.
+4. **Start the site:** `npm run dev`, then open http://localhost:5173.
+5. **Sign in** as `admin@franciscan.edu` with the password `password123` (every test account is in
+   [docs/backend-setup.md](docs/backend-setup.md#1-local-harness-everyone)).
+
+Also running locally: Studio, a web view of the database, at http://127.0.0.1:54323, and Mailpit,
+where the emails the site "sends" land, at http://127.0.0.1:54324. `npm run db:reset` rebuilds the
+database from the migrations; run it after pulling new ones. `npm run db:stop` stops it, and your
+data stays.
+
+What doesn't work out of the box:
+
+- **The edge functions** (the carousel's daily pick, reviewer messages, email verification, password
+  reset) aren't started by `db:start`. Run `npm run functions:serve` in a second terminal to
+  try them.
+- **Email verification and password reset** go through Google Firebase, so they answer
+  "unavailable" locally. You can still sign up and sign in, because local sign-up needs no email
+  confirmation.
+
 | Command | Does |
 | --- | --- |
 | `npm run dev` | Run the site with live reload |
@@ -61,6 +150,7 @@ Never put the secret key (`sb_secret_...`) in `.env.local` or anywhere in the si
 | `npm run db:start`, `db:test`, `test:api`, … | The backend harness; see [docs/backend-setup.md](docs/backend-setup.md) |
 | `npm run test:e2e` | The student forms and review queue in Chrome, against the local stack; see [docs/testing.md](docs/testing.md) |
 | `npm run icons` | Remake `public/favicon.ico` and `apple-touch-icon.png` from `public/favicon.svg`, in Chrome |
+| `npm run setup:local` | After `db:start`: create `.env.local` and `supabase/functions/.env` for the local database |
 | `npm run test:unit` | Unit tests of the site's pure helpers (planner rules, formatting, sign-in redirects) |
 | `npm run changes` | List what was merged into `staging` since the latest version tag (or `-- v0`, or a date), for the change-log; see [docs/change-log.md](docs/change-log.md) |
 

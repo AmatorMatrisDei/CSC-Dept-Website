@@ -197,7 +197,7 @@ the safeguard for Google and GitHub sign-ins, is in
 You need:
 
 - **Node.js 22 or later**
-- **Docker Desktop**, running. On Windows, turn on the WSL 2 backend (Docker Desktop >
+- **Docker**, running (Docker Desktop on Windows and macOS, Docker Engine on Linux; see the README's "Setting up Docker"). On Windows, turn on the WSL 2 backend (Docker Desktop >
   Settings > General).
 - Git
 
@@ -244,11 +244,15 @@ VITE_SUPABASE_PUBLISHABLE_KEY=   # "Publishable" key from `npx supabase status`
 For the hosted dev project, use its URL (`https://zekufoxhojjqqbmcxmtu.supabase.co`) and its
 publishable key from the dashboard instead.
 
+`npm run setup:local` does the next two steps for you: it writes `.env.local` and copies
+`supabase/functions/.env.example` to `.env`, and leaves any file you already have alone.
+
 Everyday commands:
 
 | Command | Does |
 | --- | --- |
 | `npm run db:start` / `npm run db:stop` | Start or stop the local stack. Data survives a stop |
+| `npm run setup:local` | Create `.env.local` and `supabase/functions/.env` for the local stack |
 | `npm run db:reset` | Rebuild the database from the migrations and seed. Run it after pulling new migrations |
 | `npm run functions:serve` | Run the carousel function locally (copy `supabase/functions/.env.example` to `.env` first) |
 | `npm run db:test` | Lint the schema and run the database tests |
