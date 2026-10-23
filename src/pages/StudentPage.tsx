@@ -1,5 +1,6 @@
 import { Link, useParams } from "react-router";
 import Editable from "@/components/Editable";
+import HighlightSwitch from "@/components/HighlightSwitch";
 import EditablePortrait from "@/components/EditablePortrait";
 import QuickView from "@/components/QuickView";
 import { studentLinks, studentQuickInfo } from "@/lib/quickInfo";
@@ -34,9 +35,12 @@ export default function StudentPage() {
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-2">
-        <Link to="/students" className="inline-flex min-h-11 w-fit items-center text-sm underline">
-          All students
-        </Link>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <Link to="/students" className="inline-flex min-h-11 w-fit items-center text-sm underline">
+            All students
+          </Link>
+          {editing && <HighlightSwitch kind="student" refId={student.id} />}
+        </div>
         <div className="w-fit">
           {editing ? (
             <EditablePortrait table="profiles" person={student} live={live} />
@@ -115,6 +119,7 @@ export default function StudentPage() {
           )}
         </div>
       )}
+
 
       <section aria-labelledby="projects" className="flex flex-col gap-2">
         <h2 id="projects" className="text-xl font-semibold">

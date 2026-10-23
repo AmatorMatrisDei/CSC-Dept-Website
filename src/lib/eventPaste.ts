@@ -1,4 +1,7 @@
-import type { EventInput } from "./events";
+import type { EventInput } from "./eventInput";
+
+// What a paste can fill in: everything but the importance, which only the editor chooses.
+export type PastedEvent = Omit<EventInput, "importance">;
 
 // Fills the event form from text an AI wrote, so an editor can describe an event in plain words
 // and paste the answer. Nothing here saves anything: the editor reads the filled form and presses Save.
@@ -34,7 +37,7 @@ const text = (value: unknown) => (typeof value === "string" ? value.trim() : "")
 export function parseEventPaste(
   pasted: string,
   departments: { id: string; name: string }[],
-): { input: EventInput; notes: string[] } | { problem: string } {
+): { input: PastedEvent; notes: string[] } | { problem: string } {
   const start = pasted.indexOf("{");
   const end = pasted.lastIndexOf("}");
   if (start < 0 || end < start) return { problem: "No event details found. Paste the whole answer, starting with {." };

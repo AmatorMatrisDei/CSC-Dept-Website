@@ -78,7 +78,8 @@ The data files in `src/lib/` are the only place that talks to Supabase:
 | `account.ts` | A signed-in student's pages | Their consents, submissions, photos, role |
 | `review.ts` | Reviewer pages | The queue, one submission, decisions, the waiting count |
 | `people.ts` | The admin People page | Everyone's role |
-| `events.ts` | The Events page and the home page | `events`: reads, and an editor's add, change and delete (saved at once, no draft). `eventDates.ts` holds the date logic, `eventPaste.ts` turns an AI's pasted answer into form values and `eventIcs.ts` makes the calendar file for "Add to calendar"; none of them makes Supabase calls. The Events page opens on a month calendar (`EventCalendar`) with a List view (`EventBrowser`: search, when, area and year filters) beside it, and an editor's form opens under the event it is for |
+| `events.ts` | The Events page and the home page | `events`: reads, and an editor's add, change and delete (saved at once, no draft). `eventDates.ts` holds the date logic, `eventInput.ts` the form values and their checks, `eventPaste.ts` turns an AI's pasted answer into form values and `eventIcs.ts` makes the calendar file for "Add to calendar"; none of them makes Supabase calls. The Events page opens on a month calendar (`EventCalendar`) with a List view (`EventBrowser`: search, when, area and year filters) beside it, and an editor's form opens under the event it is for |
+| `highlights.ts` | The home page and the edit-mode Highlight switch | `highlights` and the `home_highlights` view: the pool of students and alumni stories the home page shows (projects feed the carousel instead). Switching one is saved at once, no draft; visitors only ever see highlights of public pages |
 | `siteText.ts` | Any page with editable wording | `site_content` |
 | `planner/` | The planner | Catalog years, courses, programs, the saved plan |
 
@@ -352,7 +353,14 @@ reviewer approves it**.
 - **Featured carousel.** Shows the day's picked projects (`carousel_today`) and loops in both
   directions. Autoplay stops while the visitor hovers over or focuses it, when they press Pause,
   and always when their system asks for reduced motion. Arrow buttons and dots work by keyboard.
-- **Project browser** (home and `/projects`). Search by title, and filter by category, status,
+- **Home page highlights.** Below the carousel: a "Coming up" banner (major events, or regular ones
+  when none is major), a strip of highlighted students and alumni, and a short "More events" list.
+  The strip shows a few people, a different few each day (`dailyPick.ts`). An editor turns a
+  project or a student on with the pill at the top right of their page in edit mode; it is live at
+  once, with no draft. Only a student who is listed in the directory can be highlighted. Alumni can
+  be highlighted in the database only for now (#110). Event importance (major, regular, minor) is
+  set in the event form.
+- **Project browser** (`/projects`). Search by title, and filter by category, status,
   sub-department, year started (from the project's start date) and faculty advisor. A link can set
   a filter: the top menu's "Projects › 2025" opens `/projects?year=2025`.
 - **Student directory.** Listed students only. Search by name or skill, and filter by major and
@@ -521,8 +529,8 @@ What that means:
 | `npm run build` | Type-checks (`tsc`), then builds into `dist/` |
 | `npm run preview` | Serves the built `dist/` locally |
 | `npm run lint` | ESLint, including the React hooks rules |
-| `npm run test:unit` | The 65 unit tests |
-| `npm run test:e2e` | The two browser tests, 34 steps (need the local Supabase) |
+| `npm run test:unit` | The 70 unit tests |
+| `npm run test:e2e` | The two browser tests, 35 steps (need the local Supabase) |
 
 The site needs two settings, in `.env.local` locally and in Cloudflare's build settings when
 hosted:
@@ -555,7 +563,7 @@ must be added to the security policy in `public/_headers`, or browsers will bloc
 **Lint and type-check** run on every pull request (`.github/workflows/frontend.yml`). The build
 fails on any type error.
 
-**65 unit tests** (`npm run test:unit`) test the pure logic, without a browser:
+**70 unit tests** (`npm run test:unit`) test the pure logic, without a browser:
 
 | File | Tests | What they check |
 | --- | --- | --- |
@@ -565,7 +573,8 @@ fails on any type error.
 | `supabase/functions/_shared/review-message.test.ts` | 5 | The GroupMe message wording, and that it never names the student |
 | `supabase/functions/_shared/turnstile.test.ts` | 5 | The CAPTCHA check: Cloudflare is asked with our secret; missing, wrong or oversized tokens fail; no answer from Cloudflare fails; no secret means no check yet |
 | `src/lib/eventDates.test.ts` | 7 | Today at the university, not on the visitor's clock; upcoming and past split; times and day ranges; whole-week months; multi-day events on each day; days between dates across daylight saving |
-| `src/lib/eventIcs.test.ts` | 4 | The calendar file: time zone and end time, escaped text, multi-day all-day events, lines folded at 75 bytes |
+| `src/lib/eventIcs.test.ts` | 5 | The calendar file: time zone and end time, escaped text, multi-day events ending on their last day, lines folded at 75 bytes |
+| `src/lib/dailyPick.test.ts` | 3 | The home page's daily pick: the same few all day, a different few on another day, and fewer people than slots is fine |
 | `src/lib/eventPaste.test.ts` | 3 | An AI's answer fills the event form; wrong formats are reported, not guessed; text with no event is refused |
 | `src/lib/placeholder.test.ts` | 4 | Names lose titles and suffixes; initials; sorting by surname; steady tints |
 | `src/lib/format.test.ts` | 3 | Paragraphs; project years newest first; dates the same in every time zone |

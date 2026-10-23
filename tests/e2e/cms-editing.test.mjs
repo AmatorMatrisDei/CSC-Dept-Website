@@ -103,6 +103,7 @@ after(async () => {
     await api(`/rest/v1/site_content_history?key=eq.${key}`, { method: "DELETE" });
   }
   if (project) {
+    await api(`/rest/v1/highlights?kind=eq.project&ref=eq.${project.id}`, { method: "DELETE" });
     await api(`/rest/v1/record_draft?row_slug=eq.${project.slug}`, { method: "DELETE" });
     await api(`/rest/v1/record_photo_history?project_id=eq.${project.id}`, { method: "DELETE" });
     await api(`/rest/v1/project_images?project_id=eq.${project.id}`, { method: "DELETE" });
@@ -557,7 +558,8 @@ test("visitors get a calendar to move around in, with the day's events listed un
   assert.equal(await visitor.getByRole("button", { name: /^Edit/ }).count(), 0, "visitors get no edit buttons");
 
   await visitor.goto(BASE);
-  await visitor.getByRole("region", { name: "Upcoming events" }).getByRole("heading", { level: 3, name: eventTitle }).waitFor();
+  // A regular event is in the "Coming up" banner, or under "More events" when major ones fill the banner.
+  await visitor.getByRole("heading", { level: 3, name: eventTitle }).waitFor();
 });
 
 test("visitors can search and filter the list, and save an upcoming event to their calendar", async () => {
@@ -688,6 +690,43 @@ test("the Changes panel describes a draft, asks before publishing, and undoes it
 
   await panel.getByRole("button", { name: /^Undo/ }).click();
   await page.getByRole("button", { name: /^Changes \d+ unpublished/ }).waitFor({ state: "detached" });
+});
+
+test("an editor switches a project's home page highlight on, adds a line, and switches it off; visitors see no switch", async () => {
+  const stored = async () => (await api(`/rest/v1/highlights?kind=eq.project&ref=eq.${project.id}&select=blurb`)).json();
+  // The box answers at once and the save follows, so wait for the stored rows to match.
+  const storedCount = async (want) => {
+    for (let i = 0; i < 50 && (await stored()).length !== want; i++) await new Promise((r) => setTimeout(r, 100));
+    return (await stored()).length;
+  };
+  await api(`/rest/v1/highlights?kind=eq.project&ref=eq.${project.id}`, { method: "DELETE" });
+  await page.goto(`${BASE}/projects/${project.slug}`);
+  const editSwitch = page.getByRole("switch", { name: "Edit mode" });
+  await editSwitch.waitFor();
+  if ((await editSwitch.getAttribute("aria-checked")) !== "true") await editSwitch.click();
+
+  const off = page.getByRole("checkbox", { name: "Highlight on the home page", exact: true });
+  await off.waitFor();
+  assert.equal(await off.isChecked(), false);
+  assert.ok((await off.evaluate((el) => el.closest("label").getBoundingClientRect().height)) >= 44, "the switch is a full-size target");
+  await off.click();
+  await page.getByRole("checkbox", { name: "On the home page", exact: true }).waitFor();
+  assert.equal(await storedCount(1), 1, "switching it on is saved at once, with no draft step");
+
+  const line = `A line for the card ${tag}`;
+  await page.getByRole("button", { name: "Add a line" }).click();
+  await page.getByLabel(/One line shown on the card/).fill(line);
+  await page.getByRole("button", { name: "Save line" }).click();
+  await page.getByRole("button", { name: "Edit its line" }).waitFor();
+  assert.equal((await stored())[0].blurb, line);
+
+  await visitor.goto(`${BASE}/projects/${project.slug}`);
+  await heading(visitor).waitFor();
+  assert.equal(await visitor.getByRole("checkbox", { name: /home page/ }).count(), 0, "visitors get no highlight switch");
+
+  await page.getByRole("checkbox", { name: "On the home page", exact: true }).click();
+  await page.getByRole("checkbox", { name: "Highlight on the home page", exact: true }).waitFor();
+  assert.equal(await storedCount(0), 0, "switching it off removes it from the pool");
 });
 
 test("nothing threw in the browser", () => {
