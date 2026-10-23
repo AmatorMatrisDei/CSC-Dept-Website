@@ -1,19 +1,54 @@
+import { lazy, Suspense, useEffect } from "react";
 import { Link, useParams } from "react-router";
+import ClickToReplace from "@/components/ClickToReplace";
 import Cover from "@/components/Cover";
+import Editable from "@/components/Editable";
+import ProjectPhotos from "@/components/ProjectPhotos";
 import { StatusBadge } from "@/components/ProjectCard";
+import { useEdit } from "@/lib/edit";
 import { getProject } from "@/lib/content";
 import { formatDate, paragraphs } from "@/lib/format";
-import { useAsync, useTitle } from "@/lib/hooks";
+import { replaceGalleryPhoto, setCoverPhoto } from "@/lib/projectPhotos";
+import { useReloadable, useTitle } from "@/lib/hooks";
+import { isDrafted, saveRecordDraft, useRecordDraft, useReloadOnPublish, withProjectDraft } from "@/lib/recordDrafts";
 import { CATEGORY_LABELS } from "@/lib/types";
 import NotFound from "@/pages/NotFound";
 
+// Descriptions are Markdown. The renderer loads with the first project page a visitor opens;
+// until it arrives, or if it can't load, the description shows as plain paragraphs.
+const loadMarkdown = () => import("@/components/Markdown");
+const Markdown = lazy(() => loadMarkdown().catch(() => ({ default: PlainText })));
+
+function PlainText({ text }: { text: string }) {
+  return (
+    <>
+      {paragraphs(text).map((paragraph, i) => (
+        <p key={i}>{paragraph}</p>
+      ))}
+    </>
+  );
+}
+
 export default function ProjectDetail() {
   const { slug = "" } = useParams();
-  const project = useAsync(getProject, slug);
-  useTitle(project?.title ?? "Project");
+  const { editing } = useEdit();
+  const [live, reload] = useReloadable(getProject, slug);
+  useReloadOnPublish(reload);
+  const draft = useRecordDraft("projects", slug);
+  useTitle(live?.title ?? "Project");
+  // Start fetching the Markdown renderer while the project loads.
+  useEffect(() => {
+    loadMarkdown().catch(() => {});
+  }, []);
 
-  if (project === undefined) return <p className="text-muted">Loading…</p>;
-  if (project === null) return <NotFound what="project" />;
+  // Edits are saved as a draft and go live when an editor publishes.
+  function save(patch: Record<string, unknown>) {
+    return saveRecordDraft("projects", slug, patch, undefined, live?.date_updated);
+  }
+
+  if (live === undefined) return <p className="text-muted">Loading…</p>;
+  if (live === null) return <NotFound what="project" />;
+  const project = editing ? withProjectDraft(live, draft) : live;
 
   const photos = project.images.length ? project.images : project.thumbnail ? [project.thumbnail] : [];
 
@@ -31,8 +66,8 @@ export default function ProjectDetail() {
           <span aria-hidden="true">·</span>
           <span>{CATEGORY_LABELS[project.category]}</span>
         </div>
-        <h1 className="text-3xl font-semibold sm:text-4xl">{project.title}</h1>
-        <p className="text-muted">{project.summary}</p>
+        <Editable as="h1" label="title" drafted={isDrafted(draft, "title")} value={project.title} maxLength={200} onSave={(title) => save({ title })} className="text-3xl font-semibold sm:text-4xl" />
+        <Editable as="p" label="summary" drafted={isDrafted(draft, "summary")} value={project.summary} multiline maxLength={500} onSave={(summary) => save({ summary })} className="text-muted" />
         {project.open_to_contributors && (
           <p className="w-fit rounded border border-border px-3 py-1 text-sm">Open to contributors</p>
         )}
@@ -41,23 +76,49 @@ export default function ProjectDetail() {
       <ul className="grid gap-4 sm:grid-cols-2">
         {photos.length === 0 ? (
           <li>
-            <Cover src={null} alt="" label={project.title} />
+            {editing ? (
+              <ClickToReplace label="Add a photo" onPick={(file) => setCoverPhoto(project, live, file, project.title)}>
+                <Cover src={null} alt="" label={project.title} />
+              </ClickToReplace>
+            ) : (
+              <Cover src={null} alt="" label={project.title} />
+            )}
           </li>
         ) : (
-          photos.map((photo) => (
+          photos.map((photo, i) => (
             <li key={photo.url}>
-              <Cover src={photo.url} alt={photo.alt} />
+              <figure className="flex flex-col gap-2">
+                {editing ? (
+                  <ClickToReplace
+                    label="Replace photo"
+                    onPick={(file) =>
+                      project.images.length
+                        ? replaceGalleryPhoto(project, live, project.image_paths[i], file)
+                        : setCoverPhoto(project, live, file, photo.alt || project.title)
+                    }
+                  >
+                    <Cover src={photo.url} alt={photo.alt} />
+                  </ClickToReplace>
+                ) : (
+                  <Cover src={photo.url} alt={photo.alt} />
+                )}
+                {photo.caption && <figcaption className="text-sm text-muted">{photo.caption}</figcaption>}
+              </figure>
             </li>
           ))
         )}
       </ul>
 
+      {editing && <ProjectPhotos project={project} live={live} />}
+
       <div className="grid gap-8 md:grid-cols-[2fr_1fr]">
         <div className="flex flex-col gap-4">
           <h2 className="text-xl font-semibold">About this project</h2>
-          {paragraphs(project.description).map((text, i) => (
-            <p key={i}>{text}</p>
-          ))}
+          <Editable as="div" label="description" drafted={isDrafted(draft, "description")} value={project.description} multiline maxLength={20000} onSave={(description) => save({ description })} className="flex flex-col gap-4">
+            <Suspense fallback={<PlainText text={project.description} />}>
+              <Markdown text={project.description} />
+            </Suspense>
+          </Editable>
         </div>
 
         <aside className="flex flex-col gap-6" aria-label="Project details">
@@ -109,18 +170,37 @@ export default function ProjectDetail() {
             </section>
           )}
 
-          {(project.contact_email || project.contact_phone || project.links.length > 0) && (
+          {(editing || project.contact_email || project.contact_phone || project.links.length > 0) && (
             <section>
               <h2 className="text-lg font-semibold">Contact and links</h2>
               <ul>
-                {project.contact_email && (
+                {editing ? (
                   <li>
-                    <a href={`mailto:${project.contact_email}`} className="inline-flex min-h-11 items-center underline">
-                      {project.contact_email}
+                    <Editable
+                      as="span"
+                      label="contact email"
+                      value={project.contact_email ?? ""}
+                      maxLength={200}
+                      onSave={(v) => save({ primary_contact_email: v.trim() || null })}
+                      className="inline-flex min-h-11 items-center underline"
+                    />
+                  </li>
+                ) : (
+                  project.contact_email && (
+                    <li>
+                      <a href={`mailto:${project.contact_email}`} className="inline-flex min-h-11 items-center underline">
+                        {project.contact_email}
+                      </a>
+                    </li>
+                  )
+                )}
+                {project.contact_phone && (
+                  <li>
+                    <a href={`tel:${project.contact_phone.replace(/[^\d+]/g, "")}`} className="inline-flex min-h-11 items-center underline">
+                      {project.contact_phone}
                     </a>
                   </li>
                 )}
-                {project.contact_phone && <li className="min-h-11 py-2">{project.contact_phone}</li>}
                 {project.links.map((link) => (
                   <li key={link.url}>
                     <a href={link.url} className="inline-flex min-h-11 items-center underline">

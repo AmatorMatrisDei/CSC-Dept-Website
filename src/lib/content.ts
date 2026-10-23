@@ -1,3 +1,4 @@
+import { surname } from "./placeholder";
 import { mediaUrl, supabase } from "./supabase";
 import type {
   Category,
@@ -11,18 +12,24 @@ import type {
   SubDepartment,
 } from "./types";
 
-// The only file the pages read data from. It reads the public (published, opted-in) rows from
-// Supabase. People come from the listed_students view, never from profiles, so unlisted students
-// never show even to a signed-in reviewer.
+// The only file the public pages read data from; the signed-in pages use account.ts and
+// review.ts. It reads the public (published, opted-in) rows from Supabase. People come from the
+// listed_students view, never from profiles, so unlisted students never show even to a signed-in
+// reviewer.
 
-type FacultyRow = { slug: string; name: string; title: string; email: string | null; photo_path: string | null };
+type FacultyRow = { id: string; slug: string; name: string; title: string; email: string | null; photo_path: string | null; updated_at: string };
 type ProfileRow = {
+  id: string;
   slug: string;
+  updated_at: string;
   name: string;
   headline: string;
   contact_email: string | null;
+  contact_phone: string | null;
   photo_path: string | null;
   linkedin_url: string | null;
+  github_url: string | null;
+  website_url: string | null;
   major: string | null;
   class_year: number | null;
   background: string;
@@ -30,6 +37,7 @@ type ProfileRow = {
   clubs_roles: string[];
 };
 type ProjectRow = {
+  id: string;
   slug: string;
   title: string;
   summary: string;
@@ -50,7 +58,7 @@ type ProjectRow = {
   primary_contact_phone: string | null;
   sub_departments: SubDepartment;
   categories: { slug: string };
-  project_images: { storage_path: string; alt_text: string; sort_order: number }[];
+  project_images: { storage_path: string; alt_text: string; caption: string; sort_order: number }[];
   contributions: {
     role: string;
     external_name: string | null;
@@ -61,16 +69,16 @@ type ProjectRow = {
 };
 
 const PROJECT_SELECT = `
-  slug, title, summary, description, status, priority, is_pinned, open_to_contributors,
+  id, slug, title, summary, description, status, priority, is_pinned, open_to_contributors,
   date_started, date_finished, updated_at, thumbnail_path, thumbnail_alt, poster_url, repo_url, demo_url,
   primary_contact_email, primary_contact_phone,
   sub_departments(slug, name), categories(slug),
-  project_images(storage_path, alt_text, sort_order),
+  project_images(storage_path, alt_text, caption, sort_order),
   contributions(role, external_name, sort_order, listed_students(slug, name)),
-  advising(faculty(slug, name, title, email, photo_path))`;
+  advising(faculty(id, slug, name, title, email, photo_path))`;
 
 const PROFILE_SELECT =
-  "slug, name, headline, contact_email, photo_path, linkedin_url, major, class_year, background, skills, clubs_roles";
+  "id, slug, updated_at, name, headline, contact_email, contact_phone, photo_path, linkedin_url, github_url, website_url, major, class_year, background, skills, clubs_roles";
 
 function client() {
   if (!supabase) {
@@ -79,29 +87,36 @@ function client() {
   return supabase;
 }
 
-function photo(path: string | null, alt: string): Photo | null {
+function photo(path: string | null, alt: string, caption = ""): Photo | null {
   const url = mediaUrl(path);
-  return url ? { url, alt } : null;
+  return url ? { url, alt, ...(caption.trim() ? { caption: caption.trim() } : {}) } : null;
 }
 
 function toFaculty(row: FacultyRow): Faculty {
   return {
+    id: row.id,
     slug: row.slug,
     name: row.name,
     title: row.title,
     email: row.email,
     photo: photo(row.photo_path, row.name),
+    date_updated: row.updated_at,
   };
 }
 
 function toStudent(row: ProfileRow): Student {
   return {
+    id: row.id,
     slug: row.slug,
+    date_updated: row.updated_at,
     name: row.name,
     headline: row.headline,
     email: row.contact_email,
+    phone: row.contact_phone,
     photo: photo(row.photo_path, row.name),
     linkedin_url: row.linkedin_url,
+    github_url: row.github_url,
+    website_url: row.website_url,
     major: row.major,
     class_year: row.class_year,
     background: row.background,
@@ -117,7 +132,14 @@ function toProject(row: ProjectRow): ProjectView {
     { label: "Poster", url: row.poster_url },
   ].flatMap((l) => (l.url ? [{ label: l.label, url: l.url }] : []));
 
+  const sortedImages = [...row.project_images].sort((a, b) => a.sort_order - b.sort_order);
+  const shownImages = sortedImages.flatMap((i) => {
+    const p = photo(i.storage_path, i.alt_text, i.caption);
+    return p ? [{ photo: p, path: i.storage_path }] : [];
+  });
+
   return {
+    id: row.id,
     slug: row.slug,
     title: row.title,
     summary: row.summary,
@@ -131,9 +153,9 @@ function toProject(row: ProjectRow): ProjectView {
     priority: row.priority,
     is_pinned: row.is_pinned,
     thumbnail: photo(row.thumbnail_path, row.thumbnail_alt ?? ""),
-    images: [...row.project_images]
-      .sort((a, b) => a.sort_order - b.sort_order)
-      .flatMap((i) => photo(i.storage_path, i.alt_text) ?? []),
+    thumbnail_path: row.thumbnail_path,
+    images: shownImages.map((i) => i.photo),
+    image_paths: shownImages.map((i) => i.path),
     links,
     contact_email: row.primary_contact_email,
     contact_phone: row.primary_contact_phone,
@@ -184,6 +206,11 @@ export function getProjects(): Promise<ProjectView[]> {
   return projectsRequest;
 }
 
+// After a reviewer approves a change, the next page reads fresh data instead of this page load's copy.
+export function forgetCachedContent() {
+  projectsRequest = null;
+}
+
 export async function getProject(slug: string): Promise<ProjectView | null> {
   return (await getProjects()).find((p) => p.slug === slug) ?? null;
 }
@@ -215,11 +242,12 @@ export async function getSubDepartments(): Promise<SubDepartment[]> {
 export async function getAllFaculty(): Promise<Faculty[]> {
   const { data, error } = await client()
     .from("faculty")
-    .select("slug, name, title, email, photo_path")
+    .select("id, slug, name, title, email, photo_path, updated_at")
     .order("name")
     .returns<FacultyRow[]>();
   if (error) throw error;
-  return data.map(toFaculty);
+  // By surname, so "Dr.", "Prof." and "Rev." don't decide the order.
+  return data.map(toFaculty).sort((a, b) => surname(a.name).localeCompare(surname(b.name)) || a.name.localeCompare(b.name));
 }
 
 export async function getFaculty(slug: string): Promise<FacultyView | null> {

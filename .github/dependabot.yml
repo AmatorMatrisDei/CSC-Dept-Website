@@ -1,0 +1,21 @@
+# Opens pull requests into staging, like everyone else's, to keep dependencies current. Minor and
+# patch updates come grouped in one pull request a week; each major update gets its own, since it
+# can need code changes. CI checks them like any other pull request.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    target-branch: staging
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: staging
+    schedule:
+      interval: monthly

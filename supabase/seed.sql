@@ -44,6 +44,10 @@ select u.id::text, u.id, jsonb_build_object('sub', u.id::text, 'email', u.email,
   'email', now(), now(), now()
 from auth.users u;
 
+-- Every test account counts as verified (see the account_verification migration). Accounts
+-- created while testing start unverified, like real ones.
+insert into private.account_verifications (user_id, method) select id, 'admin' from auth.users;
+
 update public.profiles set role = 'admin' where id = '00000000-0000-4000-8000-000000000001';
 update public.profiles set role = 'reviewer'
 where id in ('00000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000003');

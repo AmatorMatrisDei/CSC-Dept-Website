@@ -1,0 +1,35 @@
+name: Front end
+
+# Lints the site, runs the unit tests of its pure helpers (planner rules, formatting, the sign-in
+# redirect guard), and type-checks and builds it, on every pull request and after merges into
+# staging and main. Cloudflare builds the copy that's deployed; this catches problems before
+# review. The browser test needs the local stack, so it runs in the Backend workflow.
+
+on:
+  pull_request:
+  push:
+    branches: [main, staging]
+
+jobs:
+  check:
+    name: Lint, unit tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Type-check and build
+        run: npm run build

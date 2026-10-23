@@ -1,17 +1,17 @@
 name: Backend
 
-# Runs the database and API tests against a throwaway local Supabase on every pull request.
-# Deploying migrations to the hosted project is done by Supabase's GitHub integration on merge
-# to main, not by this workflow.
+# Runs the database, API and browser tests against a throwaway local Supabase on every pull
+# request, and after merges into staging and main. Deploying migrations to the hosted projects is
+# done by Supabase's GitHub integration (staging to dev, main to production), not by this workflow.
 
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, staging]
 
 jobs:
   test:
-    name: Database and API tests
+    name: Database, API and browser tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -32,6 +32,10 @@ jobs:
 
       - name: Test Auth, Data API and Storage together
         run: npm run test:api
+
+      # Google Chrome comes with GitHub's Ubuntu runners; the test drives it with playwright-core.
+      - name: Test the student forms and review queue in Chrome
+        run: npm run test:e2e
 
       - name: Test the carousel pick's contract
         run: npm run test:carousel

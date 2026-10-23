@@ -2,7 +2,7 @@
 begin;
 \ir _helpers.psql
 select pg_temp.create_test_projects();
-select plan(27);
+select plan(28);
 
 -- test.student submits changes ------------------------------------------------------------------
 select pg_temp.login_as('a0000000-0000-4000-8000-000000000003');
@@ -204,16 +204,24 @@ select throws_ok(
   'a submission cannot use photos from someone else''s folder'
 );
 
--- Reviewers cannot approve their own submissions ------------------------------------------------
+-- Reviewers may approve their own submissions, and the audit log says so --------------------------
 reset role;
 select pg_temp.login_as('a0000000-0000-4000-8000-000000000002');
 insert into public.pending_changes (target_type, action, proposed_data) values ('profile', 'update', '{"headline": "Reviewer"}');
 
-select throws_ok(
+select lives_ok(
   $$ select public.review_change(
        (select id from public.pending_changes where submitter_id = 'a0000000-0000-4000-8000-000000000002'), 'approved') $$,
-  '42501', 'You cannot review your own submission',
-  'reviewers cannot approve their own submissions'
+  'reviewers can approve their own submissions'
+);
+
+reset role;
+
+select ok(
+  (select headline = 'Reviewer' from public.profiles where id = 'a0000000-0000-4000-8000-000000000002')
+    and exists (select 1 from public.audit_log
+                where actor_id = 'a0000000-0000-4000-8000-000000000002' and details ->> 'self_review' = 'true'),
+  'a self-approved change goes live and is marked as a self-review in the audit log'
 );
 
 -- Removal (FR-3.2) ------------------------------------------------------------------------------

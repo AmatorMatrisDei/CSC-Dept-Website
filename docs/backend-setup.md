@@ -1,7 +1,8 @@
 # Backend setup (Supabase)
 
 The backend is Supabase: a Postgres database with access rules, Supabase Auth for logins,
-Supabase Storage for photos, and one Edge Function for the carousel. Everything about it lives in
+Supabase Storage for photos, and Edge Functions for the carousel, reviewer notices, email
+verification and password resets. Everything about it lives in
 `supabase/` and is applied from git, so each hosted database matches the repository. The design
 follows the Requirements and Team Guide v1.4; requirement IDs such as FR-3.4 refer to it.
 
@@ -10,9 +11,12 @@ follows the Requirements and Team Guide v1.4; requirement IDs such as FR-3.4 ref
 | `supabase/migrations/` | The schema, access rules, review queue and carousel tables, in order |
 | `supabase/functions/carousel/` | The Edge Function that picks the daily carousel |
 | `supabase/functions/_shared/carousel-pick.ts` | The pick itself, owned by the Algorithms team |
+| `supabase/functions/verify-email/`, `password-reset/` | Email verification and forgotten passwords, through Google Firebase |
+| `supabase/functions/_shared/account-email.ts` | How those two work, step by step, with their unit tests beside it |
+| `supabase/functions/_shared/turnstile.ts` | Checks the CAPTCHA token on the password-reset form |
 | `supabase/seed.sql` | Test accounts and sample content, **local only** |
 | `supabase/dev-content.sql` | Sample content for the hosted dev project, without sign-in accounts (see 3.5) |
-| `supabase/config.toml` | Settings for the local stack (ports, auth, hooks, functions) |
+| `supabase/config.toml` | Settings for the local stack (ports, auth, hooks, functions), and each hosted project's own values at the end (see 3.1) |
 | `supabase/tests/` | Database tests (pgTAP) and end-to-end API tests |
 | `src/lib/database.types.ts` | TypeScript types generated from the schema, for the frontend |
 
@@ -39,6 +43,9 @@ Names follow the guide (section 3) where SQL allows.
 | `audit_log` | AuditLog | Approvals, rejections, removals, re-shuffles and role changes. Append-only |
 | `monthly_pool`, `daily_carousel`, `carousel_state` | MonthlyPool, DailyCarousel | The carousel's input and output |
 | `posts` | (not in the guide) | Department news, kept by team decision |
+| `planner_catalogs` | (not in the guide) | Degree planner: one row per catalog year (`2025-2026`), the year a student started |
+| `planner_courses`, `planner_degrees` | (not in the guide) | Each catalog year's courses (credits, prerequisites, when offered) and programs (majors, pre-engineering, minors: requirements, notes, suggested semesters). Admin-edited |
+| `planner_plans` | (not in the guide) | A signed-in person's own planner: their catalog year, program, completed courses and plans. Private to them |
 
 Who can do what:
 
@@ -49,7 +56,7 @@ Who can do what:
 | Grant or revoke their own consent | | ✓ | ✓ | ✓ |
 | Submit profile, project and internship changes | | ✓ | ✓ | ✓ |
 | Confirm or decline being listed on a project | | ✓ | ✓ | ✓ |
-| Approve, reject or send back submissions (not their own) | | | ✓ | ✓ |
+| Approve, reject or send back submissions (their own too, logged as self-reviews) | | | ✓ | ✓ |
 | Edit anything directly, set priority and pins, publish | | | | ✓ |
 | Manage faculty, sub-departments, categories, monthly pool | | | | ✓ |
 | Change roles, re-shuffle the carousel | | | | ✓ |
@@ -87,10 +94,13 @@ Who can do what:
   accident. New functions are private by default, so a new RPC for the site needs an explicit
   `grant execute`.
 - **Two functions run with the owner's rights on purpose:** `review_change` and
-  `respond_to_listing`. Each checks its caller (reviewers only, never your own submission; only
-  your own listing). The Supabase Security Advisor flags them as warnings, which is expected.
+  `respond_to_listing`. Each checks its caller (reviewers and admins only, including for their own
+  submissions, which the audit log marks as self-reviews; only your own listing). The Supabase Security Advisor flags them as warnings, which is expected.
 - **The carousel function** accepts browser calls only from `CAROUSEL_ALLOWED_ORIGINS`, checks the
   cron secret in constant time, and never returns database error details.
+- **Unverified accounts** can't submit, give permissions, confirm listings, or use a reviewer or
+  admin role (next section). The helpers the verification functions use can only be called with
+  the secret key, and a test fails if that changes.
 
 ### How a submission works (guide 2.4)
 
@@ -125,6 +135,62 @@ and resubmit. Each student can have at most 20 submissions open, and each is lim
   priority. Its seed is `"<day>:<re-shuffle count>"`.
 - The home page reads the `carousel_today` view: the day's cards in order, with members and
   advisors.
+
+### Reviewer notifications (#54)
+
+- **On the site:** reviewers and admins see how many submissions are waiting, in a bar under the
+  header and as a count on **My account**. The site reads the queue itself (`countWaiting()` in
+  `src/lib/review.ts`) on every page change, when the tab comes back into view, and every two
+  minutes.
+- **In chat:** a trigger on `pending_changes` calls the `notify-reviewers` Edge Function for each
+  new submission and each resubmission after changes were requested. Decisions and withdrawals
+  send nothing. The function posts through a GroupMe bot, or a Discord webhook if one is set.
+  Messages say what kind of submission it is and its project or internship title, with a link to
+  its review page, and never who sent it (`supabase/functions/_shared/review-message.ts`).
+- pg_net sends the request after the submission commits, so a slow or failing chat never holds
+  up a submission. Until the secrets in 3.3, step 7, are set, nothing is sent.
+
+### Account verification
+
+Sign-ups are confirmed at once, so an account's address is only proven once it's **verified**:
+by "Continue with Google" or "Continue with GitHub", by a link that the `verify-email` function
+has Google Firebase email (it usually lands in Junk), or by hand:
+
+```sql
+select public.mark_account_verified('<account id>', 'admin');
+```
+
+Until then the account can browse and plan, but the database refuses its submissions,
+permissions, listing confirmations and reviews. Reviewers and admins who existed before the
+migration were marked verified by it. Changing an account's address needs a Franciscan address
+and a new verification. Forgotten passwords go through Firebase too
+(`password-reset`), because Supabase's own emails can't reach students. The full story, including
+the safeguard for Google and GitHub sign-ins, is in
+[backend-explained.md](backend-explained.md), section 3.4. Setup is 3.3, step 10.
+
+### The degree planner
+
+- Courses, credits and requirements follow the catalog of the academic year a student started
+  in, so each catalog year (`planner_catalogs`) has its own copy of every course and program. A
+  spring start follows the catalog from the fall before it (spring 2025 uses 2024-2025); the
+  planner then begins in that spring, with the catalog's fall-start plan from the next fall. A course is
+  keyed by `(catalog_year, id)`, and its prerequisites name courses of the same year. Editing a
+  course or a suggested plan changes that year only.
+- The 2022-2023 through 2026-2027 undergraduate catalogs were loaded from
+  franciscan.smartcatalogiq.com by migration `20261016000000_planner_catalog_years.sql`: the
+  department's majors, minors and pre-engineering transfer programs (one program per track where
+  the second year differs by discipline), each with the catalog's own semester plan.
+- A program's `requirements` list what it requires: each item is met by all the courses of any
+  one of its `options`, and an item with only a `label` (an elective, a core area) is left to the
+  student. The planner checks a student's plan against them.
+- `planner_catalog_issues()` lists problems in the suggested plans of every year: a course before
+  its prerequisites, a corequisite not alongside, a course in a term or year (odd/even) it isn't
+  offered, a semester over 18 credits. Most of what it reports today is in the catalogs'
+  own plans (the pre-engineering plans list CSC 144 without its lab, CSC 142, for example), which
+  faculty may want to look at.
+- To add a catalog year: insert its `planner_catalogs` row, then its courses, then its programs,
+  in one migration (the course checks run at the end of the transaction, so courses can name each
+  other in any order).
 
 ## 1. Local harness (everyone)
 
@@ -252,34 +318,52 @@ Supabase dashboard > Project Settings > Integrations > GitHub, on each project:
 | GitHub repository | `AmatorMatrisDei/CSC-Dept-Website`, the shared repository, not a fork |
 | Working directory | `.` |
 | Deploy to production | On |
-| Production branch name | `main` |
+| Production branch name | `main` on Franciscan Site, `staging` on Franciscan Site Dev |
 
 Connecting the shared repository requires its owner to approve the Supabase GitHub app. Connecting
 a fork does not work: the integration deploys when a pull request is merged in the connected
 repository, and syncing a fork does not count.
 
-**Production (Franciscan Site) has been connected this way since October 15, 2026.** The dev
-project is not connected; update it by hand (3.2).
+So **merging into `staging` updates the dev project, and merging into `main` updates
+production**, matching the branch workflow in the README. Production has followed `main` since
+October 15, 2026; dev follows `staging`.
 
-On merge to `main`, the integration applies new migrations and deploys the Edge Functions
-declared in `config.toml` (`carousel`). It ignores `seed.sql` and the Auth and API settings in
-`config.toml` (there is no `[remotes]` block), so the local test accounts and localhost URLs
-never reach a hosted project. After a merge, check that the change arrived (Database >
-Migrations lists the applied versions). If it didn't, deploy by hand as in 3.2.
+On each merge, the integration applies new migrations and deploys the Edge Functions
+declared in `config.toml` (`carousel`, `notify-reviewers`, `verify-email`, `password-reset`). It
+ignores `seed.sql`, so the local test accounts never reach a hosted project.
+
+It also applies `config.toml`'s settings to the project, using the project's own section at the
+end of the file (`[remotes.dev]`, `[remotes.production]`) on top of the local values. Those
+sections hold each project's site address, redirect URLs and the other settings that differ from
+a laptop. Change those settings in the file, not in the dashboard, or the next deploy can put
+them back. Before merging a change to the file, preview what a deploy would change:
+
+```bash
+npx supabase config diff --project-ref <project ref>
+```
+
+Without those sections, the deploy tries to apply the laptop settings (localhost URLs and all),
+and when a project refuses one, the deploy stops before the migrations. That happened to dev on
+October 22, 2026 ("Failed to update config for branch"). The "Supabase Preview" check on the
+merge commit shows whether a deploy worked. After a merge, check that the change arrived
+(Database > Migrations lists the applied versions). If it didn't, deploy by hand as in 3.2.
 
 ### 3.2 Deploying by hand
 
-For the dev project, and for production if the integration's deploy didn't arrive.
+Only to recover when the integration's deploy didn't arrive. Don't push an unmerged branch's
+migrations to dev: the integration then stops deploying to dev until that branch is merged (see
+"How changes go live" in the README).
 
 ```bash
 npx supabase login                              # opens a browser; run it in your own terminal
 npx supabase link --project-ref <project ref>   # see the table above
 npx supabase db push --dry-run                  # lists the migrations it would apply
 npx supabase db push
-npx supabase functions deploy carousel
+npx supabase functions deploy carousel notify-reviewers verify-email password-reset
 ```
 
-Run it from an up-to-date `main`: `db push` sends every migration in your working folder,
+Run it from an up-to-date copy of the branch the project follows (`main` for production,
+`staging` for dev): `db push` sends every migration in your working folder,
 including ones on an unmerged branch. `cat supabase/.temp/project-ref` shows which project you're
 linked to.
 
@@ -292,21 +376,20 @@ affected.
 
 1. **Turn on the sign-up rule.** Authentication > Hooks > add **Before User Created** > Postgres
    function > `public.hook_before_user_created`. Without this, anyone can sign up.
-2. **URLs.** Authentication > URL Configuration:
-   - Site URL: the site's address (production), or `http://localhost:5173` (dev).
-   - Redirect URLs: `http://localhost:3000/**`, `http://localhost:5173/**`,
-     `http://localhost:8787/**`, the production address, and a wildcard for preview deployments,
-     for example `https://*.csc-dept-website.pages.dev/**`.
-3. **Passwords and email.** Authentication > Sign In / Providers > Email: minimum password
-   length 8. Keep "Confirm email" on in production. On dev, turning it off lets teammates sign
-   up without email delivery.
-4. **Email delivery: open, to settle with ITS.** Supabase's built-in email only reaches
-   members of the Supabase organization, about two messages an hour, so students can't confirm
-   sign-ups and FR-3.6 notifications can't be sent. The options:
-   - "Sign in with Microsoft" (Authentication > Sign In / Providers > Azure), which avoids
-     confirmation email entirely. It needs ITS to register an app in Microsoft Entra ID.
-   - Custom SMTP (Authentication > Emails > SMTP Settings), through the university or a
-     transactional email service.
+2. **URLs.** Set by the project's section in `config.toml` on each deploy (see 3.1), so for a
+   new project, add a section there rather than using the dashboard:
+   - Site URL: the site's address (`https://csc-dept-website.pages.dev` for production,
+     `https://staging.csc-dept-website.pages.dev` for dev).
+   - Redirect URLs: the site's address with `/**`; on dev also the preview wildcard,
+     `https://*.csc-dept-website.pages.dev/**`, and the laptop addresses. Google and GitHub
+     sign-in come back to `/account/sign-in`, so it must be allowed.
+3. **Passwords and email.** Also set by `config.toml`: minimum password length 8, and
+   **"Confirm email" off**. Supabase's own emails can't reach students, so verification
+   (step 10) takes the place of confirmation.
+4. **Email delivery.** Supabase's built-in email only reaches members of the Supabase
+   organization, about two messages an hour. Verification and password resets don't need it:
+   Google Firebase sends those (step 10). Emails to students for FR-3.6 notifications would still
+   need custom SMTP (Authentication > Emails > SMTP Settings).
 5. **Password for the read-only login** (only needed if server-side code reads through
    Hyperdrive; the Vite site doesn't). In the SQL editor, with a long random password that you
    then store in the password manager:
@@ -333,20 +416,97 @@ affected.
    ```
 
    Until both Vault secrets exist, the hourly job does nothing.
-7. **Make the first admin.** Sign up on the site (or Authentication > Users > Add user), then in
-   the SQL editor:
+7. **Reviewer notifications.** Messages go to a GroupMe group's main chat; bots can't post into
+   a topic. Make a group for the reviewers if there isn't one, then at
+   https://dev.groupme.com/bots choose **Create Bot**, pick that group, name it (for example
+   "Site reviews") and leave the callback URL empty. Keep its **Bot ID** secret: anyone with it
+   can post as the bot. Then, with `SITE_URL` the site this project serves (the developer site
+   on dev, the live site on production):
+
+   ```bash
+   npx supabase functions deploy notify-reviewers
+   npx supabase secrets set NOTIFY_SECRET=<long random value> SITE_URL=https://<site> GROUPME_BOT_ID=<bot id>
+   ```
+
+   For a Discord channel instead of, or as well as, GroupMe, also set `DISCORD_WEBHOOK_URL`
+   (channel settings > Integrations > Webhooks). Then in the SQL editor, with the same secret:
 
    ```sql
+   select vault.create_secret('https://<project ref>.supabase.co/functions/v1/notify-reviewers', 'notify_function_url');
+   select vault.create_secret('<the same long random value>', 'notify_secret');
+   ```
+
+   Until both Vault secrets exist, nothing is sent. To check it, submit something from a test
+   account and look for the message; the function's logs are under Edge Functions >
+   notify-reviewers > Logs.
+8. **Make the first admin.** Sign up on the site (or Authentication > Users > Add user), then in
+   the SQL editor (only verified accounts can be admins):
+
+   ```sql
+   select public.mark_account_verified(id, 'admin') from auth.users where email = 'you@franciscan.edu';
    update public.profiles set role = 'admin'
    where id = (select id from auth.users where email = 'you@franciscan.edu');
    ```
 
    After that, admins change roles from the site's admin screens.
-8. **Keep-alive** (production). Free projects pause after a week without activity. In GitHub,
+9. **Keep-alive** (production). Free projects pause after a week without activity. In GitHub,
    shared repository > Settings > Secrets and variables > Actions > **Variables**, add
    `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`. The "Keep Supabase awake" workflow then reads
    one row every three days. If a project pauses anyway, restore it from the dashboard; no data
    is lost.
+10. **Verification and password resets.** Everything below belongs to the team's shared Google
+    account (franciscan.eac@gmail.com), never a personal one.
+    - **Firebase:** in a Firebase project (console.firebase.google.com), Authentication > Sign-in
+      method > enable **Email/Password**. Its emails come from
+      `noreply@<firebase project>.firebaseapp.com`. Production should have its own Firebase
+      project, so an email in flight on dev can't block the same address on production.
+    - **Secrets** (the web API key is under Project settings > General; it isn't secret, but each
+      project should name its own):
+
+      ```bash
+      npx supabase secrets set FIREBASE_API_KEY=<web API key> FIREBASE_LINK_SECRET=<long random value>
+      npx supabase secrets set ALLOWED_ORIGINS=https://<site>,https://*.csc-dept-website.pages.dev
+      ```
+
+      On dev, also allow `http://localhost:5173`. Never change `FIREBASE_LINK_SECRET` once set:
+      emails already sent would stop working. The integration deploys both functions on merge
+      (they're declared in `config.toml`); by hand, `npx supabase functions deploy verify-email
+      password-reset`.
+    - **Google:** Google Auth Platform (console.cloud.google.com, the Firebase project's Google
+      Cloud project) > Clients > a Web client with the redirect URI
+      `https://<project ref>.supabase.co/auth/v1/callback`. Branding needs the site's home,
+      privacy (`/privacy`) and terms (`/terms`) pages before **Publish app**; until then only
+      listed test users can use it. Don't upload a logo, which needs Google's review.
+    - **GitHub:** the shared account's GitHub > Settings > Developer settings > OAuth Apps, with
+      the same callback URL.
+    - **Supabase:** Authentication > Sign In / Providers > Google and GitHub: paste each client
+      ID and secret.
+    - **Check it:** sign up with a test address, press "Send the email" on `/account/verify`,
+      and look in that inbox's Junk folder.
+11. **CAPTCHA (Cloudflare Turnstile).** Sam owns the Turnstile widget, in Sam's Cloudflare account.
+    It protects sign-up, password sign-in and both steps of a password reset. **Do these in order:
+    turning on Supabase's check before the site sends tokens locks everyone out of signing in.**
+    1. **Sam:** Cloudflare dashboard > Turnstile > **Add widget**. Name it "EAC Website", add the
+       hostname `csc-dept-website.pages.dev` (its subdomains, `staging.` and the previews, are
+       covered), and choose **Managed**. It shows a **site key** (public) and a **secret key**
+       (private: share it only through a password manager or by entering it yourself, never in
+       chat or git).
+    2. **Site key → Cloudflare Pages:** in the Pages project, Settings > Variables and Secrets, add
+       `VITE_TURNSTILE_SITE_KEY` to **Preview** and **Production**, then redeploy (Vite builds the
+       key into the site, so it takes effect on the next build).
+    3. **Secret key → our function:**
+
+       ```bash
+       npx supabase secrets set TURNSTILE_SECRET_KEY=<secret key> --project-ref <project ref>
+       ```
+
+    4. **Check the site:** on the deployed sign-in page, the check appears above the button, and
+       the button turns on once it passes.
+    5. **Secret key → Supabase Auth, last:** Authentication > Attack Protection > **Enable Captcha
+       protection**, provider Turnstile, paste the secret key. From then on Supabase refuses
+       sign-ups and password sign-ins without a token. (Google and GitHub sign-in aren't affected.)
+
+    Undo in reverse order: turn Supabase's check off before removing the site key.
 
 ### 3.4 Keys
 
@@ -442,13 +602,15 @@ await supabase.functions.invoke("carousel", { body: { action: "reshuffle" } });
 
 | Item | Owner |
 | --- | --- |
-| Email delivery: Microsoft sign-in or SMTP (3.3, step 4) | Back End + ITS |
+| Email to students for FR-3.6 notifications needs SMTP (3.3, step 4). Verification and resets are done (step 10) | Back End |
+| Verification emails land in Junk at franciscan.edu, and Firebase's email wording can't be edited on our project yet | Back End |
 | Which fields are FERPA directory information | Registrar |
 | Pending uploads are readable by URL before approval; move them to a private bucket | Back End |
 | Guide clarifications: thumbnail field vs first gallery image; whether Internships and Alumni Stories are project categories; pinned cap (target size or 7); who confirms a removal (assumed: the reviewer who approves it) | Requirements team |
 | Replace the placeholder carousel pick | Algorithms team |
 | Sign-in settings on production: minimum password 8 with letters and digits; Cloudflare Turnstile on sign-up; two-factor sign-in required for reviewers and admins once the admin panel supports enrolling | Back End + Front End |
-| Account email changes skip the university-domain rule (it runs only at sign-up). Block them, or decide graduates may switch to a personal address | Team |
+| Account email changes are now held to the university-domain rule and need verifying again. Alumni with personal addresses (#76) will need their own route, with an admin confirming they studied here | Team |
+| CAPTCHA keys: the Turnstile code is in, but each project needs its keys (3.3, step 11). Until then someone who knows a classmate's address can use up that account's daily reset emails | Sam (Turnstile owner) + Back End |
 
 ## 6. Free plan limits
 

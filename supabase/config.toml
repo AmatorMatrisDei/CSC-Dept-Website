@@ -157,12 +157,12 @@ max_indexes = 5
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "http://localhost:3000"
+site_url = "http://localhost:5173"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-# 127.0.0.1:3000 is `next dev` reached by IP; 8787 is `npm run preview` (Wrangler).
-additional_redirect_urls = ["http://127.0.0.1:3000", "http://localhost:8787"]
+# The site's pages under `npm run dev` (5173, also reached by IP) and `npm run preview` (4173).
+additional_redirect_urls = ["http://localhost:5173/**", "http://127.0.0.1:5173/**", "http://localhost:4173/**"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
@@ -421,3 +421,83 @@ enabled = true
 # check is off. See supabase/functions/carousel/index.ts.
 [functions.carousel]
 verify_jwt = false
+
+# Called only by the database, with its own secret (see the function's comment).
+[functions.notify-reviewers]
+verify_jwt = false
+
+# Account verification and password resets (see supabase/functions/_shared/account-email.ts).
+# Both check who is calling themselves: verify-email reads the person's access token, and
+# password-reset needs no sign-in.
+[functions.verify-email]
+verify_jwt = false
+
+[functions.password-reset]
+verify_jwt = false
+
+# The two hosted projects. Everything above is for the local stack (laptops and CI). When a merge
+# deploys, Supabase's GitHub integration also applies this file to that project, so each one gets
+# its real values here; anything not listed inherits the value above. Change these settings here,
+# not in the dashboard, or the next deploy can put them back. Settings this file doesn't mention
+# (CAPTCHA, Google and GitHub sign-in, email templates) stay in the dashboard.
+# `npx supabase config diff --project-ref <ref>` shows what a deploy would change.
+
+[remotes.dev]
+project_id = "zekufoxhojjqqbmcxmtu"
+
+[remotes.dev.auth]
+site_url = "https://staging.csc-dept-website.pages.dev"
+# The developer site, pull request previews, and laptops signing in to dev.
+additional_redirect_urls = [
+  "https://*.csc-dept-website.pages.dev/**",
+  "http://localhost:5173/**",
+  "http://127.0.0.1:5173/**",
+  "http://localhost:4173/**",
+]
+
+[remotes.dev.auth.email]
+max_frequency = "1m0s"
+otp_length = 8
+
+[remotes.dev.auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+[remotes.dev.auth.rate_limit]
+sign_in_sign_ups = 30
+
+[remotes.dev.db.pooler]
+default_pool_size = 15
+max_client_conn = 200
+
+[remotes.dev.storage.analytics]
+enabled = true
+max_namespaces = 10
+
+# Production inherits "Confirm email" off and a minimum password of 8 from above: account
+# verification takes the place of confirmation (docs/backend-setup.md, 3.3 step 3).
+[remotes.production]
+project_id = "rhvvvurfpzblbpsipgen"
+
+[remotes.production.auth]
+site_url = "https://csc-dept-website.pages.dev"
+additional_redirect_urls = ["https://csc-dept-website.pages.dev/**"]
+
+[remotes.production.auth.email]
+max_frequency = "1m0s"
+otp_length = 8
+
+[remotes.production.auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+[remotes.production.auth.rate_limit]
+sign_in_sign_ups = 30
+
+[remotes.production.db.pooler]
+default_pool_size = 15
+max_client_conn = 200
+
+[remotes.production.storage.analytics]
+enabled = true
+max_namespaces = 10

@@ -8,6 +8,7 @@
 --   a0000000-0000-4000-8000-000000000003  test.student   student, listed in the directory
 --   a0000000-0000-4000-8000-000000000004  test.private   student, not listed
 --   a0000000-0000-4000-8000-000000000005  test.outsider  student, listed, on no project yet
+--   All five have verified their email address.
 --
 -- Test faculty: c0000000-0000-4000-8000-000000000001 "Test Faculty"
 --
@@ -23,12 +24,14 @@
 create extension if not exists pgtap with schema extensions;
 
 -- Creates an account the way sign-up does (the profile comes from the trigger). A listed
--- student has consented to the directory and been approved into it.
+-- student has consented to the directory and been approved into it. Accounts are verified
+-- unless `verified` is false (see 16_account_verification.test.sql).
 create function pg_temp.create_user(
   user_id uuid,
   user_email text,
   user_role public.app_role default 'student',
-  listed boolean default false
+  listed boolean default false,
+  verified boolean default true
 )
 returns void
 language plpgsql
@@ -37,6 +40,9 @@ begin
   insert into auth.users (id, email, aud, role, raw_user_meta_data)
   values (user_id, user_email, 'authenticated', 'authenticated',
           jsonb_build_object('full_name', split_part(user_email, '@', 1)));
+  if verified then
+    insert into private.account_verifications (user_id, method) values (user_id, 'admin');
+  end if;
   update public.profiles set role = user_role where id = user_id;
   if listed then
     insert into public.consents (student_id, scope) values (user_id, 'directory');

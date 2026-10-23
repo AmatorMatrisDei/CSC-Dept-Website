@@ -1,0 +1,4 @@
+# Who can approve pull requests. The ruleset for main and staging (docs/repository-settings.md)
+# requires an approval from someone listed here, so only these reviews count. To let someone else
+# approve, add them here; they also need write access to the repository.
+* @AmatorMatrisDei @Redforrest23 @Drivera341

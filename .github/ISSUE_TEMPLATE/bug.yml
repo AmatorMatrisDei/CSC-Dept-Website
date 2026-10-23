@@ -1,0 +1,59 @@
+name: Bug report
+description: Something on the site doesn't work as it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Issues in this repository are public. Don't include passwords, student ID numbers, grades or other private information.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to see it
+      description: The page, and what you did, one step per line.
+      placeholder: |
+        1. Open https://staging.csc-dept-website.pages.dev/projects
+        2. Choose "Mechanical Engineering" under Sub-department
+        3. …
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - Developer site (staging.csc-dept-website.pages.dev)
+        - Live site (csc-dept-website.pages.dev)
+        - A pull request's preview link
+        - Running it locally
+    validations:
+      required: true
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      description: How involved it is; see docs/issue-sizes.md. Not sure? Pick your best guess, and a reviewer will adjust it.
+      options:
+        - Tier 1 - Quick (about an hour, one file, no database)
+        - Tier 2 - Small (a few hours, one page or component, no database change)
+        - Tier 3 - Medium (a day or more, several files, may need database changes and tests)
+        - Tier 4 - Large (multiple days, or sign-in, permissions or a new feature; start with a plan)
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Browser and device
+      placeholder: Chrome on Windows, Safari on iPhone, …
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots or console errors
+      description: Paste or drag images here. Console errors are in the browser's DevTools, under Console.

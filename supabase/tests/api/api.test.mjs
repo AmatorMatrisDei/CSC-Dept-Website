@@ -44,13 +44,23 @@ function uniqueEmail(label) {
   return `api-${label}-${randomUUID().slice(0, 8)}@franciscan.edu`;
 }
 
-async function signUp(email, fullName) {
+// New accounts start unverified. Unless `verified` is false, the secret key verifies them, standing
+// in for the email link or Google sign-in (the verify-email function's unit tests cover those).
+async function signUp(email, fullName, { verified = true } = {}) {
   const res = await call("/auth/v1/signup", {
     method: "POST",
     json: { email, password: "password123", data: { full_name: fullName } },
   });
   assert.equal(res.status, 200, JSON.stringify(res.data));
   created.users.push(res.data.user.id);
+  if (verified) {
+    const marked = await call("/rest/v1/rpc/mark_account_verified", {
+      method: "POST",
+      key: SECRET_KEY,
+      json: { account: res.data.user.id, how: "admin" },
+    });
+    assert.equal(marked.status, 204, JSON.stringify(marked.data));
+  }
   return { id: res.data.user.id, token: res.data.access_token };
 }
 
@@ -126,6 +136,53 @@ test("only university email addresses can sign up", async () => {
   });
   assert.equal(res.status, 403, JSON.stringify(res.data));
   assert.match(JSON.stringify(res.data), /Franciscan University email/);
+});
+
+test("an unverified account can't submit, give permissions or be promoted until verified", async () => {
+  const fresh = await signUp(uniqueEmail("unverified"), "API Unverified", { verified: false });
+  const status = await call("/rest/v1/rpc/my_verification", { method: "POST", token: fresh.token, json: {} });
+  assert.deepEqual(status.data, [{ verified: false, method: null, verified_at: null, password_removed: false }]);
+
+  const submission = await call("/rest/v1/pending_changes", {
+    method: "POST",
+    token: fresh.token,
+    json: { target_type: "internship", action: "create", proposed_data: { company: "Acme" } },
+  });
+  assert.equal(submission.status, 403, JSON.stringify(submission.data));
+  assert.match(submission.data.message, /Verify your email address/);
+
+  const consent = await call("/rest/v1/consents", {
+    method: "POST",
+    token: fresh.token,
+    json: { student_id: fresh.id, scope: "directory" },
+  });
+  assert.equal(consent.status, 403, JSON.stringify(consent.data));
+
+  const promoted = await call(`/rest/v1/profiles?id=eq.${fresh.id}`, { method: "PATCH", key: SECRET_KEY, json: { role: "reviewer" } });
+  assert.equal(promoted.status, 400, JSON.stringify(promoted.data));
+  assert.match(promoted.data.message, /Only verified accounts/);
+
+  await call("/rest/v1/rpc/mark_account_verified", { method: "POST", key: SECRET_KEY, json: { account: fresh.id, how: "admin" } });
+  const later = await call("/rest/v1/pending_changes", {
+    method: "POST",
+    token: fresh.token,
+    json: { target_type: "internship", action: "create", proposed_data: { company: "Acme" } },
+  });
+  assert.equal(later.status, 201, JSON.stringify(later.data));
+});
+
+test("only the secret key can verify accounts or look up sign-in addresses", async () => {
+  for (const [name, json] of [
+    ["mark_account_verified", { account: student.id, how: "admin" }],
+    ["account_for_email", { address: "api-student@franciscan.edu" }],
+    ["allow_verification_request", { account: student.id, request_kind: "verify_send" }],
+    ["complete_password_reset", { account: student.id }],
+  ]) {
+    for (const token of [undefined, student.token]) {
+      const res = await call(`/rest/v1/rpc/${name}`, { method: "POST", token, json });
+      assert.ok([401, 403, 404].includes(res.status), `${name}: ${res.status} ${JSON.stringify(res.data)}`);
+    }
+  }
 });
 
 test("a new account gets an unlisted student profile", async () => {
@@ -235,4 +292,64 @@ test("photos upload only into the user's own folders", async () => {
     headers: { "Content-Type": "text/plain" },
   });
   assert.ok(notAnImage.status >= 400, `non-image upload returned ${notAnImage.status}`);
+});
+
+test("a photo cannot be swapped or deleted while a submission or live page uses it", async () => {
+  const photo = `submissions/${student.id}/api-swap-test.png`;
+  const upload = await call(`/storage/v1/object/media/${photo}`, {
+    method: "POST",
+    token: student.token,
+    body: PNG,
+    headers: { "Content-Type": "image/png" },
+  });
+  assert.equal(upload.status, 200, JSON.stringify(upload.data));
+  created.files.push(photo);
+
+  const changeId = await submit(student, {
+    target_type: "project",
+    action: "create",
+    proposed_data: {
+      title: "API swap test",
+      category_id: await lookupId("categories", "class"),
+      sub_department_id: await lookupId("sub_departments", "computer-science"),
+      images: [{ storage_path: photo, alt_text: "A test image" }],
+    },
+  });
+
+  const replace = () => call(`/storage/v1/object/media/${photo}`, {
+    method: "PUT",
+    token: student.token,
+    body: PNG,
+    headers: { "Content-Type": "image/png" },
+  });
+  const remove = () => call("/storage/v1/object/media", { method: "DELETE", token: student.token, json: { prefixes: [photo] } });
+
+  const swapped = await replace();
+  assert.ok(swapped.status >= 400, `replacing a photo under review returned ${swapped.status}`);
+  const deleted = await remove();
+  assert.deepEqual(deleted.data, [], "deleting a photo under review should remove nothing");
+  const stillThere = await fetch(`${API_URL}/storage/v1/object/public/media/${photo}`);
+  assert.equal(stillThere.status, 200);
+  await stillThere.arrayBuffer();
+
+  const withdrawn = await call(`/rest/v1/pending_changes?id=eq.${changeId}`, {
+    method: "PATCH",
+    token: student.token,
+    json: { status: "withdrawn" },
+  });
+  assert.equal(withdrawn.status, 204, JSON.stringify(withdrawn.data));
+
+  const replaced = await replace();
+  assert.equal(replaced.status, 200, `once withdrawn, the photo is the student's to replace: ${JSON.stringify(replaced.data)}`);
+  const removed = await remove();
+  assert.equal(removed.data.length, 1, "and to delete");
+});
+
+test("an account can be deleted", async () => {
+  const doomed = await signUp(uniqueEmail("deleted"), "API Deleted");
+  const res = await call(`/auth/v1/admin/users/${doomed.id}`, { method: "DELETE", key: SECRET_KEY });
+  assert.equal(res.status, 200, JSON.stringify(res.data));
+  const gone = await call(`/rest/v1/profiles?id=eq.${doomed.id}&select=id`, { key: SECRET_KEY });
+  assert.deepEqual(gone.data, [], "the profile goes with the account");
+  created.users = created.users.filter((id) => id !== doomed.id);
 });

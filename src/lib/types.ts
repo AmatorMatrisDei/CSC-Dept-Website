@@ -16,25 +16,33 @@ export type Category = keyof typeof CATEGORY_LABELS;
 
 export type SubDepartment = { slug: string; name: string };
 
-export type Photo = { url: string; alt: string };
+// `caption` is shown under project gallery photos when there is one.
+export type Photo = { url: string; alt: string; caption?: string };
 
 // `slug` is the row id for faculty and students until the database has real slugs.
 export type Faculty = {
+  id: string;
   slug: string;
   name: string;
   title: string;
   email: string | null;
   photo: Photo | null;
+  date_updated: string; // when the row last changed, so an editor's save can spot a clash
 };
 
 // Only students who opted in are ever returned by the database (row level security).
 export type Student = {
+  id: string;
   slug: string;
+  date_updated: string;
   name: string;
   headline: string;
   email: string | null; // present only if the student consented to showing it
+  phone: string | null; // likewise
   photo: Photo | null;
   linkedin_url: string | null;
+  github_url: string | null;
+  website_url: string | null;
   major: string | null;
   class_year: number | null;
   background: string;
@@ -46,6 +54,7 @@ export type Student = {
 export type Member = { name: string; slug: string | null; role: string };
 
 export type ProjectView = {
+  id: string;
   slug: string;
   title: string;
   summary: string;
@@ -59,7 +68,9 @@ export type ProjectView = {
   priority: number;
   is_pinned: boolean;
   thumbnail: Photo | null;
+  thumbnail_path: string | null; // for the photo editor
   images: Photo[];
+  image_paths: string[]; // storage path of each entry in images, in the same order
   links: { label: string; url: string }[];
   contact_email: string | null;
   contact_phone: string | null;

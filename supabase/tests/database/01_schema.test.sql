@@ -1,7 +1,7 @@
 -- Guard rails that apply to the whole schema, so a new table or function can't quietly skip them.
 begin;
 \ir _helpers.psql
-select plan(12);
+select plan(13);
 
 select is_empty(
   $$ select c.relname
@@ -65,6 +65,17 @@ select ok(
   'only the carousel function (service role) can read candidates and save picks'
 );
 
+select is_empty(
+  $$ select f from unnest(array[
+       'public.mark_account_verified(uuid, text)', 'public.account_is_verified(uuid)', 'public.account_for_email(text)',
+       'public.allow_verification_request(uuid, text)', 'public.latest_verification_request(uuid, text)',
+       'public.complete_password_reset(uuid)',
+       'public.remember_firebase_account(uuid, text)', 'public.firebase_account_for(uuid)']) as f
+     where has_function_privilege('anon', f, 'EXECUTE') or has_function_privilege('authenticated', f, 'EXECUTE')
+       or not has_function_privilege('service_role', f, 'EXECUTE') $$,
+  'only the verification functions (secret key) can verify accounts, look up sign-in emails or finish a reset'
+);
+
 select ok(
   pg_has_role('web_reader', 'anon', 'USAGE')
     and (select not (rolsuper or rolbypassrls) from pg_roles where rolname = 'web_reader'),
@@ -77,9 +88,9 @@ select is_empty(
      where n.nspname = 'private'
        and (has_function_privilege('anon', p.oid, 'EXECUTE') or has_function_privilege('authenticated', p.oid, 'EXECUTE'))
        and p.proname <> all (array[
-         'current_app_role', 'is_reviewer', 'is_admin', 'has_consent', 'is_listed_student',
+         'current_app_role', 'is_reviewer', 'is_admin', 'is_verified', 'has_consent', 'is_listed_student',
          'can_submit_for_project', 'can_view_project', 'is_project_published', 'is_on_project_team',
-         'can_manage_media', 'is_existing_project_photo', 'check_submitted_photo',
+         'can_manage_media', 'can_replace_media', 'can_edit_site', 'can_edit_content', 'log_admin_edit', 'is_existing_project_photo', 'check_submitted_photo',
          'validate_project_submission', 'require_keys_within', 'uuid_array',
          'profile_fields', 'project_fields', 'project_link_keys', 'internship_fields']) $$,
   'users can only call the internal helpers that access rules need'

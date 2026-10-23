@@ -19,6 +19,12 @@
   --accent-foreground: light-dark(#ffffff, #14200f);
   --highlight: light-dark(#998643, #d9bf68);
   --focus: light-dark(#6b5a20, #d9bf68);
+  --danger: light-dark(#b3261e, #f2b8b5);
+  /* The editors' pill: dark on a light page, light on a dark one. Draft is the amber of unpublished work. */
+  --inverse: light-dark(#1d2a21, #ece9df);
+  --on-inverse: light-dark(#f6f1e0, #14200f);
+  --draft: light-dark(#fbb555, #7a4a00);
+  --draft-foreground: light-dark(#2a1c00, #fff6e0);
   --header: light-dark(#21412a, #0b1a10);
   --header-foreground: #f6f1e0;
   --grid: color-mix(in srgb, var(--foreground) 10%, transparent);
@@ -44,6 +50,11 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-highlight: var(--highlight);
+  --color-danger: var(--danger);
+  --color-inverse: var(--inverse);
+  --color-on-inverse: var(--on-inverse);
+  --color-draft: var(--draft);
+  --color-draft-foreground: var(--draft-foreground);
   --color-header: var(--header);
   --color-header-foreground: var(--header-foreground);
   --font-sans: "Montserrat", system-ui, sans-serif;
@@ -75,13 +86,16 @@ header :focus-visible {
   outline-color: var(--header-foreground);
 }
 
-/* Motion. Timing lives in these variables. Only fades, slides and color changes; nothing moves
-   the layout. Visitors who ask for reduced motion get none (see the media query below). */
+/* Motion. Timing lives in these variables; lib/motion.ts reads them for the animations it runs
+   with anime.js. Only fades, slides and color changes; nothing moves the layout. Visitors who ask
+   for reduced motion get none (see the media query below). */
 :root {
   --motion-fast: 150ms;
   --motion-duration: 600ms;
   --motion-rise: 16px;
   --motion-stagger: 80ms;
+  --motion-failsafe: 3s;
+  --motion-intro-failsafe: 1s;
 }
 
 a,
@@ -125,24 +139,39 @@ a.underline:hover {
   }
 }
 
-/* Scroll reveal (see Reveal.tsx): fades up when it enters the screen, staggered by --step.
-   If the script never runs, the failsafe animation shows everything after 3 seconds. */
-[data-reveal] {
+/* The editors' pill, its panels and its messages fade in. */
+.edit-fade {
+  animation: edit-fade 150ms ease-out;
+}
+
+@keyframes edit-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .edit-fade {
+    animation: none;
+  }
+}
+
+/* Scroll reveal (see RevealList.tsx): a list's items wait here, hidden, until anime.js fades them
+   up as they scroll into view. Until the script takes over (data-reveal-armed), the failsafe
+   shows them after --motion-failsafe. data-reveal-off (reduced motion, or anime.js didn't load)
+   shows them at once. */
+[data-reveal] > :not([data-revealed]) {
   opacity: 0;
   transform: translateY(var(--motion-rise));
-  transition:
-    opacity var(--motion-duration) ease-out,
-    transform var(--motion-duration) ease-out;
-  transition-delay: calc(var(--step, 0) * var(--motion-stagger));
 }
 
-[data-reveal][data-revealed] {
+[data-reveal]:not([data-reveal-armed]) > :not([data-revealed]) {
+  animation: reveal-failsafe 0.01s var(--motion-failsafe) forwards;
+}
+
+[data-reveal][data-reveal-off] > :not([data-revealed]) {
   opacity: 1;
   transform: none;
-}
-
-[data-reveal]:not([data-revealed]) {
-  animation: reveal-failsafe 0.01s 3s forwards;
 }
 
 @keyframes reveal-failsafe {
@@ -152,8 +181,56 @@ a.underline:hover {
   }
 }
 
+/* Home intro (see lib/homeIntro.ts): each time the home page opens, the parts it animates wait
+   hidden until anime.js plays them in. If the script hasn't taken over
+   (data-intro-armed) after --motion-intro-failsafe, the failsafe shows them, so the headline is
+   never kept from readers for long. */
+[data-intro]:not([data-intro-done]) [data-intro-part] {
+  opacity: 0;
+}
+
+[data-intro]:not([data-intro-armed]):not([data-intro-done]) [data-intro-part] {
+  animation: reveal-failsafe 0.01s var(--motion-intro-failsafe) forwards;
+}
+
+/* Calendar: the month grid slides in from the side it was reached from, the chosen day's events
+   rise into place, and a day's preview fades in. The reduced-motion rule below shortens all of them. */
+@keyframes slide-from-right {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+@keyframes slide-from-left {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.month-next {
+  animation: slide-from-right 300ms ease-out;
+}
+
+.month-previous {
+  animation: slide-from-left 300ms ease-out;
+}
+
+.day-in {
+  animation: rise-in 250ms ease-out backwards;
+}
+
 @media print {
-  [data-reveal] {
+  [data-reveal] > :not([data-revealed]),
+  [data-intro]:not([data-intro-done]) [data-intro-part] {
     opacity: 1;
     transform: none;
     animation: none;
@@ -161,7 +238,8 @@ a.underline:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-reveal] {
+  [data-reveal] > :not([data-revealed]),
+  [data-intro]:not([data-intro-done]) [data-intro-part] {
     opacity: 1;
     transform: none;
   }

@@ -5,8 +5,9 @@
 | Database | `npm run db:test` | Schema lint, plus the access rules, review queue and carousel storage, user by user |
 | API | `npm run test:api` | Sign-up, submissions, review and photo uploads, through the real API |
 | Carousel pick | `npm run test:carousel` | The rules every version of the Algorithms team's pick must keep |
-| Frontend | the frontend team's own checks | The site builds and runs |
-| CI | automatic | The three suites above on every pull request and push to `main` |
+| Student forms | `npm run test:e2e` | Sign-up, permissions, the profile, project and internship forms, photo resizing, the review queue and what the public sees, in Chrome |
+| Front end | `npm run lint`, `npm run test:unit`, `npm run build` | Lint; unit tests of the pure helpers (planner rules, formatting, the sign-in redirect guard); type-check and build |
+| CI | automatic | All of the above on every pull request and after merges into `staging` and `main` |
 | People | preview links | Faculty and teammates trying real flows before release |
 
 The database and API tests need the local stack running (`npm run db:start`, see
@@ -22,11 +23,16 @@ a transaction that is rolled back, so tests never leave data behind and don't de
 | `01_schema.test.sql` | Every table has row level security; visitors can't write anything; views respect the caller's access; only the allowed internal helpers can be called by users |
 | `02_profiles_and_consent.test.sql` | Listed and unlisted students, consent-gated fields, append-only consent, roles |
 | `03_projects.test.sql` | What visitors, team members and other students see; admin-only writes; confirming a listing; priority limits |
-| `04_review_queue.test.sql` | Submitting, validation, approving, rejecting, sending back, project submissions with teammates and photos, removal requests, the audit log |
+| `04_review_queue.test.sql` | Submitting, validation, approving, rejecting, sending back, project submissions with teammates and photos, reviewers approving their own submissions (logged as self-reviews), removal requests, the audit log |
 | `05_auth_and_storage.test.sql` | Allowed email domains, new-account profiles, upload folders |
 | `06_carousel.test.sql` | Eastern-time days, candidates and the empty-pool fallback, saving picks, re-shuffle counting, what visitors see on cards |
 | `07_hardening.test.sql` | Internal functions can't be called by users; pending submissions can't be edited; https-only links; email, size and length rules; the open-submission limit; audited role changes |
 | `08_directory_and_slugs.test.sql` | `listed_students` shows only listed students, even to reviewers; slugs are generated, unique and admin-only; thumbnails need alt text |
+| `09_student_submissions.test.sql` | Project slugs made at approval and numbered when taken; students can't swap or delete a photo that a live page or an open submission uses |
+| `10_cms_and_people.test.sql` | Only admins change page text; everyone reads it; only admins see the People list with sign-up emails; students can't change their own role |
+| `11_planner.test.sql` | Catalog years, courses and programs are public, plans are private to their owner; a course belongs to one catalog year and its references must be in that year, can't loop and block deleting a course that another course or a program uses; program requirements must be well formed; `planner_catalog_issues()` flags courses before their prerequisites or in the wrong term or year; spot checks against each year's catalog |
+| `12_admin_audit.test.sql` | Direct admin edits are logged with what changed, review-queue changes aren't logged twice, and the last admin can't step down |
+| `13_review_notifications.test.sql` | New submissions and resubmissions ask the notify-reviewers function to post, with the submission's kind and title but nothing about who sent it; decisions and withdrawals don't; nothing is sent without the Vault secrets; users can't call the trigger function |
 
 `_helpers.psql` creates five test users (admin, reviewer, a listed student, an unlisted student,
 and a listed student on no project), a faculty member, and two test projects; the comment at the
@@ -71,6 +77,9 @@ over HTTP the way the website will. Each run creates its own accounts and delete
   approves it, and students can't approve their own
 - a submitted project with a photo goes live only after review
 - uploads only land in the user's own folders, and only images are accepted
+- a photo can't be replaced or deleted while a submission or live page uses it, and can once the
+  submission is withdrawn
+- an account can be deleted (its profile goes with it), which the admin-edit audit once broke
 
 If these fail but the database tests pass, check that the stack was restarted after the last
 `config.toml` change: `npm run db:stop && npm run db:start`.
@@ -86,19 +95,55 @@ To try the whole carousel locally, run `npm run functions:serve` in another term
 `select private.request_carousel_refresh();` in Studio's SQL editor. That is what the hourly job
 does.
 
+## Browser test (student forms)
+
+`tests/e2e/student-submissions.test.mjs` drives Google Chrome (through `playwright-core`, so no
+browser download) against the local stack and its own dev server on port 5174. It needs
+`npm run db:start` and Chrome installed. One run walks the whole loop with the seed accounts:
+
+- a student signs up from the request page; a Gmail address is refused
+- asking to be added waits for the directory permission; permissions take effect at once
+- profile, project (teammates, a non-student mentor, an advisor, thumbnail and gallery) and
+  internship are sent for review; an unreadable photo (an iPhone HEIC file) gets a clear message
+- nothing is public until a reviewer approves; a returned project comes back with the note, is
+  edited and approved
+- the public project shows the photos at 2000px, the student and the mentor, and the teammate
+  only after they confirm
+- a profile edit shows the reviewer only what changed; asking to be removed hides the student
+- the form fits a phone screen, and the browser logs no errors
+
+It deletes its account, project and photos afterwards. CI runs it on every pull request.
+
+## Unit tests
+
+`src/**/*.test.ts`, run by Node's built-in test runner on the TypeScript files directly, with no
+build and no browser (`npm run test:unit`). They cover the pure helpers: the planner's rules
+(`src/lib/planner/plan.ts`), formatting, placeholders, list parsing and the sign-in redirect
+guard (`safeNext`), plus the wording of the reviewers' chat messages
+(`supabase/functions/_shared/review-message.test.ts`). Import the file under test with its `.ts`
+extension, as Node needs it. A file that imports the Supabase client or React can't be loaded
+this way, so keep logic worth testing in files without them.
+
 ## CI
 
-`.github/workflows/backend.yml` starts a fresh local Supabase on GitHub's runners and runs
-`db:test`, `test:api` and `test:carousel`, plus a check that `src/lib/database.types.ts` was
-regenerated. It runs on every pull request, so it can be made a required check under
-Settings > Branches.
+Two workflows run on every pull request and after merges into `staging` and `main`:
 
-## Testing with people (preview links)
+- `.github/workflows/frontend.yml`, check **Lint, unit tests and build**: `npm run lint`,
+  `npm run test:unit` and `npm run build`.
+- `.github/workflows/backend.yml`, check **Database, API and browser tests**: starts a fresh local
+  Supabase on GitHub's runners and runs `db:test`, `test:api`, `test:e2e` (in the runner's Google
+  Chrome) and `test:carousel`, plus a check that `src/lib/database.types.ts` was regenerated.
 
-Cloudflare builds a preview of each pull request, but **not for pull requests from forks**, so
-push branches to the shared repository to get a preview link.
+Both can be made required checks for `main` and `staging` (Settings > Rules > Rulesets).
 
-Preview deployments should point at the **dev project** (Franciscan Site Dev), never production.
+## Testing with people (developer site)
+
+Once a change is merged into `staging`, check it with teammates and faculty on the developer site,
+https://staging.csc-dept-website.pages.dev, before opening the pull request from `staging` into
+`main`. Each pull request also gets its own preview link, but **not pull requests from forks**, so
+push branches to the shared repository.
+
+The developer site and previews use the **dev project** (Franciscan Site Dev), never production.
 On dev:
 
 - use accounts made for testing
@@ -113,13 +158,17 @@ A short script for faculty to follow on a preview:
 | Visitor | Sign up with a non-university email | Refused |
 | Student | Agree to be listed, fill in a profile, ask to be added | Nothing public until a reviewer approves |
 | Student | Submit a project with teammates and photos | Live after approval; teammates appear once they confirm |
+| Teammate | Confirm the listing on your account page | Your name appears on the project |
+| Student | Add an internship | On your profile after approval |
 | Reviewer | Approve one submission, send another back with a note | The approved one goes live; the other returns to the student |
 | Student | Ask to be removed | Hidden at once |
 | Admin | Pick the monthly pool, press Re-shuffle | The home page carousel changes |
 
 ## Before merging
 
+- [ ] `npm run lint` and `npm run test:unit` pass
 - [ ] `npm run db:test`, `npm run test:api` and `npm run test:carousel` pass locally
+- [ ] `npm run test:e2e` passes, if the change touches sign-in, the student forms or the review queue
 - [ ] New tables or rules have tests
 - [ ] `npm run db:types` was run and the types file is committed
 - [ ] No secrets in the diff (`sb_secret_...`, database passwords, `functions/.env`)
