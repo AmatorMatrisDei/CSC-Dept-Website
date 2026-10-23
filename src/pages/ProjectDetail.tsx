@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router";
 import ClickToReplace from "@/components/ClickToReplace";
 import Cover from "@/components/Cover";
 import Editable from "@/components/Editable";
+import HighlightSwitch from "@/components/HighlightSwitch";
 import ProjectPhotos from "@/components/ProjectPhotos";
 import { StatusBadge } from "@/components/ProjectCard";
 import { useEdit } from "@/lib/edit";
@@ -55,11 +56,14 @@ export default function ProjectDetail() {
   return (
     <article className="flex flex-col gap-8">
       <header className="flex flex-col gap-3">
-        <p className="text-sm">
-          <Link to="/projects" className="inline-flex min-h-11 items-center underline">
-            All projects
-          </Link>
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <p className="text-sm">
+            <Link to="/projects" className="inline-flex min-h-11 items-center underline">
+              All projects
+            </Link>
+          </p>
+          {editing && <HighlightSwitch kind="project" refId={project.id} />}
+        </div>
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
           <StatusBadge status={project.status} />
           <span>{project.sub_department.name}</span>

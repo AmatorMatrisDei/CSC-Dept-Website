@@ -179,14 +179,14 @@ isOneToOne: false
                   ]
                 },"events": {
                   Row: {
-                    "created_at": string,"description": string,"end_date": string | null,"end_time": string | null,"event_date": string,"id": string,"link_url": string | null,"place": string,"start_time": string | null,"sub_department_id": string | null,"title": string,"updated_at": string
+                    "created_at": string,"description": string,"end_date": string | null,"end_time": string | null,"event_date": string,"id": string,"importance": string,"link_url": string | null,"place": string,"start_time": string | null,"sub_department_id": string | null,"title": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"description"?: string,"end_date"?: string | null,"end_time"?: string | null,"event_date": string,"id"?: string,"link_url"?: string | null,"place"?: string,"start_time"?: string | null,"sub_department_id"?: string | null,"title": string,"updated_at"?: string
+                    "created_at"?: string,"description"?: string,"end_date"?: string | null,"end_time"?: string | null,"event_date": string,"id"?: string,"importance"?: string,"link_url"?: string | null,"place"?: string,"start_time"?: string | null,"sub_department_id"?: string | null,"title": string,"updated_at"?: string
                   }
                   Update: {
-                    "created_at"?: string,"description"?: string,"end_date"?: string | null,"end_time"?: string | null,"event_date"?: string,"id"?: string,"link_url"?: string | null,"place"?: string,"start_time"?: string | null,"sub_department_id"?: string | null,"title"?: string,"updated_at"?: string
+                    "created_at"?: string,"description"?: string,"end_date"?: string | null,"end_time"?: string | null,"event_date"?: string,"id"?: string,"importance"?: string,"link_url"?: string | null,"place"?: string,"start_time"?: string | null,"sub_department_id"?: string | null,"title"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -222,6 +222,20 @@ isOneToOne: true
       referencedRelation: "profiles"
       referencedColumns: ["id"]
     }
+                  ]
+                },"highlights": {
+                  Row: {
+                    "blurb": string,"created_at": string,"kind": string,"ref": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "blurb"?: string,"created_at"?: string,"kind": string,"ref": string
+                  }
+                  Update: {
+                    "blurb"?: string,"created_at"?: string,"kind"?: string,"ref"?: string
+                  }
+                  Relationships: [
+                    
                   ]
                 },"internships": {
                   Row: {
@@ -743,6 +757,14 @@ isOneToOne: false
             "carousel_today": {
                   Row: {
                     "advisors": Json | null,"id": string | null,"members": Json | null,"position": number | null,"slug": string | null,"status": Database["public"]['Enums']["project_status"] | null,"summary": string | null,"thumbnail_path": string | null,"title": string | null
+                  }
+                  ComputedFields: never
+                  Relationships: [
+                    
+                  ]
+                },"home_highlights": {
+                  Row: {
+                    "blurb": string | null,"detail": string | null,"image_path": string | null,"kind": string | null,"name": string | null,"ref": string | null,"slug": string | null
                   }
                   ComputedFields: never
                   Relationships: [

@@ -788,8 +788,8 @@ Each step and what it protects against:
 
    | Check | Runs |
    | --- | --- |
-   | Lint, unit tests and build (`frontend.yml`) | ESLint, 65 unit tests, TypeScript type-check and build |
-   | Database, API and browser tests (`backend.yml`) | Starts a **throwaway local Supabase** inside GitHub, then: schema lint and 362 database tests, 19 API tests, two browser tests in Chrome (34 steps), the carousel tests, and a check that the generated types are up to date |
+   | Lint, unit tests and build (`frontend.yml`) | ESLint, 70 unit tests, TypeScript type-check and build |
+   | Database, API and browser tests (`backend.yml`) | Starts a **throwaway local Supabase** inside GitHub, then: schema lint and 394 database tests, 19 API tests, two browser tests in Chrome (35 steps), the carousel tests, and a check that the generated types are up to date |
 
    The backend tests run against a temporary database built from the migrations, so CI needs
    **no real keys** and never touches the hosted projects.
@@ -829,7 +829,7 @@ connections to our own site and our two Supabase projects.
 
 ## 11. The tests
 
-### 11.1 The 362 database tests (the slide's "202" predates page-editing drafts, verification, events and publish batches)
+### 11.1 The 394 database tests (the slide's "202" predates page-editing drafts, verification, events and publish batches)
 
 They are written in SQL with **pgTAP**, a testing library that runs inside Postgres. Each test
 signs in as a test user (visitor, student, reviewer, admin), tries something, and checks the
@@ -857,6 +857,7 @@ Run them with `npm run db:test`.
 | `16_events` | 20 | Everyone reads events; only admins write; dates, times, titles and links are checked; admin changes are logged |
 | `16_publish_batches` | 9 | One Publish is one batch in the history; a single record draft can be undone on its own; students can't |
 | `17_faculty_role` | 19 | Faculty edit page text, projects, student profiles, categories, events and project photos; they are refused admin-only changes; a student cannot give themselves the role; unverified faculty have no powers |
+| `18_home_highlights` | 32 | Visitors read only highlights of pages that are public (a published project or story, a listed student); admins and faculty see and write them all (students, reviewers and signed-out visitors can't write) (students, reviewers and signed-out visitors can't); only known kinds and lines up to 200 characters; only a listed student can be highlighted, and hiding one removes theirs; deleting a record removes its highlight; an edited highlight is logged with its kind and page; withdrawing directory consent removes a student's highlight for good; highlighted projects are added to the carousel's fallback without shrinking it; the home page view shows published projects, listed students and published stories; event importance is major, regular or minor and defaults to regular |
 
 Example, from `05_auth_and_storage`:
 
@@ -891,7 +892,7 @@ Each run signs up throwaway accounts and deletes them, and their files, afterwar
 
 ### 11.3 The other suites
 
-- **Browser tests, 34 steps:** `npm run test:e2e`. The student test (17 steps) has Chrome play a
+- **Browser tests, 35 steps:** `npm run test:e2e`. The student test (17 steps) has Chrome play a
   student and a reviewer through the real site:
   - sign up, and other email addresses refused
   - the reminder to verify, and the verify page (the test verifies with the secret key)
@@ -905,9 +906,9 @@ Each run signs up throwaway accounts and deletes them, and their files, afterwar
   - a removal request hides the student at once
   - a reviewer approves their own submission
   - the forms fit a phone screen
-  The editing test (17 steps) checks the Edit bar: drafts only the editor sees, publishing, a
+  The editing test (18 steps) checks the Edit bar: drafts only the editor sees, publishing, a
   clash with someone else's change, and the bar folding away.
-- **Unit tests, 65:** `npm run test:unit`. Planner rules, formatting, the sign-in redirect guard, the
+- **Unit tests, 68:** `npm run test:unit`. Planner rules, formatting, the sign-in redirect guard, the
   Turnstile check,
   the GroupMe message, the policy pages' plain copies, and the verification and reset emails
   against a stand-in for Firebase.

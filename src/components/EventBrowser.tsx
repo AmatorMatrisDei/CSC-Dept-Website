@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { fieldClass } from "@/components/Form";
 import RevealList from "@/components/RevealList";
 import { lastDay, splitEvents } from "@/lib/eventDates";
-import type { EventView } from "@/lib/events";
+import { IMPORTANCE_LABELS, type EventView, type Importance } from "@/lib/events";
 
 const gridClass = "grid gap-4 sm:grid-cols-2 lg:grid-cols-3";
 
@@ -54,6 +54,7 @@ export default function EventBrowser({
   const [when, setWhen] = useState(initialWhen);
   const [area, setArea] = useState("");
   const [year, setYear] = useState("");
+  const [importance, setImportance] = useState("");
 
   const years = [...new Set([today.slice(0, 4), ...events.map((e) => e.event_date.slice(0, 4))])].sort().reverse();
   const needle = query.trim().toLowerCase();
@@ -62,6 +63,7 @@ export default function EventBrowser({
     if (when === "past" && lastDay(e) >= today) return false;
     if (area && e.department?.id !== area) return false;
     if (year && e.event_date.slice(0, 4) !== year) return false;
+    if (importance && e.importance !== importance) return false;
     return !needle || [e.title, e.place, e.description].some((text) => text.toLowerCase().includes(needle));
   });
   const { upcoming, past } = splitEvents(visible, today);
@@ -86,6 +88,12 @@ export default function EventBrowser({
         />
         {areas.length > 0 && <Select label="Related to" value={area} onChange={setArea} options={areas.map((d) => ({ value: d.id, label: d.name }))} />}
         <Select label="Year" value={year} onChange={setYear} options={years.map((y) => ({ value: y, label: y }))} />
+        <Select
+          label="Importance"
+          value={importance}
+          onChange={setImportance}
+          options={(Object.keys(IMPORTANCE_LABELS) as Importance[]).map((value) => ({ value, label: IMPORTANCE_LABELS[value] }))}
+        />
       </form>
 
       <p className="text-sm text-muted" role="status">
