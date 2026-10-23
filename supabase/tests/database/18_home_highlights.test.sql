@@ -2,7 +2,7 @@
 begin;
 \ir _helpers.psql
 select pg_temp.create_test_projects(); -- also creates the test admin, reviewer and students
-select plan(17);
+select plan(22);
 
 select pg_temp.login_as('a0000000-0000-4000-8000-000000000001');
 
@@ -10,9 +10,12 @@ select lives_ok(
   $$ insert into public.highlights (kind, ref) values
        ('project', 'b0000000-0000-4000-8000-000000000001'),
        ('project', 'b0000000-0000-4000-8000-000000000002'),
-       ('student', 'a0000000-0000-4000-8000-000000000003'),
-       ('student', 'a0000000-0000-4000-8000-000000000004') $$,
-  'an admin highlights projects and students'
+       ('student', 'a0000000-0000-4000-8000-000000000003') $$,
+  'an admin highlights projects and a listed student'
+);
+select throws_ok(
+  $$ insert into public.highlights (kind, ref) values ('student', 'a0000000-0000-4000-8000-000000000004') $$,
+  '23514', null, 'a student who is not listed cannot be highlighted, not even by an admin'
 );
 select lives_ok(
   $$ insert into public.alumni_stories (id, name, grad_year, job_title, employer, story, published)
@@ -48,7 +51,7 @@ select is(
 );
 select is((select blurb from public.home_highlights where kind = 'alumni'), 'Franciscan got me started.',
   'the quote comes along');
-select is((select count(*) from public.highlights), 6::bigint, 'the pool itself is readable by anyone');
+select is((select count(*) from public.highlights), 5::bigint, 'the pool itself is readable by anyone');
 
 -- Highlighted projects feed the carousel -----------------------------------------------------------
 
@@ -72,7 +75,7 @@ select throws_ok($$ insert into public.highlights (kind, ref) values ('student',
   '42501', null, 'a student cannot highlight anyone');
 delete from public.highlights;
 reset role;
-select is((select count(*) from public.highlights), 5::bigint, 'a student cannot remove highlights');
+select is((select count(*) from public.highlights), 4::bigint, 'a student cannot remove highlights');
 
 select pg_temp.login_as('a0000000-0000-4000-8000-000000000002');
 select throws_ok($$ insert into public.highlights (kind, ref) values ('student', 'a0000000-0000-4000-8000-000000000005') $$,
@@ -81,6 +84,19 @@ select throws_ok($$ insert into public.highlights (kind, ref) values ('student',
 select pg_temp.login_anon();
 select throws_ok($$ insert into public.highlights (kind, ref) values ('student', 'a0000000-0000-4000-8000-000000000005') $$,
   '42501', null, 'a signed-out visitor cannot highlight');
+
+-- A hidden student leaves the pool ------------------------------------------------------------------
+
+reset role;
+select lives_ok($$ update public.profiles set visible = false where id = 'a0000000-0000-4000-8000-000000000003' $$,
+  'a student is hidden');
+select is((select count(*) from public.highlights where kind = 'student'), 0::bigint,
+  'hiding a student removes their highlight');
+update public.profiles set visible = true where id = 'a0000000-0000-4000-8000-000000000003';
+select is((select count(*) from public.highlights where kind = 'student'), 0::bigint,
+  'listing them again does not bring the highlight back');
+select lives_ok($$ insert into public.highlights (kind, ref) values ('student', 'a0000000-0000-4000-8000-000000000003') $$,
+  'an editor can choose them afresh once they are listed');
 
 -- Event importance -----------------------------------------------------------------------------------
 

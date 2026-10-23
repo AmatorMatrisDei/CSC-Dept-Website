@@ -1,5 +1,6 @@
 import { Link, useParams } from "react-router";
 import Editable from "@/components/Editable";
+import HighlightSwitch from "@/components/HighlightSwitch";
 import EditablePortrait from "@/components/EditablePortrait";
 import QuickView from "@/components/QuickView";
 import { studentLinks, studentQuickInfo } from "@/lib/quickInfo";
@@ -115,6 +116,8 @@ export default function StudentPage() {
           )}
         </div>
       )}
+
+      {editing && <HighlightSwitch kind="student" refId={student.id} />}
 
       <section aria-labelledby="projects" className="flex flex-col gap-2">
         <h2 id="projects" className="text-xl font-semibold">

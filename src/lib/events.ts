@@ -6,9 +6,14 @@ import type { SubDepartment } from "./types";
 // decides who may, by row level security). Unlike page text and project details, an event has no
 // draft step: a save is live at once, so that adding one takes under a minute.
 
+export type Importance = "major" | "regular" | "minor";
+
+export const IMPORTANCE_LABELS: Record<Importance, string> = { major: "Major", regular: "Regular", minor: "Minor" };
+
 export type EventView = EventTimes & {
   id: string;
   title: string;
+  importance: Importance;
   place: string;
   link_url: string | null;
   description: string;
@@ -26,11 +31,13 @@ export type EventInput = {
   link_url: string;
   description: string;
   sub_department_id: string;
+  importance: Importance;
 };
 
 type EventRow = EventTimes & {
   id: string;
   title: string;
+  importance: Importance;
   place: string;
   link_url: string | null;
   description: string;
@@ -45,7 +52,7 @@ function client() {
 export async function getEvents(): Promise<EventView[]> {
   const { data, error } = await client()
     .from("events")
-    .select("id, title, event_date, end_date, start_time, end_time, place, link_url, description, sub_departments(id, slug, name)")
+    .select("id, title, importance, event_date, end_date, start_time, end_time, place, link_url, description, sub_departments(id, slug, name)")
     .order("event_date")
     .order("start_time", { nullsFirst: true })
     .returns<EventRow[]>();
@@ -72,6 +79,7 @@ export const emptyEvent: EventInput = {
   link_url: "",
   description: "",
   sub_department_id: "",
+  importance: "regular",
 };
 
 export const eventToInput = (e: EventView): EventInput => ({
@@ -84,6 +92,7 @@ export const eventToInput = (e: EventView): EventInput => ({
   link_url: e.link_url ?? "",
   description: e.description,
   sub_department_id: e.department?.id ?? "",
+  importance: e.importance,
 });
 
 // The problem with what was typed, in words for the editor, or null. The database checks the same things.
@@ -109,6 +118,7 @@ const toColumns = (input: EventInput) => ({
   link_url: input.link_url.trim() || null,
   description: input.description,
   sub_department_id: input.sub_department_id || null,
+  importance: input.importance,
 });
 
 export async function saveEvent(id: string | null, input: EventInput): Promise<void> {

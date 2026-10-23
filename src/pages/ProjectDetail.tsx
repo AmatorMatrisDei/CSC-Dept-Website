@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router";
 import ClickToReplace from "@/components/ClickToReplace";
 import Cover from "@/components/Cover";
 import Editable from "@/components/Editable";
+import HighlightSwitch from "@/components/HighlightSwitch";
 import ProjectPhotos from "@/components/ProjectPhotos";
 import { StatusBadge } from "@/components/ProjectCard";
 import { useEdit } from "@/lib/edit";
@@ -110,6 +111,7 @@ export default function ProjectDetail() {
       </ul>
 
       {editing && <ProjectPhotos project={project} live={live} />}
+      {editing && <HighlightSwitch kind="project" refId={project.id} />}
 
       <div className="grid gap-8 md:grid-cols-[2fr_1fr]">
         <div className="flex flex-col gap-4">

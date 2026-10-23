@@ -28,6 +28,7 @@ test("an AI answer in a code fence fills every field", () => {
   assert.ok("input" in result);
   assert.deepEqual(result.input, {
     title: "Senior showcase",
+    importance: "regular",
     event_date: "2026-12-04",
     end_date: "",
     start_time: "18:00",

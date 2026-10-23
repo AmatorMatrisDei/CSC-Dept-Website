@@ -1,5 +1,5 @@
 -- Home page highlights. Any project, student or alumni story can be switched "on" for highlighting
--- by an editor (admins now, faculty once private.can_edit_site() includes them). Rows here are the
+-- by an editor (admins and faculty, through private.can_edit_site()). Rows here are the
 -- pool the home page picks from; it shows a different few each day, so the page varies without
 -- anyone choosing by hand. One table covers every kind of page, so a new kind is one more check value.
 --
@@ -29,6 +29,42 @@ grant insert, update, delete on public.highlights to authenticated;
 
 create trigger audit_admin_edit after insert or update or delete on public.highlights
   for each row execute function private.audit_admin_edit();
+
+-- Only a student who chose to be listed can be highlighted: nobody else's consent counts here, an
+-- editor included. A student who is later hidden leaves the pool, so they do not reappear
+-- if they are listed again; an editor must choose them afresh.
+create function private.check_highlight_target()
+returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  if new.kind = 'student'
+     and not exists (select 1 from public.profiles p
+                     where p.id = new.ref and p.visible and private.has_consent(p.id, 'directory')) then
+    raise exception 'Only a student who is listed in the directory can be highlighted'
+      using errcode = '23514';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger check_highlight_target before insert or update of kind, ref on public.highlights
+  for each row execute function private.check_highlight_target();
+revoke execute on function private.check_highlight_target() from public, anon, authenticated;
+
+create function private.drop_highlight_if_hidden()
+returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  delete from public.highlights where kind = 'student' and ref = new.id;
+  return new;
+end;
+$$;
+
+create trigger drop_highlight_if_hidden after update of visible on public.profiles
+  for each row when (old.visible and not new.visible) execute function private.drop_highlight_if_hidden();
+revoke execute on function private.drop_highlight_if_hidden() from public, anon, authenticated;
 
 -- A deleted project, student or story leaves the pool with it.
 create function private.drop_highlight()

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useAction } from "@/lib/hooks";
 import { LIVE_SAVED, showToast } from "@/lib/toast";
 import { universityToday } from "@/lib/eventDates";
-import { deleteEvent, eventProblem, saveEvent, type EventInput } from "@/lib/events";
+import { deleteEvent, eventProblem, IMPORTANCE_LABELS, saveEvent, type EventInput, type Importance } from "@/lib/events";
 import { eventPrompt, parseEventPaste } from "@/lib/eventPaste";
 import { buttonClass, Notice, SelectField, secondaryButtonClass, TextArea, TextField } from "./Form";
 
@@ -126,6 +126,14 @@ export default function EventForm({
         onChange={set("sub_department_id")}
         options={departments.map((d) => ({ value: d.id, label: d.name }))}
         placeholder="Whole department"
+      />
+      <SelectField
+        label="Importance"
+        required
+        value={input.importance}
+        onChange={(value) => setInput((prev) => ({ ...prev, importance: value as Importance }))}
+        options={(Object.keys(IMPORTANCE_LABELS) as Importance[]).map((value) => ({ value, label: IMPORTANCE_LABELS[value] }))}
+        hint="Major events lead the home page. Minor ones are only for filtering."
       />
       {(problem || error) && <Notice tone="error">{problem ?? error}</Notice>}
       <div className="flex flex-wrap gap-2">

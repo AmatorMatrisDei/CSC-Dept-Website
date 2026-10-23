@@ -63,6 +63,7 @@ export function parseEventPaste(
   return {
     input: {
       title: text(data.title).slice(0, 200),
+      importance: "regular", // a paste never sets this; the form shows it for the editor to choose
       event_date: pick("date", "The date", (v) => DATE.test(v)),
       end_date: pick("last_day", "The last day", (v) => DATE.test(v)),
       start_time: pick("starts", "The start time", (v) => TIME.test(v)),
