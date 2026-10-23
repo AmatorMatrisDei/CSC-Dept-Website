@@ -850,7 +850,7 @@ Run them with `npm run db:test`.
 | `14_cms_drafts` | 20 | Page text: allowed keys, cleaned values, drafts, publishing with the conflict check, history |
 | `15_record_drafts` | 55 | Project, student and faculty edits (and project photos) wait as drafts and go live on publish |
 | `16_account_verification` | 36 | What an unverified account can and can't do; unverified reviewers lose their powers; promotion needs verification; the Google and GitHub safeguard, only for the account's own address; changing address; rate limits; finishing a reset |
-| `16_events` | 19 | Everyone reads events; only admins write; dates, times, titles and links are checked; admin changes are logged |
+| `16_events` | 20 | Everyone reads events; only admins write; dates, times, titles and links are checked; admin changes are logged |
 | `16_publish_batches` | 9 | One Publish is one batch in the history; a single record draft can be undone on its own; students can't |
 
 Example, from `05_auth_and_storage`:
