@@ -9,7 +9,7 @@ import { getStudent } from "@/lib/content";
 import { paragraphs } from "@/lib/format";
 import { useReloadable, useTitle } from "@/lib/hooks";
 import { splitLines, splitList } from "@/lib/list";
-import { saveRecordDraft, useRecordDraft, useReloadOnPublish, withStudentDraft } from "@/lib/recordDrafts";
+import { isDrafted, saveRecordDraft, useRecordDraft, useReloadOnPublish, withStudentDraft } from "@/lib/recordDrafts";
 import NotFound from "@/pages/NotFound";
 
 export default function StudentPage() {
@@ -44,8 +44,8 @@ export default function StudentPage() {
             <QuickView person={studentQuickInfo(student, false)} className="size-28 text-3xl" />
           )}
         </div>
-        <Editable as="h1" label="name" value={student.name} maxLength={120} onSave={(name) => save({ name })} className="text-3xl font-semibold" />
-        <Editable as="p" label="headline" value={student.headline} maxLength={200} onSave={(headline) => save({ headline })} className="text-muted" />
+        <Editable as="h1" label="name" drafted={isDrafted(draft, "name")} value={student.name} maxLength={120} onSave={(name) => save({ name })} className="text-3xl font-semibold" />
+        <Editable as="p" label="headline" drafted={isDrafted(draft, "headline")} value={student.headline} maxLength={200} onSave={(headline) => save({ headline })} className="text-muted" />
         {(student.major || editing) && (
           <Editable as="p" label="major" value={student.major ?? ""} maxLength={100} onSave={(v) => save({ major: v.trim() || null })} className="text-sm" />
         )}
@@ -83,7 +83,7 @@ export default function StudentPage() {
       {(student.background || editing) && (
         <section className="flex flex-col gap-3">
           <h2 className="text-xl font-semibold">Background</h2>
-          <Editable as="div" label="background" value={student.background} multiline maxLength={5000} onSave={(background) => save({ background })} className="flex flex-col gap-3">
+          <Editable as="div" label="background" drafted={isDrafted(draft, "background")} value={student.background} multiline maxLength={5000} onSave={(background) => save({ background })} className="flex flex-col gap-3">
             {paragraphs(student.background).map((text, i) => (
               <p key={i}>{text}</p>
             ))}

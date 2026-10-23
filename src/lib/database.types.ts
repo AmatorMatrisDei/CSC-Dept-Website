@@ -595,14 +595,14 @@ isOneToOne: false
                   ]
                 },"record_history": {
                   Row: {
-                    "before": NonNullable<Json>,"id": number,"replaced_at": string,"replaced_by": string | null,"row_slug": string,"table_name": string
+                    "batch": number | null,"before": NonNullable<Json>,"id": number,"replaced_at": string,"replaced_by": string | null,"row_slug": string,"table_name": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "before": NonNullable<Json>,"id"?: never,"replaced_at"?: string,"replaced_by"?: string | null,"row_slug": string,"table_name": string
+                    "batch"?: number | null,"before": NonNullable<Json>,"id"?: never,"replaced_at"?: string,"replaced_by"?: string | null,"row_slug": string,"table_name": string
                   }
                   Update: {
-                    "before"?: NonNullable<Json>,"id"?: never,"replaced_at"?: string,"replaced_by"?: string | null,"row_slug"?: string,"table_name"?: string
+                    "batch"?: number | null,"before"?: NonNullable<Json>,"id"?: never,"replaced_at"?: string,"replaced_by"?: string | null,"row_slug"?: string,"table_name"?: string
                   }
                   Relationships: [
                     {
@@ -621,14 +621,14 @@ isOneToOne: false
                   ]
                 },"record_photo_history": {
                   Row: {
-                    "alt_text": string,"caption": string,"id": number,"kind": string,"project_id": string,"project_slug": string,"replaced_at": string,"replaced_by": string | null,"storage_path": string
+                    "alt_text": string,"batch": number | null,"caption": string,"id": number,"kind": string,"project_id": string,"project_slug": string,"replaced_at": string,"replaced_by": string | null,"storage_path": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "alt_text"?: string,"caption"?: string,"id"?: never,"kind": string,"project_id": string,"project_slug": string,"replaced_at"?: string,"replaced_by"?: string | null,"storage_path": string
+                    "alt_text"?: string,"batch"?: number | null,"caption"?: string,"id"?: never,"kind": string,"project_id": string,"project_slug": string,"replaced_at"?: string,"replaced_by"?: string | null,"storage_path": string
                   }
                   Update: {
-                    "alt_text"?: string,"caption"?: string,"id"?: never,"kind"?: string,"project_id"?: string,"project_slug"?: string,"replaced_at"?: string,"replaced_by"?: string | null,"storage_path"?: string
+                    "alt_text"?: string,"batch"?: number | null,"caption"?: string,"id"?: never,"kind"?: string,"project_id"?: string,"project_slug"?: string,"replaced_at"?: string,"replaced_by"?: string | null,"storage_path"?: string
                   }
                   Relationships: [
                     {
@@ -699,14 +699,14 @@ isOneToOne: false
                   ]
                 },"site_content_history": {
                   Row: {
-                    "id": number,"key": string,"replaced_at": string,"replaced_by": string | null,"value": string
+                    "batch": number | null,"id": number,"key": string,"replaced_at": string,"replaced_by": string | null,"value": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "id"?: never,"key": string,"replaced_at"?: string,"replaced_by"?: string | null,"value": string
+                    "batch"?: number | null,"id"?: never,"key": string,"replaced_at"?: string,"replaced_by"?: string | null,"value": string
                   }
                   Update: {
-                    "id"?: never,"key"?: string,"replaced_at"?: string,"replaced_by"?: string | null,"value"?: string
+                    "batch"?: number | null,"id"?: never,"key"?: string,"replaced_at"?: string,"replaced_by"?: string | null,"value"?: string
                   }
                   Relationships: [
                     {
@@ -786,7 +786,7 @@ isOneToOne: false
 { Args: { "account": string }; Returns: undefined
                            },
 "discard_record_drafts":
-{ Args: Record<PropertyKey, never>; Returns: (string)[]
+{ Args: { "only_rows"?: (string)[] }; Returns: (string)[]
                            },
 "discard_site_drafts":
 { Args: { "only_keys"?: (string)[] }; Returns: number

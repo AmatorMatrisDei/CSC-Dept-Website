@@ -16,7 +16,12 @@ function AdminEdit({ userId, children }: { userId: string; children: ReactNode }
   return (
     <EditContext value={{ canEdit, editing: canEdit && on, setEditing: setOn }}>
       {children}
-      {canEdit && <EditBar />}
+      {canEdit && (
+        <>
+          <div aria-hidden="true" className="h-24" />
+          <EditBar />
+        </>
+      )}
     </EditContext>
   );
 }

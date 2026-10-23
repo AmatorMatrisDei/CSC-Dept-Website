@@ -88,7 +88,7 @@ signed-in user's id from that token. Every access rule below is written in terms
 | Admin edits page text (saved as a draft) | `client.rpc("save_site_draft", { draft_key, draft_value, seen_updated_at })` (`seen_updated_at` lets publishing spot a change made by someone else; a key ending `.items` holds a list) | `POST /rest/v1/rpc/save_site_draft` |
 | Admin saves an edit to a project, student or faculty page, or a project's photo list (as a draft) | `client.rpc("save_record_draft", { draft_table, draft_slug, draft_patch, draft_gallery, seen_updated_at })` | `POST /rest/v1/rpc/save_record_draft` |
 | Admin publishes drafts (page text and record edits together; returns `conflicts` and `removed_paths`) | `client.rpc("publish_site_drafts")` | `POST /rest/v1/rpc/publish_site_drafts` |
-| Admin discards drafts, or puts an earlier version back as a draft | `client.rpc("discard_site_drafts")`, `client.rpc("discard_record_drafts")` (returns uploaded photo files nothing uses; `release_draft_files(paths)` does the same check for files the editor dropped), `client.rpc("restore_site_text", { history_id })`, `client.rpc("restore_record_version", { history_id })` | `POST /rest/v1/rpc/discard_site_drafts`, `POST /rest/v1/rpc/restore_site_text` |
+| Admin discards drafts, or puts an earlier version back as a draft | `client.rpc("discard_site_drafts")`, `client.rpc("discard_record_drafts", { only_rows })` (`only_rows`, such as `["projects/campus-robot"]`, undoes just those; `discard_site_drafts({ only_keys })` likewise; returns uploaded photo files nothing uses; `release_draft_files(paths)` does the same check for files the editor dropped), `client.rpc("restore_site_text", { history_id })`, `client.rpc("restore_record_version", { history_id })` | `POST /rest/v1/rpc/discard_site_drafts`, `POST /rest/v1/rpc/restore_site_text` |
 | Upload a photo | `client.storage.from("media").upload(path, blob)` | `POST /storage/v1/object/media/<path>` |
 | Show a photo | a plain image link | `GET /storage/v1/object/public/media/<path>` |
 | Admin re-shuffles the carousel (the function supports it; the admin button isn't built yet) | Edge Function call | `POST /functions/v1/carousel` |
@@ -309,7 +309,7 @@ fails the build if a new table forgets.
 | | `daily_carousel` | Today's picked projects, in display order |
 | | `carousel_state` | One row per day: when it was picked and how many re-shuffles |
 | Site | `site_content` | Page wording admins edit in place |
-| Site | `site_content_draft`, `site_content_history`, `record_draft` | Page wording waiting to be published, every replaced version, and waiting edits to projects, students, faculty and project photos; `record_history` keeps the details a publish replaced; `record_photo_history` keeps the last 3 replaced or removed photos per project (files under `projects/` only; older ones are returned in `removed_paths` and deleted). A student's or faculty member's photo (`photo_path`) is an ordinary draft column; their last 3 replaced photos stay in `record_history`, older files are returned in `removed_paths`. Admins can write into any `avatars/<id>/` folder, and a student photo, email or phone needs the student's consent (a withdrawal also clears it from `record_history` and waiting drafts). Publish and discard lock the drafts first and touch only those, so a draft saved meanwhile is kept. A file is deleted only when `private.unused_files` finds nothing (live rows, any draft, any history, a pending submission) using it; a later save keeps the *older* `seen_updated_at`, so a clash cannot be hidden |
+| Site | `site_content_draft`, `site_content_history`, `record_draft` | Page wording waiting to be published, every replaced version (each history row has a `batch`, the id of the transaction that wrote it, so one Publish's rows group together; rows from before it have none), and waiting edits to projects, students, faculty and project photos; `record_history` keeps the details a publish replaced; `record_photo_history` keeps the last 3 replaced or removed photos per project (files under `projects/` only; older ones are returned in `removed_paths` and deleted). A student's or faculty member's photo (`photo_path`) is an ordinary draft column; their last 3 replaced photos stay in `record_history`, older files are returned in `removed_paths`. Admins can write into any `avatars/<id>/` folder, and a student photo, email or phone needs the student's consent (a withdrawal also clears it from `record_history` and waiting drafts). Publish and discard lock the drafts first and touch only those, so a draft saved meanwhile is kept. A file is deleted only when `private.unused_files` finds nothing (live rows, any draft, any history, a pending submission) using it; a later save keeps the *older* `seen_updated_at`, so a clash cannot be hidden |
 | | `posts` | Department news |
 | | `events` | Department events: a date (or a few days), optional times, place, link and sub-department. Times are university clock time, not an instant. Editors add, change and delete them directly (no draft step), every change by an admin is logged, and the home and events pages show upcoming ones and, separately, past ones |
 | Planner | `planner_catalogs` | Catalog years 2022–2023 to 2026–2027 |
@@ -785,7 +785,7 @@ Each step and what it protects against:
    | Check | Runs |
    | --- | --- |
    | Lint, unit tests and build (`frontend.yml`) | ESLint, 65 unit tests, TypeScript type-check and build |
-   | Database, API and browser tests (`backend.yml`) | Starts a **throwaway local Supabase** inside GitHub, then: schema lint and 334 database tests, 19 API tests, two browser tests in Chrome (33 steps), the carousel tests, and a check that the generated types are up to date |
+   | Database, API and browser tests (`backend.yml`) | Starts a **throwaway local Supabase** inside GitHub, then: schema lint and 343 database tests, 19 API tests, two browser tests in Chrome (34 steps), the carousel tests, and a check that the generated types are up to date |
 
    The backend tests run against a temporary database built from the migrations, so CI needs
    **no real keys** and never touches the hosted projects.
@@ -825,7 +825,7 @@ connections to our own site and our two Supabase projects.
 
 ## 11. The tests
 
-### 11.1 The 334 database tests (the slide's "202" predates page-editing drafts, verification and events)
+### 11.1 The 343 database tests (the slide's "202" predates page-editing drafts, verification, events and publish batches)
 
 They are written in SQL with **pgTAP**, a testing library that runs inside Postgres. Each test
 signs in as a test user (visitor, student, reviewer, admin), tries something, and checks the
@@ -851,6 +851,7 @@ Run them with `npm run db:test`.
 | `15_record_drafts` | 55 | Project, student and faculty edits (and project photos) wait as drafts and go live on publish |
 | `16_account_verification` | 36 | What an unverified account can and can't do; unverified reviewers lose their powers; promotion needs verification; the Google and GitHub safeguard, only for the account's own address; changing address; rate limits; finishing a reset |
 | `16_events` | 20 | Everyone reads events; only admins write; dates, times, titles and links are checked; admin changes are logged |
+| `16_publish_batches` | 9 | One Publish is one batch in the history; a single record draft can be undone on its own; students can't |
 
 Example, from `05_auth_and_storage`:
 
@@ -885,7 +886,7 @@ Each run signs up throwaway accounts and deletes them, and their files, afterwar
 
 ### 11.3 The other suites
 
-- **Browser tests, 33 steps:** `npm run test:e2e`. The student test (17 steps) has Chrome play a
+- **Browser tests, 34 steps:** `npm run test:e2e`. The student test (17 steps) has Chrome play a
   student and a reviewer through the real site:
   - sign up, and other email addresses refused
   - the reminder to verify, and the verify page (the test verifies with the secret key)
@@ -899,7 +900,7 @@ Each run signs up throwaway accounts and deletes them, and their files, afterwar
   - a removal request hides the student at once
   - a reviewer approves their own submission
   - the forms fit a phone screen
-  The editing test (16 steps) checks the Edit bar: drafts only the editor sees, publishing, a
+  The editing test (17 steps) checks the Edit bar: drafts only the editor sees, publishing, a
   clash with someone else's change, and the bar folding away.
 - **Unit tests, 65:** `npm run test:unit`. Planner rules, formatting, the sign-in redirect guard, the
   Turnstile check,

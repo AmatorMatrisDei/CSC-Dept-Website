@@ -41,6 +41,7 @@ export type PhotoVersion = {
   alt_text: string;
   caption: string;
   replaced_at: string;
+  batch: number | null;
 };
 
 // Photos that publishing replaced or removed, newest first.
@@ -48,7 +49,7 @@ export async function loadPhotoHistory(limit = 30): Promise<PhotoVersion[] | str
   if (!supabase) return "History is not available.";
   const { data, error } = await supabase
     .from("record_photo_history")
-    .select("id, project_slug, kind, storage_path, alt_text, caption, replaced_at")
+    .select("id, project_slug, kind, storage_path, alt_text, caption, replaced_at, batch")
     .order("replaced_at", { ascending: false })
     .limit(limit)
     .returns<PhotoVersion[]>();

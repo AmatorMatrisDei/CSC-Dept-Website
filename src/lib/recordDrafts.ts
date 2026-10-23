@@ -3,6 +3,7 @@ import { removeUploads } from "./account";
 import { forgetCachedContent } from "./content";
 import type { Json } from "./database.types";
 import { mediaUrl, supabase } from "./supabase";
+import { DRAFT_SAVED, showToast } from "./toast";
 import type { Faculty, Photo, ProjectView, Student } from "./types";
 
 // Edits to a project, student or faculty page, and a project's photos, wait here as drafts until
@@ -96,6 +97,7 @@ export async function saveRecordDraft(
   });
   if (error) return "Could not save: " + error.message;
   await loadRecordDrafts();
+  showToast(DRAFT_SAVED);
   return null;
 }
 
@@ -105,6 +107,7 @@ export type RecordHistoryEntry = {
   row_slug: string;
   before: Record<string, unknown>;
   replaced_at: string;
+  batch: number | null;
 };
 
 // Earlier values of project, student and faculty details, newest first.
@@ -112,7 +115,7 @@ export async function loadRecordHistory(limit = 30): Promise<RecordHistoryEntry[
   if (!supabase) return "History is not available.";
   const { data, error } = await supabase
     .from("record_history")
-    .select("id, table_name, row_slug, before, replaced_at")
+    .select("id, table_name, row_slug, before, replaced_at, batch")
     .order("replaced_at", { ascending: false })
     .limit(limit)
     .returns<RecordHistoryEntry[]>();
@@ -126,6 +129,24 @@ export async function restoreRecordVersion(id: number): Promise<string | null> {
   const { error } = await supabase.rpc("restore_record_version", { history_id: id });
   if (error) return "Could not restore: " + error.message;
   await loadRecordDrafts();
+  return null;
+}
+
+export const recordDraftSnapshot = () => drafts;
+
+// Whether this column has an unpublished change (for the amber dot beside the text).
+export const isDrafted = (draft: RecordDraft | undefined, column: string) => !!draft && column in draft.patch;
+
+// Undoes one record's draft, and deletes the photo files only it used.
+export async function discardRecordDraft(table: RecordTable, slug: string): Promise<string | null> {
+  if (!supabase) return "Discarding is not available.";
+  const { data, error } = await supabase.rpc("discard_record_drafts", { only_rows: [`${table}/${slug}`] });
+  if (error) return "Could not undo: " + error.message;
+  await removeUploads(data ?? []).catch(() => undefined);
+  forgetCachedContent();
+  await loadRecordDrafts();
+  publishes++;
+  announce();
   return null;
 }
 

@@ -10,7 +10,7 @@ import { getProject } from "@/lib/content";
 import { formatDate, paragraphs } from "@/lib/format";
 import { replaceGalleryPhoto, setCoverPhoto } from "@/lib/projectPhotos";
 import { useReloadable, useTitle } from "@/lib/hooks";
-import { saveRecordDraft, useRecordDraft, useReloadOnPublish, withProjectDraft } from "@/lib/recordDrafts";
+import { isDrafted, saveRecordDraft, useRecordDraft, useReloadOnPublish, withProjectDraft } from "@/lib/recordDrafts";
 import { CATEGORY_LABELS } from "@/lib/types";
 import NotFound from "@/pages/NotFound";
 
@@ -66,8 +66,8 @@ export default function ProjectDetail() {
           <span aria-hidden="true">·</span>
           <span>{CATEGORY_LABELS[project.category]}</span>
         </div>
-        <Editable as="h1" label="title" value={project.title} maxLength={200} onSave={(title) => save({ title })} className="text-3xl font-semibold sm:text-4xl" />
-        <Editable as="p" label="summary" value={project.summary} multiline maxLength={500} onSave={(summary) => save({ summary })} className="text-muted" />
+        <Editable as="h1" label="title" drafted={isDrafted(draft, "title")} value={project.title} maxLength={200} onSave={(title) => save({ title })} className="text-3xl font-semibold sm:text-4xl" />
+        <Editable as="p" label="summary" drafted={isDrafted(draft, "summary")} value={project.summary} multiline maxLength={500} onSave={(summary) => save({ summary })} className="text-muted" />
         {project.open_to_contributors && (
           <p className="w-fit rounded border border-border px-3 py-1 text-sm">Open to contributors</p>
         )}
@@ -114,7 +114,7 @@ export default function ProjectDetail() {
       <div className="grid gap-8 md:grid-cols-[2fr_1fr]">
         <div className="flex flex-col gap-4">
           <h2 className="text-xl font-semibold">About this project</h2>
-          <Editable as="div" label="description" value={project.description} multiline maxLength={20000} onSave={(description) => save({ description })} className="flex flex-col gap-4">
+          <Editable as="div" label="description" drafted={isDrafted(draft, "description")} value={project.description} multiline maxLength={20000} onSave={(description) => save({ description })} className="flex flex-col gap-4">
             <Suspense fallback={<PlainText text={project.description} />}>
               <Markdown text={project.description} />
             </Suspense>
