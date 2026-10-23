@@ -434,3 +434,70 @@ verify_jwt = false
 
 [functions.password-reset]
 verify_jwt = false
+
+# The two hosted projects. Everything above is for the local stack (laptops and CI). When a merge
+# deploys, Supabase's GitHub integration also applies this file to that project, so each one gets
+# its real values here; anything not listed inherits the value above. Change these settings here,
+# not in the dashboard, or the next deploy can put them back. Settings this file doesn't mention
+# (CAPTCHA, Google and GitHub sign-in, email templates) stay in the dashboard.
+# `npx supabase config diff --project-ref <ref>` shows what a deploy would change.
+
+[remotes.dev]
+project_id = "zekufoxhojjqqbmcxmtu"
+
+[remotes.dev.auth]
+site_url = "https://staging.csc-dept-website.pages.dev"
+# The developer site, pull request previews, and laptops signing in to dev.
+additional_redirect_urls = [
+  "https://*.csc-dept-website.pages.dev/**",
+  "http://localhost:5173/**",
+  "http://127.0.0.1:5173/**",
+  "http://localhost:4173/**",
+]
+
+[remotes.dev.auth.email]
+max_frequency = "1m0s"
+otp_length = 8
+
+[remotes.dev.auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+[remotes.dev.auth.rate_limit]
+sign_in_sign_ups = 30
+
+[remotes.dev.db.pooler]
+default_pool_size = 15
+max_client_conn = 200
+
+[remotes.dev.storage.analytics]
+enabled = true
+max_namespaces = 10
+
+# Production inherits "Confirm email" off and a minimum password of 8 from above: account
+# verification takes the place of confirmation (docs/backend-setup.md, 3.3 step 3).
+[remotes.production]
+project_id = "rhvvvurfpzblbpsipgen"
+
+[remotes.production.auth]
+site_url = "https://csc-dept-website.pages.dev"
+additional_redirect_urls = ["https://csc-dept-website.pages.dev/**"]
+
+[remotes.production.auth.email]
+max_frequency = "1m0s"
+otp_length = 8
+
+[remotes.production.auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+[remotes.production.auth.rate_limit]
+sign_in_sign_ups = 30
+
+[remotes.production.db.pooler]
+default_pool_size = 15
+max_client_conn = 200
+
+[remotes.production.storage.analytics]
+enabled = true
+max_namespaces = 10
