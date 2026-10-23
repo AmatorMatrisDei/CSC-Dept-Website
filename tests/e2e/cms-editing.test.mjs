@@ -557,7 +557,8 @@ test("visitors get a calendar to move around in, with the day's events listed un
   assert.equal(await visitor.getByRole("button", { name: /^Edit/ }).count(), 0, "visitors get no edit buttons");
 
   await visitor.goto(BASE);
-  await visitor.getByRole("region", { name: "Upcoming events" }).getByRole("heading", { level: 3, name: eventTitle }).waitFor();
+  // A regular event is in the "Coming up" banner, or under "More events" when major ones fill the banner.
+  await visitor.getByRole("heading", { level: 3, name: eventTitle }).waitFor();
 });
 
 test("visitors can search and filter the list, and save an upcoming event to their calendar", async () => {
